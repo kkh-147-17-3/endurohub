@@ -54,6 +54,36 @@ SORTABLE_SCRIPT = mark_safe('''<script>
 ''')
 
 
+FILE_PREVIEW_SCRIPT = mark_safe('''<script>
+document.addEventListener("DOMContentLoaded", function() {
+    function setupPreview(inputId) {
+        var input = document.getElementById(inputId);
+        if (!input) return;
+        var container = document.createElement("div");
+        container.style.cssText = "display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;";
+        input.closest(".flex-col, .form-row, div").appendChild(container);
+        input.addEventListener("change", function() {
+            container.innerHTML = "";
+            Array.from(this.files).forEach(function(file) {
+                if (!file.type.startsWith("image/")) return;
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    var img = document.createElement("img");
+                    img.src = e.target.result;
+                    img.style.cssText = "max-height:120px; border-radius:4px; border:2px solid #22c55e;";
+                    container.appendChild(img);
+                };
+                reader.readAsDataURL(file);
+            });
+        });
+    }
+    setupPreview("id_image_file");
+    setupPreview("id_course_image_files");
+    setupPreview("id_giveaway_image_files");
+});
+</script>''')
+
+
 @admin.register(Race)
 class RaceAdmin(ModelAdmin):
     form = RaceAdminForm
@@ -142,7 +172,7 @@ class RaceAdmin(ModelAdmin):
     @admin.display(description='현재 이미지')
     def image_preview(self, obj):
         if not obj.pk:
-            return '-'
+            return format_html('이미지 없음{}', FILE_PREVIEW_SCRIPT)
         src = obj.image_src
         if src:
             return format_html(
@@ -151,10 +181,10 @@ class RaceAdmin(ModelAdmin):
                 '<label style="display:block; margin-top:8px; cursor:pointer;">'
                 '<input type="checkbox" name="_delete_image" value="1" /> 이미지 삭제'
                 '</label>'
-                '</div>',
-                src,
+                '</div>{}',
+                src, FILE_PREVIEW_SCRIPT,
             )
-        return '이미지 없음'
+        return format_html('이미지 없음{}', FILE_PREVIEW_SCRIPT)
 
     @admin.display(description='코스 이미지 미리보기')
     def course_images_preview(self, obj):
