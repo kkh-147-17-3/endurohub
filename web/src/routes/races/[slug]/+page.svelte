@@ -261,7 +261,7 @@
         <div class="absolute top-3 right-3 flex gap-2">
             {#if isAdmin}
                 <a
-                    href="/admin/races/{race.slug}/edit"
+                    href="/admin/races/race/{race.id}/change/"
                     target="_blank"
                     class="btn btn-circle btn-sm bg-black/40 hover:bg-black/60 text-white border-none shadow-lg"
                     aria-label="관리자 수정"
