@@ -18,9 +18,41 @@ jobs:
           git pull origin master
           git stash pop || true
 
-      - name: Rebuild and restart
+      - name: Detect changes
+        id: changes
+        working-directory: ${{ vars.DEPLOY_PATH }}
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD)
+          echo "$CHANGED"
+
+          echo "api=false" >> $GITHUB_OUTPUT
+          echo "web=false" >> $GITHUB_OUTPUT
+          echo "infra=false" >> $GITHUB_OUTPUT
+
+          if echo "$CHANGED" | grep -q "^api/"; then
+            echo "api=true" >> $GITHUB_OUTPUT
+          fi
+          if echo "$CHANGED" | grep -q "^web/"; then
+            echo "web=true" >> $GITHUB_OUTPUT
+          fi
+          if echo "$CHANGED" | grep -qE "^(nginx/|docker-compose\.yml)"; then
+            echo "infra=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Rebuild all (infra changed)
+        if: steps.changes.outputs.infra == 'true'
         working-directory: ${{ vars.DEPLOY_PATH }}
         run: docker compose up -d --build
+
+      - name: Rebuild api only
+        if: steps.changes.outputs.infra == 'false' && steps.changes.outputs.api == 'true'
+        working-directory: ${{ vars.DEPLOY_PATH }}
+        run: docker compose up -d --build api
+
+      - name: Rebuild web only
+        if: steps.changes.outputs.infra == 'false' && steps.changes.outputs.web == 'true'
+        working-directory: ${{ vars.DEPLOY_PATH }}
+        run: docker compose up -d --build web
 
       - name: Verify services
         working-directory: ${{ vars.DEPLOY_PATH }}
