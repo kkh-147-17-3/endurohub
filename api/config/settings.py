@@ -34,6 +34,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'core.middleware.AdminTokenCookieMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -119,6 +120,9 @@ CORS_ALLOWED_ORIGINS = os.environ.get(
     'http://localhost:3000,http://localhost:5173'
 ).split(',')
 CORS_ALLOW_ALL_ORIGINS = DEBUG
+
+# Admin secret (shared with SvelteKit for isAdmin cookie)
+ADMIN_SECRET = os.environ.get('ADMIN_SECRET', '')
 
 # Crawler API key
 CRAWLER_API_KEY = os.environ.get('CRAWLER_API_KEY', '')
