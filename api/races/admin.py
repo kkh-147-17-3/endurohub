@@ -1,15 +1,63 @@
+import os
+import uuid
+
+from django.conf import settings
 from django.contrib import admin
-from django.db.models import IntegerField, OuterRef, Q, Subquery, Value
+from django.db.models import IntegerField, OuterRef, Subquery, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.html import format_html
+from django.utils.safestring import mark_safe
 from unfold.admin import ModelAdmin
 
+from .forms import RaceAdminForm
 from .models import DeviceToken, Race, RacePendingChange, Review
+
+
+def _save_upload(f, subdir='races'):
+    """Save an uploaded file and return the relative path."""
+    ext = os.path.splitext(f.name)[1].lower()
+    filename = f'{uuid.uuid4().hex}{ext}'
+    rel_path = f'{subdir}/{filename}'
+    abs_path = os.path.join(settings.MEDIA_ROOT, rel_path)
+    os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+    with open(abs_path, 'wb+') as dest:
+        for chunk in f.chunks():
+            dest.write(chunk)
+    return rel_path
+
+
+SORTABLE_SCRIPT = mark_safe('''<script>
+(function() {
+    function initGalleries() {
+        document.querySelectorAll(".sortable-gallery:not([data-init])").forEach(function(el) {
+            new Sortable(el, {animation: 150, ghostClass: "sortable-ghost"});
+            el.dataset.init = "1";
+        });
+    }
+    if (typeof Sortable !== "undefined") {
+        initGalleries();
+    } else if (!window._sortableLoading) {
+        window._sortableLoading = true;
+        var s = document.createElement("script");
+        s.src = "https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js";
+        s.onload = initGalleries;
+        document.head.appendChild(s);
+    } else {
+        var t = setInterval(function() {
+            if (typeof Sortable !== "undefined") { clearInterval(t); initGalleries(); }
+        }, 50);
+    }
+})();
+</script>
+<style>.sortable-ghost { opacity: 0.4; }</style>
+''')
 
 
 @admin.register(Race)
 class RaceAdmin(ModelAdmin):
+    form = RaceAdminForm
+
     list_display = [
         'race_date', 'title_short', 'sport_badge', 'region',
         'status_badge', 'source_badge', 'verified_icon',
@@ -18,7 +66,10 @@ class RaceAdmin(ModelAdmin):
     list_filter = ['sport', 'region', 'source']
     search_fields = ['title', 'region']
     ordering = ['race_date']
-    readonly_fields = ['view_count', 'verified_at', 'verified_by', 'created_at', 'updated_at']
+    readonly_fields = [
+        'view_count', 'verified_at', 'verified_by', 'created_at', 'updated_at',
+        'image_preview', 'course_images_preview', 'giveaway_images_preview',
+    ]
 
     fieldsets = (
         ('기본 정보', {
@@ -40,13 +91,13 @@ class RaceAdmin(ModelAdmin):
             'fields': ('organizer', 'organizer_contact', 'organizer_email'),
         }),
         ('대표 이미지', {
-            'fields': ('image_path', 'image_url'),
+            'fields': ('image_preview', 'image_file', 'image_path', 'image_url'),
         }),
         ('코스 이미지', {
-            'fields': ('course_images', 'course_image_uploads'),
+            'fields': ('course_images_preview', 'course_image_files'),
         }),
         ('사은품', {
-            'fields': ('giveaways', 'giveaway_images', 'giveaway_image_uploads'),
+            'fields': ('giveaways', 'giveaway_images_preview', 'giveaway_image_files'),
         }),
         ('상태 관리', {
             'fields': ('status',),
@@ -85,6 +136,135 @@ class RaceAdmin(ModelAdmin):
         return super().get_queryset(request).annotate(
             _pending_changes_count=pending_count,
         )
+
+    # --- Image previews ---
+
+    @admin.display(description='현재 이미지')
+    def image_preview(self, obj):
+        if not obj.pk:
+            return '-'
+        src = obj.image_src
+        if src:
+            return format_html(
+                '<div>'
+                '<img src="{}" style="max-height:200px; border-radius:8px;" />'
+                '<label style="display:block; margin-top:8px; cursor:pointer;">'
+                '<input type="checkbox" name="_delete_image" value="1" /> 이미지 삭제'
+                '</label>'
+                '</div>',
+                src,
+            )
+        return '이미지 없음'
+
+    @admin.display(description='코스 이미지 미리보기')
+    def course_images_preview(self, obj):
+        return self._image_gallery(obj, 'course')
+
+    @admin.display(description='기념품 이미지 미리보기')
+    def giveaway_images_preview(self, obj):
+        return self._image_gallery(obj, 'giveaway')
+
+    def _image_gallery(self, obj, kind):
+        if not obj.pk:
+            return '-'
+
+        if kind == 'course':
+            external = list(obj.course_images or [])
+            uploads = list(obj.course_image_uploads or [])
+        else:
+            external = list(obj.giveaway_images or [])
+            uploads = list(obj.giveaway_image_uploads or [])
+
+        if not external and not uploads:
+            return '이미지 없음'
+
+        gallery_id = f'gallery-{kind}'
+        order_name = f'_{kind}_order'
+        delete_name = f'_delete_{kind}_image'
+
+        items = []
+        # External images (from scraper etc.)
+        for path in external:
+            src = path if path.startswith(('http://', 'https://')) else f'{settings.STORAGE_URL}{path}'
+            items.append(format_html(
+                '<div style="cursor:grab; text-align:center; padding:8px; '
+                'border:1px solid #e5e7eb; border-radius:8px; background:white;">'
+                '<input type="hidden" name="{}" value="ext:{}">'
+                '<img src="{}" style="max-height:150px; border-radius:4px;" />'
+                '<br>'
+                '<label style="font-size:12px; cursor:pointer; color:#ef4444;">'
+                '<input type="checkbox" name="{}" value="ext:{}"> 삭제'
+                '</label>'
+                '</div>',
+                order_name, path, src, delete_name, path,
+            ))
+        # Uploaded images (local paths)
+        for path in uploads:
+            src = f'{settings.STORAGE_URL}{path}'
+            items.append(format_html(
+                '<div style="cursor:grab; text-align:center; padding:8px; '
+                'border:1px solid #e5e7eb; border-radius:8px; background:white;">'
+                '<input type="hidden" name="{}" value="up:{}">'
+                '<img src="{}" style="max-height:150px; border-radius:4px;" />'
+                '<br>'
+                '<label style="font-size:12px; cursor:pointer; color:#ef4444;">'
+                '<input type="checkbox" name="{}" value="up:{}"> 삭제'
+                '</label>'
+                '</div>',
+                order_name, path, src, delete_name, path,
+            ))
+
+        return format_html(
+            '<div id="{}" class="sortable-gallery" '
+            'style="display:flex; flex-wrap:wrap; gap:12px;">'
+            '{}</div>'
+            '<p style="font-size:12px; color:#6b7280; margin-top:8px;">'
+            'drag &amp; drop으로 순서를 변경할 수 있습니다</p>'
+            '{}',
+            gallery_id,
+            mark_safe(''.join(items)),
+            SORTABLE_SCRIPT,
+        )
+
+    # --- File upload / delete / reorder handling ---
+
+    def save_model(self, request, obj, form, change):
+        # Main image: delete / upload
+        if request.POST.get('_delete_image'):
+            obj.image_path = None
+        image_file = form.cleaned_data.get('image_file')
+        if image_file:
+            obj.image_path = _save_upload(image_file, 'races')
+
+        # Course & giveaway images: reorder / delete / upload
+        for kind in ('course', 'giveaway'):
+            order = request.POST.getlist(f'_{kind}_order')
+            deletes = set(request.POST.getlist(f'_delete_{kind}_image'))
+
+            if order:
+                # Gallery was rendered → use submitted order
+                ordered = [p for p in order if p not in deletes]
+            else:
+                # No gallery (new race or no images) → keep existing
+                ext = [f'ext:{p}' for p in (getattr(obj, f'{kind}_images') or [])]
+                up = [f'up:{p}' for p in (getattr(obj, f'{kind}_image_uploads') or [])]
+                ordered = [p for p in (ext + up) if p not in deletes]
+
+            # Split back by source prefix
+            new_ext = [p[4:] for p in ordered if p.startswith('ext:')]
+            new_up = [p[3:] for p in ordered if p.startswith('up:')]
+
+            # Append newly uploaded files
+            new_files = request.FILES.getlist(f'{kind}_image_files')
+            for f in new_files:
+                new_up.append(_save_upload(f, f'races/{kind}'))
+
+            setattr(obj, f'{kind}_images', new_ext or None)
+            setattr(obj, f'{kind}_image_uploads', new_up or None)
+
+        super().save_model(request, obj, form, change)
+
+    # --- List display ---
 
     @admin.display(description='대회명')
     def title_short(self, obj):
