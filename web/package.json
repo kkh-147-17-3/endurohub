@@ -1,0 +1,29 @@
+{
+  "name": "endurohub-web",
+  "version": "1.0.0",
+  "description": "EnduroHub SvelteKit SSR frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+  },
+  "dependencies": {
+    "svelte-range-slider-pips": "^4.1.0"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-node": "^5.2.12",
+    "@sveltejs/kit": "^2.21.1",
+    "@sveltejs/vite-plugin-svelte": "^5.0.3",
+    "@tailwindcss/vite": "^4.0.0",
+    "daisyui": "^5.5.14",
+    "svelte": "^5.49.1",
+    "svelte-check": "^4.3.6",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.3.5"
+  }
+}

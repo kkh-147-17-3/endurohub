@@ -1,0 +1,56 @@
+services:
+  api:
+    build: ./api
+    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120
+    environment:
+      DATABASE_HOST: ${DATABASE_HOST:-localhost}
+      DATABASE_PORT: ${DATABASE_PORT:-5432}
+      DATABASE_NAME: ${DATABASE_NAME:-endurohub}
+      DATABASE_USER: ${DATABASE_USER:-postgres}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:?DATABASE_PASSWORD is required}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY is required}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,api}
+      CRAWLER_API_KEY: ${CRAWLER_API_KEY:-}
+      SLACK_BOT_USER_OAUTH_TOKEN: ${SLACK_BOT_USER_OAUTH_TOKEN:-}
+    volumes:
+      - api_static:/app/staticfiles
+      - api_media:/app/storage
+    ports:
+      - "8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  web:
+    build: ./web
+    environment:
+      API_URL_INTERNAL: http://api:8000
+      PUBLIC_API_URL: /api
+      PUBLIC_KAKAO_JAVASCRIPT_KEY: ${KAKAO_JAVASCRIPT_KEY:-}
+      PUBLIC_NAVER_MAP_CLIENT_ID: ${NAVER_MAP_CLIENT_ID:-}
+      PUBLIC_GOOGLE_ANALYTICS_ID: ${GOOGLE_ANALYTICS_ID:-}
+      PUBLIC_FEEDBACK_FORM_URL: ${GOOGLE_FEEDBACK_FORM_URL:-}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - api_static:/var/www/static:ro
+      - api_media:/var/www/media:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - api
+      - web
+    restart: unless-stopped
+
+volumes:
+  api_static:
+  api_media:

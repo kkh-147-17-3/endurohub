@@ -1,0 +1,36 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Laravel reference (read-only, not part of deployment)
+laravel-ref/
+
+# Claude Code
+.claude/
+
+# Migration docs (local only)
+migration-guide.md
+migration-plan.md
+migration-status.md
+api-spec.md
+claude.md
+
+# Docker
+*.log
+
+# SvelteKit build
+.svelte-kit/
+build/

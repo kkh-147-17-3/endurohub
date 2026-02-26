@@ -1,0 +1,46 @@
+services:
+  db:
+    ports:
+      - "5432:5432"
+
+  api:
+    build: ./api
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./api:/app
+      - api_static:/app/staticfiles
+      - api_media:/app/storage
+    environment:
+      DATABASE_HOST: db
+      DATABASE_PORT: "5432"
+      DATABASE_NAME: ${DATABASE_NAME:-endurohub}
+      DATABASE_USER: ${DATABASE_USER:-enduro}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-changeme}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-key-not-for-production}
+      DJANGO_DEBUG: "true"
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,api
+      CRAWLER_API_KEY: ${CRAWLER_API_KEY:-}
+      SLACK_BOT_USER_OAUTH_TOKEN: ${SLACK_BOT_USER_OAUTH_TOKEN:-}
+    ports:
+      - "8000:8000"
+
+  web:
+    build: ./web
+    command: npm run dev -- --host 0.0.0.0
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+    environment:
+      API_URL_INTERNAL: http://api:8000
+      PUBLIC_API_URL: /api
+      PUBLIC_KAKAO_JAVASCRIPT_KEY: ${KAKAO_JAVASCRIPT_KEY:-}
+      PUBLIC_NAVER_MAP_CLIENT_ID: ${NAVER_MAP_CLIENT_ID:-}
+      PUBLIC_GOOGLE_ANALYTICS_ID: ${GOOGLE_ANALYTICS_ID:-}
+      PUBLIC_FEEDBACK_FORM_URL: ${GOOGLE_FEEDBACK_FORM_URL:-}
+    ports:
+      - "3000:3000"
+      - "5173:5173"
+
+  nginx:
+    profiles:
+      - proxy
