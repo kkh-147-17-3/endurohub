@@ -4,6 +4,7 @@ from collections import defaultdict
 from datetime import datetime
 
 from django.conf import settings
+from django.core.cache import cache
 from django.db.models import Avg, Count, F, Q
 from core.utils import post_count_subqueries
 from django.utils import timezone
@@ -31,7 +32,14 @@ from .serializers import (
 
 
 class HomeView(APIView):
+    CACHE_KEY = 'home_page_data'
+    CACHE_TTL = 300  # 5 minutes
+
     def get(self, request):
+        cached = cache.get(self.CACHE_KEY)
+        if cached:
+            return Response(cached)
+
         today = timezone.now().date()
 
         closing_soon = Race.objects.closing_soon(7).exclude(
@@ -50,14 +58,14 @@ class HomeView(APIView):
             _like_count=like_count_sq,
         ).order_by('-created_at')[:5]
 
-        sport_counts = {}
-        for sport_item in SPORTS:
-            sport_val = sport_item['value']
-            sport_counts[sport_val] = Race.objects.by_sport(sport_val).upcoming().count()
+        sport_counts_qs = Race.objects.upcoming().values('sport').annotate(
+            count=Count('id')
+        )
+        sport_counts = {item['sport']: item['count'] for item in sport_counts_qs}
 
         total_upcoming = Race.objects.registration_open().count()
 
-        return Response({
+        data = {
             'closingSoon': RaceSerializer(closing_soon, many=True).data,
             'upcomingRaces': RaceSerializer(upcoming_races, many=True).data,
             'recentlyAdded': RaceSerializer(recently_added, many=True).data,
@@ -67,7 +75,9 @@ class HomeView(APIView):
             ).data,
             'sportCounts': sport_counts,
             'totalUpcoming': total_upcoming,
-        })
+        }
+        cache.set(self.CACHE_KEY, data, self.CACHE_TTL)
+        return Response(data)
 
 
 class RaceListView(APIView):
@@ -176,8 +186,12 @@ class RaceDetailView(APIView):
         # Increment view count
         Race.objects.filter(pk=race.pk).update(view_count=F('view_count') + 1)
 
-        # Related races (slot-based)
-        related_race_slots = self._get_related_races(race, request)
+        # Related races (slot-based, cached 10min)
+        cache_key = f'related_races_{race.id}'
+        related_race_slots = cache.get(cache_key)
+        if related_race_slots is None:
+            related_race_slots = self._get_related_races(race, request)
+            cache.set(cache_key, related_race_slots, 600)
 
         # Related posts
         comment_count_sq, like_count_sq = post_count_subqueries()
