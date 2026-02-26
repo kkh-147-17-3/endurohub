@@ -1,6 +1,7 @@
 <script lang="ts">
     import '../app.css';
     import { page } from '$app/stores';
+    import { navigating } from '$app/stores';
 
     let { data, children } = $props();
 
@@ -159,6 +160,12 @@
         </div>
     </div>
 </header>
+
+{#if $navigating}
+    <div class="fixed top-16 left-0 right-0 z-50 h-0.5 bg-base-200">
+        <div class="h-full bg-primary animate-progress rounded-r-full"></div>
+    </div>
+{/if}
 
 <main class="flex-1">
     {@render children()}

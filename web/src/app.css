@@ -117,3 +117,14 @@
         transition: none !important;
     }
 }
+
+/* Navigation progress bar */
+@keyframes progress-bar {
+    0% { width: 0; }
+    50% { width: 70%; }
+    100% { width: 100%; }
+}
+
+.animate-progress {
+    animation: progress-bar 1s ease-in-out infinite;
+}
