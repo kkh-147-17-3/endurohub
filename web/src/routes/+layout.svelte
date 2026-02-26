@@ -2,6 +2,7 @@
     import '../app.css';
     import { page } from '$app/stores';
     import { navigating } from '$app/stores';
+    import { afterNavigate } from '$app/navigation';
 
     let { data, children } = $props();
 
@@ -10,6 +11,12 @@
     let googleAnalyticsId = $derived(data.googleAnalyticsId);
     let kakaoJsKey = $derived(data.kakaoJsKey);
     let currentPath = $derived($page.url.pathname);
+
+    afterNavigate(() => {
+        if (googleAnalyticsId && typeof gtag === 'function') {
+            gtag('config', googleAnalyticsId, { page_path: $page.url.pathname });
+        }
+    });
 </script>
 
 <svelte:head>
