@@ -66,25 +66,42 @@ document.addEventListener("DOMContentLoaded", function() {
             old.forEach(function(el) { el.remove(); });
             // Find gallery or create preview container
             var gallery = galleryId ? document.getElementById(galleryId) : null;
-            Array.from(this.files).forEach(function(file) {
+            Array.from(this.files).forEach(function(file, idx) {
                 if (!file.type.startsWith("image/")) return;
                 var reader = new FileReader();
                 reader.onload = function(e) {
                     var div = document.createElement("div");
                     div.className = "file-preview-" + inputId;
-                    div.style.cssText = "text-align:center; padding:8px; border:2px solid #22c55e; border-radius:8px; background:white;";
+                    div.dataset.fileIdx = idx;
+                    div.style.cssText = "text-align:center; padding:8px; border:2px solid #22c55e; border-radius:8px; background:white; position:relative;";
+                    var removeBtn = document.createElement("button");
+                    removeBtn.type = "button";
+                    removeBtn.textContent = "\\u00d7";
+                    removeBtn.style.cssText = "position:absolute; top:2px; right:2px; width:22px; height:22px; border-radius:50%; border:none; background:#ef4444; color:white; font-size:14px; cursor:pointer; line-height:1;";
+                    removeBtn.onclick = function() {
+                        div.remove();
+                        var dt = new DataTransfer();
+                        var kept = document.querySelectorAll(".file-preview-" + inputId);
+                        var keptIdx = new Set();
+                        kept.forEach(function(p) { keptIdx.add(parseInt(p.dataset.fileIdx)); });
+                        Array.from(input.files).forEach(function(f, i) {
+                            if (keptIdx.has(i)) dt.items.add(f);
+                        });
+                        input.files = dt.files;
+                        document.querySelectorAll(".file-preview-" + inputId).forEach(function(p, ni) { p.dataset.fileIdx = ni; });
+                    };
                     var img = document.createElement("img");
                     img.src = e.target.result;
                     img.style.cssText = "max-height:150px; border-radius:4px;";
                     var label = document.createElement("span");
                     label.style.cssText = "display:block; font-size:11px; color:#22c55e; margin-top:4px;";
                     label.textContent = "\\uc0c8 \\ud30c\\uc77c";
+                    div.appendChild(removeBtn);
                     div.appendChild(img);
                     div.appendChild(label);
                     if (gallery) {
                         gallery.appendChild(div);
                     } else {
-                        // Create container after input
                         var container = document.getElementById("preview-" + inputId);
                         if (!container) {
                             container = document.createElement("div");
