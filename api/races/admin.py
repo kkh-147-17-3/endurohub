@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib import admin
 from django.db.models import IntegerField, OuterRef, Subquery, Value
 from django.db.models.functions import Coalesce
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
@@ -56,33 +57,114 @@ SORTABLE_SCRIPT = mark_safe('''<script>
 
 FILE_PREVIEW_SCRIPT = mark_safe('''<script>
 document.addEventListener("DOMContentLoaded", function() {
-    function setupPreview(inputId) {
+    function setupPreview(inputId, galleryId) {
         var input = document.getElementById(inputId);
         if (!input) return;
-        var container = document.createElement("div");
-        container.style.cssText = "display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;";
-        input.closest(".flex-col, .form-row, div").appendChild(container);
         input.addEventListener("change", function() {
-            container.innerHTML = "";
+            // Remove old previews from this input
+            var old = document.querySelectorAll(".file-preview-" + inputId);
+            old.forEach(function(el) { el.remove(); });
+            // Find gallery or create preview container
+            var gallery = galleryId ? document.getElementById(galleryId) : null;
             Array.from(this.files).forEach(function(file) {
                 if (!file.type.startsWith("image/")) return;
                 var reader = new FileReader();
                 reader.onload = function(e) {
+                    var div = document.createElement("div");
+                    div.className = "file-preview-" + inputId;
+                    div.style.cssText = "text-align:center; padding:8px; border:2px solid #22c55e; border-radius:8px; background:white;";
                     var img = document.createElement("img");
                     img.src = e.target.result;
-                    img.style.cssText = "max-height:120px; border-radius:4px; border:2px solid #22c55e;";
-                    container.appendChild(img);
+                    img.style.cssText = "max-height:150px; border-radius:4px;";
+                    var label = document.createElement("span");
+                    label.style.cssText = "display:block; font-size:11px; color:#22c55e; margin-top:4px;";
+                    label.textContent = "\\uc0c8 \\ud30c\\uc77c";
+                    div.appendChild(img);
+                    div.appendChild(label);
+                    if (gallery) {
+                        gallery.appendChild(div);
+                    } else {
+                        // Create container after input
+                        var container = document.getElementById("preview-" + inputId);
+                        if (!container) {
+                            container = document.createElement("div");
+                            container.id = "preview-" + inputId;
+                            container.style.cssText = "display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;";
+                            var parent = input.closest(".flex-col, .form-row, div");
+                            if (parent) parent.appendChild(container);
+                        }
+                        container.appendChild(div);
+                    }
                 };
                 reader.readAsDataURL(file);
             });
         });
     }
-    setupPreview("id_image_file");
-    setupPreview("id_course_image_files");
-    setupPreview("id_giveaway_image_files");
+    setupPreview("id_image_file", null);
+    setupPreview("id_course_image_files", "gallery-course");
+    setupPreview("id_giveaway_image_files", "gallery-giveaway");
 });
 </script>''')
 
+
+# ---------------------------------------------------------------------------
+# Custom list filters
+# ---------------------------------------------------------------------------
+
+class StatusFilter(admin.SimpleListFilter):
+    """Filter races by computed status (handles both DB status and date-based auto-calculation)."""
+    title = '상태'
+    parameter_name = 'computed_status'
+
+    def lookups(self, request, model_admin):
+        return [
+            ('upcoming', '예정'),
+            ('registration_open', '접수중'),
+            ('registration_closed', '접수마감'),
+            ('finished', '종료'),
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.by_status(self.value())
+        return queryset
+
+
+class PendingStatusDefaultFilter(admin.SimpleListFilter):
+    """Status filter for RacePendingChange that defaults to 'pending'."""
+    title = '상태'
+    parameter_name = 'status'
+
+    def lookups(self, request, model_admin):
+        return [
+            ('all', '전체'),
+            ('pending', '대기중'),
+            ('approved', '승인됨'),
+            ('rejected', '거부됨'),
+        ]
+
+    def choices(self, changelist):
+        """Override to set default selection to 'pending' instead of 'All'."""
+        for lookup, title in self.lookup_choices:
+            yield {
+                'selected': self.value() == str(lookup) or (self.value() is None and str(lookup) == 'pending'),
+                'query_string': changelist.get_query_string({self.parameter_name: lookup}),
+                'display': title,
+            }
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value == 'all':
+            return queryset
+        if value is None:
+            # Default to pending
+            return queryset.filter(status='pending')
+        return queryset.filter(status=value)
+
+
+# ---------------------------------------------------------------------------
+# RaceAdmin
+# ---------------------------------------------------------------------------
 
 @admin.register(Race)
 class RaceAdmin(ModelAdmin):
@@ -93,12 +175,13 @@ class RaceAdmin(ModelAdmin):
         'status_badge', 'source_badge', 'verified_icon',
         'pending_changes_badge',
     ]
-    list_filter = ['sport', 'region', 'source']
+    list_filter = ['sport', 'region', StatusFilter, 'source']
     search_fields = ['title', 'region']
     ordering = ['race_date']
     readonly_fields = [
         'view_count', 'verified_at', 'verified_by', 'created_at', 'updated_at',
         'image_preview', 'course_images_preview', 'giveaway_images_preview',
+        'pending_changes_link',
     ]
 
     fieldsets = (
@@ -139,6 +222,7 @@ class RaceAdmin(ModelAdmin):
         ('크롤러 보호 설정', {
             'fields': (
                 'auto_update_enabled', 'verified_at', 'verified_by', 'locked_fields',
+                'pending_changes_link',
             ),
             'description': '검증된 정보가 크롤러에 의해 덮어쓰기 되는 것을 방지합니다.',
         }),
@@ -256,6 +340,25 @@ class RaceAdmin(ModelAdmin):
             SORTABLE_SCRIPT,
         )
 
+    # --- Pending changes link (readonly field in form) ---
+
+    @admin.display(description='대기 중인 변경')
+    def pending_changes_link(self, obj):
+        if not obj.pk:
+            return '-'
+        count = getattr(obj, '_pending_changes_count', None)
+        if count is None:
+            count = RacePendingChange.objects.filter(race_id=obj.pk, status='pending').count()
+        if not count:
+            return '없음'
+        url = reverse('admin:races_racependingchange_changelist')
+        return format_html(
+            '<a href="{}?race__id__exact={}&status=pending" '
+            'style="color:#2563eb; text-decoration:underline;">'
+            '{}건의 변경이 대기 중입니다</a>',
+            url, obj.pk, count,
+        )
+
     # --- File upload / delete / reorder handling ---
 
     def save_model(self, request, obj, form, change):
@@ -272,10 +375,10 @@ class RaceAdmin(ModelAdmin):
             deletes = set(request.POST.getlist(f'_delete_{kind}_image'))
 
             if order:
-                # Gallery was rendered → use submitted order
+                # Gallery was rendered -> use submitted order
                 ordered = [p for p in order if p not in deletes]
             else:
-                # No gallery (new race or no images) → keep existing
+                # No gallery (new race or no images) -> keep existing
                 ext = [f'ext:{p}' for p in (getattr(obj, f'{kind}_images') or [])]
                 up = [f'up:{p}' for p in (getattr(obj, f'{kind}_image_uploads') or [])]
                 ordered = [p for p in (ext + up) if p not in deletes]
@@ -372,32 +475,85 @@ class RaceAdmin(ModelAdmin):
     actions = ['verify_races', 'close_registration']
 
 
+# ---------------------------------------------------------------------------
+# RacePendingChangeAdmin
+# ---------------------------------------------------------------------------
+
 @admin.register(RacePendingChange)
 class RacePendingChangeAdmin(ModelAdmin):
     list_display = [
-        'race_link', 'field_label_display', 'status_badge',
-        'source', 'created_at',
+        'race_link', 'field_label_display', 'value_comparison',
+        'status_badge', 'source', 'created_at',
     ]
-    list_filter = ['status', 'field_name']
+    list_filter = [PendingStatusDefaultFilter, 'field_name']
     search_fields = ['race__title']
     ordering = ['-created_at']
     readonly_fields = [
         'race', 'field_name', 'old_value', 'new_value',
         'source', 'status', 'reviewed_by', 'reviewed_at',
+        'value_comparison_detail',
     ]
+
+    fieldsets = (
+        ('변경 정보', {
+            'fields': ('race', 'field_name', 'source', 'status'),
+        }),
+        ('값 비교', {
+            'fields': ('value_comparison_detail',),
+        }),
+        ('검토 정보', {
+            'fields': ('reviewed_by', 'reviewed_at'),
+        }),
+    )
+
+    def get_model_count(self, request):
+        """Show pending count as navigation badge (unfold feature)."""
+        return RacePendingChange.objects.filter(status='pending').count() or None
 
     @admin.display(description='대회명')
     def race_link(self, obj):
         if obj.race:
+            url = reverse('admin:races_race_change', args=[obj.race_id])
             return format_html(
-                '<a href="/admin/races/race/{}/change/">{}</a>',
-                obj.race_id, obj.race.title[:30],
+                '<a href="{}">{}</a>',
+                url, obj.race.title[:30],
             )
         return '-'
 
     @admin.display(description='필드')
     def field_label_display(self, obj):
         return obj.field_label
+
+    @admin.display(description='변경 내용')
+    def value_comparison(self, obj):
+        old_val = (obj.old_value or '-')[:40]
+        new_val = (obj.new_value or '-')[:40]
+        return format_html(
+            '<span style="color:#ef4444; text-decoration:line-through; font-size:12px;">{}</span>'
+            ' &rarr; '
+            '<span style="color:#22c55e; font-size:12px;">{}</span>',
+            old_val, new_val,
+        )
+
+    @admin.display(description='값 비교 (상세)')
+    def value_comparison_detail(self, obj):
+        old_val = obj.old_value or '(없음)'
+        new_val = obj.new_value or '(없음)'
+        return format_html(
+            '<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">'
+            '<div>'
+            '<h4 style="margin:0 0 8px 0; color:#6b7280; font-size:13px;">기존 값</h4>'
+            '<div style="padding:12px; background:#fef2f2; border:1px solid #fecaca; '
+            'border-radius:8px; white-space:pre-wrap; font-size:13px; word-break:break-all;">{}</div>'
+            '</div>'
+            '<div>'
+            '<h4 style="margin:0 0 8px 0; color:#6b7280; font-size:13px;">새 값</h4>'
+            '<div style="padding:12px; background:#f0fdf4; border:1px solid #bbf7d0; '
+            'border-radius:8px; white-space:pre-wrap; font-size:13px; word-break:break-all;">{}</div>'
+            '</div>'
+            '</div>',
+            old_val, new_val,
+        )
 
     @admin.display(description='상태')
     def status_badge(self, obj):
@@ -434,6 +590,10 @@ class RacePendingChangeAdmin(ModelAdmin):
     actions = ['bulk_approve', 'bulk_reject']
 
 
+# ---------------------------------------------------------------------------
+# ReviewAdmin
+# ---------------------------------------------------------------------------
+
 @admin.register(Review)
 class ReviewAdmin(ModelAdmin):
     list_display = ['race_link', 'display_nickname_col', 'rating_stars', 'comment_short', 'created_at']
@@ -451,9 +611,10 @@ class ReviewAdmin(ModelAdmin):
     @admin.display(description='대회명')
     def race_link(self, obj):
         if obj.race:
+            url = reverse('admin:races_race_change', args=[obj.race_id])
             return format_html(
-                '<a href="/admin/races/race/{}/change/">{}</a>',
-                obj.race_id, obj.race.title[:30],
+                '<a href="{}">{}</a>',
+                url, obj.race.title[:30],
             )
         return '-'
 
@@ -479,6 +640,10 @@ class ReviewAdmin(ModelAdmin):
     def comment_short(self, obj):
         return obj.comment[:40] + ('...' if len(obj.comment) > 40 else '')
 
+
+# ---------------------------------------------------------------------------
+# DeviceTokenAdmin
+# ---------------------------------------------------------------------------
 
 @admin.register(DeviceToken)
 class DeviceTokenAdmin(ModelAdmin):
