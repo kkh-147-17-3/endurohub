@@ -3,6 +3,18 @@ from django import forms
 from .models import Race
 
 
+class MultiFileInput(forms.FileInput):
+    """FileInput that allows multiple file selection."""
+    allow_multiple_selected = True
+
+    def __init__(self, attrs=None):
+        super().__init__(attrs)
+        if attrs is None:
+            attrs = {}
+        attrs['multiple'] = True
+        self.attrs = {**self.attrs, **attrs}
+
+
 class RaceAdminForm(forms.ModelForm):
     image_file = forms.ImageField(
         required=False,
@@ -14,13 +26,13 @@ class RaceAdminForm(forms.ModelForm):
         required=False,
         label='코스 이미지 추가',
         help_text='여러 파일 선택 가능. 기존 이미지 뒤에 추가됩니다.',
-        widget=forms.FileInput(attrs={'multiple': True, 'accept': 'image/*'}),
+        widget=MultiFileInput(attrs={'accept': 'image/*'}),
     )
     giveaway_image_files = forms.FileField(
         required=False,
         label='기념품 이미지 추가',
         help_text='여러 파일 선택 가능. 기존 이미지 뒤에 추가됩니다.',
-        widget=forms.FileInput(attrs={'multiple': True, 'accept': 'image/*'}),
+        widget=MultiFileInput(attrs={'accept': 'image/*'}),
     )
 
     class Meta:
