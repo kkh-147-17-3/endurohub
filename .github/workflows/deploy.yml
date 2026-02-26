@@ -1,0 +1,27 @@
+name: Deploy
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Pull latest code
+        run: |
+          cd ${{ vars.DEPLOY_PATH }}
+          git pull origin master
+
+      - name: Rebuild and restart
+        run: |
+          cd ${{ vars.DEPLOY_PATH }}
+          docker compose up -d --build
+
+      - name: Verify services
+        run: |
+          cd ${{ vars.DEPLOY_PATH }}
+          sleep 5
+          docker compose ps
+          curl -sf http://localhost/api/v1/races/ > /dev/null && echo "API OK" || echo "API FAIL"
+          curl -sf http://localhost/ > /dev/null && echo "Web OK" || echo "Web FAIL"
