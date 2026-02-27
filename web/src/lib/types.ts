@@ -148,7 +148,7 @@ export interface HomeResponse {
 	upcomingRaces: Race[];
 	recentlyAdded: Race[];
 	recentPosts: Post[];
-	sportCounts: Record<Sport, number>;
+	sportCounts: Record<string, number>;
 	totalUpcoming: number;
 }
 

@@ -185,7 +185,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
                         </svg>
                     </div>
-                    <span class="text-sm text-base-content/50">{sportCounts.trail_running}개</span>
+                    <span class="text-sm text-base-content/50">{sportCounts.trailRunning}개</span>
                 </div>
                 <h3 class="font-semibold text-base">트레일러닝</h3>
                 <p class="text-sm text-base-content/50 mt-0.5">산악, 오름, 숲길</p>
