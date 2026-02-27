@@ -120,6 +120,71 @@ document.addEventListener("DOMContentLoaded", function() {
     setupPreview("id_image_file", null);
     setupPreview("id_course_image_files", "gallery-course");
     setupPreview("id_giveaway_image_files", "gallery-giveaway");
+
+    // --- Clipboard paste support ---
+    var pasteTargets = [
+        {inputId: "id_image_file", galleryId: null},
+        {inputId: "id_course_image_files", galleryId: "gallery-course"},
+        {inputId: "id_giveaway_image_files", galleryId: "gallery-giveaway"},
+    ];
+    var hoveredFieldset = null;
+
+    // Track which fieldset (image section) the mouse is over
+    pasteTargets.forEach(function(t) {
+        var input = document.getElementById(t.inputId);
+        if (!input) return;
+        var fieldset = input.closest("fieldset, .module, div.form-row")?.closest("fieldset") || input.closest("fieldset, .module");
+        if (!fieldset) return;
+        t.fieldset = fieldset;
+        fieldset.addEventListener("mouseenter", function() {
+            hoveredFieldset = t;
+            fieldset.style.outline = "2px dashed #f59e0b";
+            fieldset.style.outlineOffset = "-2px";
+        });
+        fieldset.addEventListener("mouseleave", function() {
+            fieldset.style.outline = "";
+            fieldset.style.outlineOffset = "";
+            if (hoveredFieldset === t) hoveredFieldset = null;
+        });
+    });
+
+    document.addEventListener("paste", function(e) {
+        var items = e.clipboardData && e.clipboardData.items;
+        if (!items) return;
+
+        var imageFile = null;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf("image") !== -1) {
+                imageFile = items[i].getAsFile();
+                break;
+            }
+        }
+        if (!imageFile) return;
+
+        // Determine target: hovered fieldset, or fall back to main image
+        var target = hoveredFieldset || pasteTargets[0];
+        var input = document.getElementById(target.inputId);
+        if (!input) return;
+
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        // Give pasted file a proper name with timestamp
+        var ext = imageFile.type.split("/")[1] || "png";
+        var name = "pasted-" + Date.now() + "." + ext;
+        var namedFile = new File([imageFile], name, {type: imageFile.type});
+
+        // Merge with existing files
+        var dt = new DataTransfer();
+        if (input.files) {
+            Array.from(input.files).forEach(function(f) { dt.items.add(f); });
+        }
+        dt.items.add(namedFile);
+        input.files = dt.files;
+
+        // Trigger change event to show preview
+        input.dispatchEvent(new Event("change", {bubbles: true}));
+    }, true);
 });
 </script>''')
 

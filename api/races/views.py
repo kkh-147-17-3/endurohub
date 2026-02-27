@@ -179,7 +179,10 @@ class RaceListView(APIView):
 class RaceDetailView(APIView):
     def get(self, request, slug):
         try:
-            race = Race.objects.get(slug=slug)
+            if slug.isdigit():
+                race = Race.objects.get(id=int(slug))
+            else:
+                race = Race.objects.get(slug=slug)
         except Race.DoesNotExist:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -376,7 +379,10 @@ class RaceRegionsView(APIView):
 class ReviewCreateView(APIView):
     def post(self, request, slug):
         try:
-            race = Race.objects.get(slug=slug)
+            if slug.isdigit():
+                race = Race.objects.get(id=int(slug))
+            else:
+                race = Race.objects.get(slug=slug)
         except Race.DoesNotExist:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -543,7 +549,10 @@ class RaceImageUploadView(APIView):
             )
 
         try:
-            race = Race.objects.get(slug=slug)
+            if slug.isdigit():
+                race = Race.objects.get(id=int(slug))
+            else:
+                race = Race.objects.get(slug=slug)
         except Race.DoesNotExist:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
