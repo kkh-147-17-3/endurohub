@@ -4,7 +4,6 @@
 </script>
 
 <script lang="ts">
-    import { onMount } from 'svelte';
     import { page } from '$app/stores';
     import RaceCard from '$lib/components/RaceCard.svelte';
     import PostCard from '$lib/components/PostCard.svelte';
@@ -17,19 +16,19 @@
 
     let { data } = $props();
 
-    const race: Race = data.race;
     interface RaceSlot { label: string; races: Race[]; }
-    const relatedRaceSlots: RaceSlot[] = (data.relatedRaces as unknown as RaceSlot[]) || [];
-    const relatedPosts: Post[] = data.relatedPosts;
-    const reviews: Review[] = data.reviews;
-    const reviewStats: ReviewStats = data.reviewStats;
-    const hasReviewed: boolean = data.hasReviewed;
+    const race: Race = $derived(data.race);
+    const relatedRaceSlots: RaceSlot[] = $derived((data.relatedRaces as unknown as RaceSlot[]) || []);
+    const relatedPosts: Post[] = $derived(data.relatedPosts);
+    const reviews: Review[] = $derived(data.reviews);
+    const reviewStats: ReviewStats = $derived(data.reviewStats);
+    const hasReviewed: boolean = $derived(data.hasReviewed);
 
     const style = $derived(sportStyles[race.sport as Sport] || sportStyles.running);
 
-    const appUrl = data.appUrl || 'https://www.endurohub.kr';
-    const kakaoJsKey = data.kakaoJsKey as string;
-    const isAdmin: boolean = data.isAdmin ?? false;
+    const appUrl = $derived(data.appUrl || 'https://www.endurohub.kr');
+    const kakaoJsKey = $derived(data.kakaoJsKey as string);
+    const isAdmin: boolean = $derived(data.isAdmin ?? false);
     const pageUrl = $derived(`${appUrl}${$page.url.pathname}`);
 
     const distances = $derived(race.distances ? race.distances.slice(0, 3).join(', ') : '');
@@ -57,6 +56,13 @@
     let modalImageSrc = $state('');
     let shareModalOpen = $state(false);
     let modalImageAlt = $state('');
+
+    // Reset modal state on navigation
+    $effect(() => {
+        race.slug;
+        modalOpen = false;
+        shareModalOpen = false;
+    });
 
     function openImageModal(src: string, alt: string = '') {
         modalImageSrc = src;
@@ -166,32 +172,36 @@
         ],
     });
 
-    function initMap() {
+    function initMap(lat: number | null, lng: number | null, locationName: string) {
         kakao.maps.load(() => {
             const container = document.getElementById('kakao-map');
             if (container) {
-                const position = new kakao.maps.LatLng(race.latitude, race.longitude);
+                const position = new kakao.maps.LatLng(lat, lng);
                 const map = new kakao.maps.Map(container, {
                     center: position,
                     level: 5,
                 });
                 const marker = new kakao.maps.Marker({ position, map });
                 const infowindow = new kakao.maps.InfoWindow({
-                    content: `<div style="padding:8px 12px;font-size:13px;font-weight:500;">${race.location}</div>`,
+                    content: `<div style="padding:8px 12px;font-size:13px;font-weight:500;">${locationName}</div>`,
                 });
                 infowindow.open(map, marker);
             }
         });
     }
 
-    onMount(() => {
-        if (race.latitude && race.longitude && kakaoJsKey) {
+    $effect(() => {
+        const lat = race.latitude;
+        const lng = race.longitude;
+        const loc = race.location;
+        if (lat && lng && loc && kakaoJsKey) {
             if (typeof kakao !== 'undefined' && kakao.maps) {
-                initMap();
-            } else {
+                // Use tick to ensure DOM is updated before initializing map
+                requestAnimationFrame(() => initMap(lat, lng, loc));
+            } else if (!document.querySelector('script[src*="dapi.kakao.com"]')) {
                 const script = document.createElement('script');
                 script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoJsKey}&autoload=false`;
-                script.onload = () => initMap();
+                script.onload = () => initMap(lat, lng, loc);
                 document.head.appendChild(script);
             }
         }

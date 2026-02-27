@@ -21,7 +21,7 @@
 </script>
 
 <div
-    class="bg-base-100 border border-base-300 rounded-lg {style.hoverBorder} transition-all duration-200 hover:shadow-md cursor-pointer group relative overflow-hidden"
+    class="bg-base-100 border border-base-300 rounded-lg {style.hoverBorder} transition-all duration-200 hover:shadow-md cursor-pointer group relative overflow-hidden flex flex-col"
     onclick={handleClick}
     onkeypress={(e) => e.key === 'Enter' && handleClick()}
     role="button"
@@ -51,7 +51,7 @@
         </figure>
     {/if}
 
-    <div class="p-4">
+    <div class="p-4 flex flex-col flex-1">
         <div class="flex flex-wrap items-center gap-1.5 mb-2 min-h-6">
             <span class="badge {style.badge} badge-sm shrink-0 min-w-14">{race.sportLabel}</span>
             <span class="badge badge-ghost badge-sm shrink-0 min-w-10">{race.region}</span>
@@ -107,7 +107,7 @@
             </div>
         {/if}
 
-        <div class="flex items-center justify-between mt-3 pt-3 border-t border-base-200">
+        <div class="flex items-center justify-between mt-auto pt-3 border-t border-base-200">
             <a href={race.url} onclick={(e) => e.stopPropagation()} class="btn {style.btn} btn-sm cursor-pointer">상세보기</a>
             {#if race.officialUrl}
                 <a
