@@ -58,7 +58,7 @@ class HomeView(APIView):
             _like_count=like_count_sq,
         ).order_by('-created_at')[:5]
 
-        sport_counts_qs = Race.objects.upcoming().values('sport').annotate(
+        sport_counts_qs = Race.objects.upcoming().order_by().values('sport').annotate(
             count=Count('id')
         )
         sport_counts = {item['sport']: item['count'] for item in sport_counts_qs}
