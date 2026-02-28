@@ -101,13 +101,8 @@
 <div class="group/comment py-4 px-2 rounded-lg transition-colors {isReply ? 'ml-6 sm:ml-10 border-l-2 border-base-200 pl-4 bg-base-200/20 mt-2' : 'border-b border-base-200 last:border-0'}">
     <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
-                {comment.nickname?.[0]?.toUpperCase() || '익'}
-            </div>
-            <div class="flex flex-col sm:flex-row sm:items-center sm:gap-2">
-                <span class="text-sm font-semibold">{comment.nickname}</span>
-                <span class="text-[10px] sm:text-xs text-base-content/40">{comment.createdAtFormatted}</span>
-            </div>
+            <span class="text-sm font-semibold">{comment.nickname}</span>
+            <span class="text-[10px] sm:text-xs text-base-content/40">{comment.createdAtFormatted}</span>
         </div>
         <div class="flex items-center gap-1 opacity-60 sm:opacity-0 group-hover/comment:opacity-100 transition-opacity">
             <button
@@ -161,7 +156,7 @@
             {/if}
         </div>
     {:else}
-        <div class="pl-10 pr-2">
+        <div class="pr-2">
             <p class="text-sm text-base-content/80 leading-relaxed whitespace-pre-wrap">{comment.content}</p>
             
             <div class="mt-3 flex items-center gap-4">
