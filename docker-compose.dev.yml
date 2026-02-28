@@ -26,7 +26,9 @@ services:
       - "8000:8000"
 
   web:
-    build: ./web
+    build:
+      context: ./web
+      dockerfile: Dockerfile.dev
     command: npm run dev -- --host 0.0.0.0
     volumes:
       - ./web:/app
