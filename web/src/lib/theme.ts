@@ -18,6 +18,14 @@ export function setTheme(theme: Theme) {
 export function toggleTheme(): Theme {
 	const current = document.documentElement.getAttribute('data-theme') as Theme;
 	const next: Theme = current === 'dark' ? 'light' : 'dark';
+
+	document.documentElement.classList.add('theme-transition');
 	setTheme(next);
+
+	// Remove class after transition ends to avoid interfering with other animations
+	setTimeout(() => {
+		document.documentElement.classList.remove('theme-transition');
+	}, 300);
+
 	return next;
 }
