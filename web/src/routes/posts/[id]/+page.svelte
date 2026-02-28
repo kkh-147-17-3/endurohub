@@ -11,8 +11,8 @@
 
     let { data } = $props();
 
-    const post: Post = data.post;
-    const appUrl = data.appUrl || 'https://www.endurohub.kr';
+    let post = $derived(data.post as Post);
+    let appUrl = $derived(data.appUrl || 'https://www.endurohub.kr');
     const pageUrl = $derived(`${appUrl}${$page.url.pathname}`);
 
     let showDeleteModal = $state(false);
@@ -22,14 +22,15 @@
     let errors = $state<Record<string, string>>({});
     let isSubmitting = $state(false);
 
-    let hasLiked = $state(data.hasLiked);
-    let likeCount = $state(post.likeCount);
+    let hasLiked = $state(false);
+    let likeCount = $state(0);
+    $effect(() => { hasLiked = data.hasLiked; likeCount = data.post.likeCount; });
     let isLiking = $state(false);
 
     let showImageModal = $state(false);
     let currentImageIndex = $state(0);
 
-    const articleSchema = {
+    let articleSchema = $derived({
         '@context': 'https://schema.org',
         '@type': 'Article',
         'headline': post.title,
@@ -40,9 +41,9 @@
         'image': post.imageSrcs && post.imageSrcs.length > 0 ? post.imageSrcs[0] : undefined,
         'publisher': { '@type': 'Organization', 'name': 'EnduroHub', 'url': appUrl },
         'mainEntityOfPage': pageUrl,
-    };
+    });
 
-    const breadcrumbSchema = {
+    let breadcrumbSchema = $derived({
         '@context': 'https://schema.org',
         '@type': 'BreadcrumbList',
         'itemListElement': [
@@ -50,7 +51,7 @@
             { '@type': 'ListItem', 'position': 2, 'name': '자유게시판', 'item': `${appUrl}/posts` },
             { '@type': 'ListItem', 'position': 3, 'name': post.title, 'item': pageUrl },
         ],
-    };
+    });
 
     function openImageModal(index: number) { currentImageIndex = index; showImageModal = true; }
     function closeImageModal() { showImageModal = false; }
@@ -201,10 +202,10 @@
                         </div>
                     </div>
                     <div class="dropdown dropdown-end">
-                        <button tabindex="0" class="btn btn-ghost btn-sm btn-circle">
+                        <button tabindex="0" class="btn btn-ghost btn-sm btn-circle" aria-label="더보기">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
                         </button>
-                        <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-10 w-40 p-2 shadow-lg border border-base-300">
+                        <ul tabindex="0" role="menu" class="dropdown-content menu bg-base-100 rounded-box z-10 w-40 p-2 shadow-lg border border-base-300">
                             <li><button onclick={() => { showEditModal = true; }} class="gap-2">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                                 수정
@@ -266,7 +267,7 @@
             <div class="form-control">
                 <label class="label" for="edit-password"><span class="label-text">비밀번호</span></label>
                 <input type="password" id="edit-password" class="input input-bordered" class:input-error={errors.password} placeholder="글 작성 시 입력한 비밀번호" bind:value={password} />
-                {#if errors.password}<label class="label"><span class="label-text-alt text-error">{errors.password}</span></label>{/if}
+                {#if errors.password}<div class="label"><span class="label-text-alt text-error">{errors.password}</span></div>{/if}
             </div>
             <div class="modal-action">
                 <button class="btn btn-ghost" onclick={() => { showEditModal = false; errors = {}; }}>취소</button>
@@ -288,7 +289,7 @@
             <div class="form-control">
                 <label class="label" for="delete-password"><span class="label-text">비밀번호</span></label>
                 <input type="password" id="delete-password" class="input input-bordered" class:input-error={errors.password} placeholder="글 작성 시 입력한 비밀번호" bind:value={password} />
-                {#if errors.password}<label class="label"><span class="label-text-alt text-error">{errors.password}</span></label>{/if}
+                {#if errors.password}<div class="label"><span class="label-text-alt text-error">{errors.password}</span></div>{/if}
             </div>
             <div class="modal-action">
                 <button class="btn btn-ghost" onclick={() => { showDeleteModal = false; errors = {}; }}>취소</button>

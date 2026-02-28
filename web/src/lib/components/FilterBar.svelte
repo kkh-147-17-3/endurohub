@@ -127,7 +127,8 @@
         sportValues.length === 1 ? (distanceCategories[sportValues[0]] ?? []) : []
     );
 
-    let prevSportKey = $state(selectedSport.join(','));
+    let prevSportKey = $state('');
+    $effect(() => { prevSportKey = selectedSport.join(','); });
     $effect(() => {
         const key = sportValues.join(',');
         if (key !== prevSportKey) {
@@ -172,7 +173,7 @@
         localStorage.removeItem(STORAGE_KEY);
     }
 
-    const hasRouteSport = selectedSport.length > 0 && !hasUrlParams();
+    let hasRouteSport = $derived(selectedSport.length > 0 && !hasUrlParams());
 
     onMount(() => {
         if (hasUrlParams()) {

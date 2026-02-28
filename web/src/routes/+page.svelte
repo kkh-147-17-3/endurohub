@@ -5,16 +5,16 @@
 
     let { data } = $props();
 
-    const closingSoon: Race[] = data.closingSoon;
-    const upcomingRaces: Race[] = data.upcomingRaces;
-    const recentlyAdded: Race[] = data.recentlyAdded;
-    const recentPosts: Post[] = data.recentPosts;
-    const sportCounts = data.sportCounts;
-    const totalUpcoming: number = data.totalUpcoming;
+    let closingSoon = $derived(data.closingSoon as Race[]);
+    let upcomingRaces = $derived(data.upcomingRaces as Race[]);
+    let recentlyAdded = $derived(data.recentlyAdded as Race[]);
+    let recentPosts = $derived(data.recentPosts as Post[]);
+    let sportCounts = $derived(data.sportCounts);
+    let totalUpcoming = $derived(data.totalUpcoming as number);
 
-    const appUrl = data.appUrl || 'https://www.endurohub.kr';
+    let appUrl = $derived(data.appUrl || 'https://www.endurohub.kr');
 
-    const websiteSchema = {
+    let websiteSchema = $derived({
         '@context': 'https://schema.org',
         '@type': 'WebSite',
         'name': 'EnduroHub',
@@ -25,7 +25,7 @@
             'target': `${appUrl}/races?search={search_term_string}`,
             'query-input': 'required name=search_term_string',
         },
-    };
+    });
 
     let itemListSchema = $derived({
         '@context': 'https://schema.org',
@@ -51,10 +51,10 @@
 </svelte:head>
 
 <!-- Hero Section -->
-<section class="relative bg-slate-900">
+<section class="relative bg-neutral">
     <div class="container mx-auto px-4 py-3 md:py-4">
         <div class="flex items-center justify-center md:justify-start md:relative">
-            <h1 class="hidden md:block text-xl font-bold text-white">
+            <h1 class="hidden md:block text-xl font-bold text-neutral-content">
                 지구력 스포츠 대회 모음
             </h1>
             <div class="flex items-center gap-2 md:absolute md:left-1/2 md:-translate-x-1/2">
@@ -64,10 +64,10 @@
                     </svg>
                     캘린더
                 </a>
-                <a href="/races" class="btn btn-ghost btn-xs md:btn-sm text-white hover:bg-white/10 cursor-pointer">
+                <a href="/races" class="btn btn-ghost btn-xs md:btn-sm text-neutral-content hover:bg-neutral-content/10 cursor-pointer">
                     전체 대회
                 </a>
-                <a href="/posts" class="btn btn-ghost btn-xs md:btn-sm text-white hover:bg-white/10 cursor-pointer">
+                <a href="/posts" class="btn btn-ghost btn-xs md:btn-sm text-neutral-content hover:bg-neutral-content/10 cursor-pointer">
                     자유게시판
                 </a>
             </div>
@@ -219,10 +219,10 @@
 </section>
 
 <!-- CTA Banner -->
-<section class="bg-slate-900">
+<section class="bg-neutral">
     <div class="container mx-auto px-4 py-12 text-center">
-        <h2 class="text-xl md:text-2xl font-bold text-white mb-2">다음 도전을 시작하세요</h2>
-        <p class="text-white/50 text-base mb-6">
+        <h2 class="text-xl md:text-2xl font-bold text-neutral-content mb-2">다음 도전을 시작하세요</h2>
+        <p class="text-neutral-content/50 text-base mb-6">
             캘린더에서 대회 일정을 확인하고 계획을 세워보세요
         </p>
         <div class="flex flex-wrap gap-3 justify-center">
@@ -232,7 +232,7 @@
                 </svg>
                 캘린더 보기
             </a>
-            <a href="/races" class="btn btn-ghost btn-sm text-white hover:bg-white/10 gap-2 cursor-pointer">
+            <a href="/races" class="btn btn-ghost btn-sm text-neutral-content hover:bg-neutral-content/10 gap-2 cursor-pointer">
                 전체 대회 목록
             </a>
         </div>

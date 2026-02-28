@@ -105,7 +105,7 @@
         <div class="card-body">
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div class="form-control">
-                    <label class="label"><span class="label-text font-medium">목표 거리</span></label>
+                    <div class="label"><span class="label-text font-medium">목표 거리</span></div>
                     <div class="flex gap-2">
                         <button type="button" class="btn flex-1 cursor-pointer transition-colors duration-200 {targetDistance === 'half' ? 'btn-primary' : 'btn-outline'}" onclick={() => targetDistance = 'half'}>하프</button>
                         <button type="button" class="btn flex-1 cursor-pointer transition-colors duration-200 {targetDistance === 'full' ? 'btn-primary' : 'btn-outline'}" onclick={() => targetDistance = 'full'}>풀</button>
@@ -120,7 +120,7 @@
                     </select>
                 </div>
                 <div class="form-control">
-                    <label class="label"><span class="label-text font-medium">훈련 기간</span></label>
+                    <div class="label"><span class="label-text font-medium">훈련 기간</span></div>
                     <div class="flex gap-2">
                         <button type="button" class="btn flex-1 cursor-pointer transition-colors duration-200 {trainingWeeks === 12 ? 'btn-primary' : 'btn-outline'}" onclick={() => trainingWeeks = 12}>12주</button>
                         <button type="button" class="btn flex-1 cursor-pointer transition-colors duration-200 {trainingWeeks === 16 ? 'btn-primary' : 'btn-outline'}" onclick={() => trainingWeeks = 16}>16주</button>

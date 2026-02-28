@@ -3,6 +3,7 @@
     import { clientApiFetch } from '$lib/api.client';
     import type { PostComment } from '$lib/types';
     import CommentForm from './CommentForm.svelte';
+    import CommentItem from './CommentItem.svelte';
 
     let { comment, postId, isReply = false }: {
         comment: PostComment;
@@ -13,7 +14,8 @@
     let showReplyForm = $state(false);
     let showEditForm = $state(false);
     let showDeleteModal = $state(false);
-    let editContent = $state(comment.content);
+    let editContent = $state('');
+    $effect(() => { editContent = comment.content; });
     let password = $state('');
     let isSubmitting = $state(false);
     let errors = $state<Record<string, string>>({});
@@ -174,7 +176,7 @@
     {#if comment.replies && comment.replies.length > 0}
         <div class="mt-2">
             {#each comment.replies as reply (reply.id)}
-                <svelte:self comment={reply} {postId} isReply={true} />
+                <CommentItem comment={reply} {postId} isReply={true} />
             {/each}
         </div>
     {/if}
@@ -194,9 +196,9 @@
                     bind:value={password}
                 />
                 {#if errors.password}
-                    <label class="label">
+                    <div class="label">
                         <span class="label-text-alt text-error">{errors.password}</span>
-                    </label>
+                    </div>
                 {/if}
             </div>
             <div class="modal-action">

@@ -70,7 +70,7 @@
     <div class="max-w-2xl mx-auto pb-24">
         <!-- Header -->
         <div class="flex items-center gap-3 mb-6">
-            <a href="/posts" class="btn btn-ghost btn-sm btn-circle">
+            <a href="/posts" class="btn btn-ghost btn-sm btn-circle" aria-label="목록으로 돌아가기">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                 </svg>
@@ -122,9 +122,9 @@
                         bind:value={password}
                     />
                     {#if errors.password}
-                        <label class="label py-1" role="alert">
+                        <div class="label py-1" role="alert">
                             <span class="label-text-alt text-error">{errors.password}</span>
-                        </label>
+                        </div>
                     {/if}
                 </div>
             </div>
@@ -147,9 +147,9 @@
                     bind:value={title}
                 />
                 {#if errors.title}
-                    <label class="label py-1" role="alert">
+                    <div class="label py-1" role="alert">
                         <span class="label-text-alt text-error">{errors.title}</span>
-                    </label>
+                    </div>
                 {/if}
             </div>
 
@@ -170,9 +170,9 @@
                     bind:value={content}
                 ></textarea>
                 {#if errors.content}
-                    <label class="label py-1" role="alert">
+                    <div class="label py-1" role="alert">
                         <span class="label-text-alt text-error">{errors.content}</span>
-                    </label>
+                    </div>
                 {/if}
             </div>
 

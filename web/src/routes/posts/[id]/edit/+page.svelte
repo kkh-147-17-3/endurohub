@@ -11,18 +11,22 @@
 
     let { data, form } = $props();
 
-    let nickname = $state(data.post.nickname === '익명' ? '' : data.post.nickname);
-    let title = $state(data.post.title);
-    let content = $state(data.post.content);
-    let selectedRaceIds = $state<number[]>(data.post.taggedRaces?.map(r => r.id) || []);
+    let nickname = $state('');
+    let title = $state('');
+    let content = $state('');
+    let selectedRaceIds = $state<number[]>([]);
+    let images = $state<ImageFile[]>([]);
 
-    // Convert existing images to ImageFile format
-    let images = $state<ImageFile[]>(
-        (data.post.images || []).map((path: string, index: number) => ({
+    $effect(() => {
+        nickname = data.post.nickname === '익명' ? '' : data.post.nickname;
+        title = data.post.title;
+        content = data.post.content;
+        selectedRaceIds = data.post.taggedRaces?.map((r: { id: number }) => r.id) || [];
+        images = (data.post.images || []).map((path: string, index: number) => ({
             preview: data.post.imageSrcs?.[index] || '',
             path: path,
-        }))
-    );
+        }));
+    });
 
     let isSubmitting = $state(false);
 
@@ -148,9 +152,9 @@
                                 bind:value={title}
                             />
                             {#if errors.title}
-                                <label class="label" role="alert">
+                                <div class="label" role="alert">
                                     <span class="label-text-alt text-error">{errors.title}</span>
-                                </label>
+                                </div>
                             {/if}
                         </div>
 
@@ -171,9 +175,9 @@
                                 bind:value={content}
                             ></textarea>
                             {#if errors.content}
-                                <label class="label" role="alert">
+                                <div class="label" role="alert">
                                     <span class="label-text-alt text-error">{errors.content}</span>
-                                </label>
+                                </div>
                             {/if}
                         </div>
 

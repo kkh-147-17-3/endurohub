@@ -22,9 +22,9 @@
 </script>
 
 <div class="form-control">
-    <label class="label">
+    <div class="label">
         <span class="label-text font-medium">{label}</span>
-    </label>
+    </div>
     <div class="flex items-center gap-2">
         <div class="flex items-center gap-1">
             <input

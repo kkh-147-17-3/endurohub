@@ -66,15 +66,15 @@
                 </div>
 
                 <div class="form-control">
-                    <label class="label">
+                    <div class="label">
                         <span class="label-text">별점 <span class="text-error">*</span></span>
-                    </label>
+                    </div>
                     <StarRating bind:rating onchange={(value) => rating = value} size="lg" />
                     <input type="hidden" name="rating" value={rating} />
                     {#if errors.rating}
-                        <label class="label" role="alert">
+                        <div class="label" role="alert">
                             <span class="label-text-alt text-error">{errors.rating[0]}</span>
-                        </label>
+                        </div>
                     {/if}
                 </div>
 
@@ -93,9 +93,9 @@
                         class="textarea textarea-bordered w-full"
                     ></textarea>
                     {#if errors.comment}
-                        <label class="label" role="alert">
+                        <div class="label" role="alert">
                             <span class="label-text-alt text-error">{errors.comment[0]}</span>
-                        </label>
+                        </div>
                     {/if}
                 </div>
 

@@ -14,7 +14,8 @@
         initialOpen?: boolean;
     } = $props();
 
-    let expanded = $state(initialOpen);
+    let expanded = $state(false);
+    $effect(() => { expanded = initialOpen; });
     let isOpen = $derived(forceOpen || expanded);
 
     const dayNames = ['월', '화', '수', '목', '금', '토', '일'];

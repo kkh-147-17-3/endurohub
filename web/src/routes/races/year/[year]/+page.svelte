@@ -379,7 +379,7 @@
 
 {#if mobileFilterOpen}
     <div class="lg:hidden fixed inset-0 z-[9999]">
-        <div class="absolute inset-0 bg-black/50" onclick={closeMobileFilter} role="button" tabindex="0" aria-label="모달 닫기"></div>
+        <button class="absolute inset-0 bg-black/50" onclick={closeMobileFilter} aria-label="모달 닫기"></button>
         <div class="absolute bottom-0 left-0 right-0 bg-base-100 rounded-t-3xl p-6 max-h-[80vh] overflow-y-auto animate-slide-up">
             <div class="flex items-center justify-between mb-6">
                 <h3 class="text-lg font-semibold text-base-content">필터</h3>

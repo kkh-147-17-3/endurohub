@@ -15,7 +15,7 @@
         maxSizeMB?: number;
     } = $props();
 
-    let fileInput: HTMLInputElement;
+    let fileInput = $state<HTMLInputElement | null>(null);
     let error = $state('');
 
     function handleFileSelect(e: Event) {
@@ -65,10 +65,10 @@
 </script>
 
 <div class="form-control w-full">
-    <label class="label">
+    <div class="label">
         <span class="label-text font-medium">이미지 첨부</span>
         <span class="label-text-alt">{images.length}/{maxImages}</span>
-    </label>
+    </div>
 
     {#if images.length > 0}
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
@@ -116,9 +116,9 @@
     {/if}
 
     {#if error}
-        <label class="label">
+        <div class="label">
             <span class="label-text-alt text-error">{error}</span>
-        </label>
+        </div>
     {/if}
 
     <div class="mt-2 flex items-start gap-2 text-sm text-base-content/60">

@@ -54,10 +54,10 @@
 </script>
 
 <div class="space-y-2">
-    <label class="label">
+    <div class="label">
         <span class="label-text font-medium">관련 대회 태그</span>
         <span class="label-text-alt">최대 {maxTags}개</span>
-    </label>
+    </div>
 
     {#if selectedRaces.length > 0}
         <div class="flex flex-wrap gap-2 mb-2">

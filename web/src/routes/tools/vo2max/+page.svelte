@@ -72,7 +72,7 @@
             <div class="card bg-base-100 border border-base-300">
                 <div class="card-body space-y-4">
                     <div class="form-control">
-                        <label class="label"><span class="label-text font-medium">성별</span></label>
+                        <div class="label"><span class="label-text font-medium">성별</span></div>
                         <div class="flex gap-2">
                             <button type="button" class="btn btn-sm cursor-pointer transition-colors duration-200 {gender === 'male' ? 'btn-primary' : 'btn-outline'}" onclick={() => gender = 'male'}>남성</button>
                             <button type="button" class="btn btn-sm cursor-pointer transition-colors duration-200 {gender === 'female' ? 'btn-primary' : 'btn-outline'}" onclick={() => gender = 'female'}>여성</button>

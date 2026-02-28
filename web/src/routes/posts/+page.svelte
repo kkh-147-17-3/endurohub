@@ -5,8 +5,10 @@
 
     let { data } = $props();
 
-    let searchInput = $state(data.search || '');
+    let searchInput = $state('');
     let isSearching = $state(false);
+
+    $effect(() => { searchInput = data.search || ''; });
 
     function handleSearch(e: Event) {
         e.preventDefault();
@@ -45,7 +47,7 @@
         <div class="join w-full">
             <input type="text" bind:value={searchInput} placeholder="제목 또는 내용으로 검색..." class="input input-bordered join-item flex-1" />
             {#if data.search}
-                <button type="button" onclick={clearSearch} class="btn btn-ghost join-item">
+                <button type="button" onclick={clearSearch} class="btn btn-ghost join-item" aria-label="검색 초기화">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
             {/if}
