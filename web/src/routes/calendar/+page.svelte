@@ -129,7 +129,7 @@
                         {/each}
 
                         {#each Array(firstDayOfMonth) as _}
-                            <div class="min-h-[60px] md:min-h-[90px] bg-base-200/30 rounded"></div>
+                            <div class="h-[100px] md:h-[130px] bg-base-200/30 rounded"></div>
                         {/each}
 
                         {#each Array(daysInMonth) as _, i}
@@ -140,10 +140,12 @@
                             {@const dayOfWeek = (firstDayOfMonth + i) % 7}
                             {@const hasRaces = dayRaces.length > 0}
 
+                            <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                             <div
-                                class="min-h-[60px] md:min-h-[90px] rounded border transition-colors cursor-pointer md:cursor-default {isToday ? 'bg-primary/5 border-primary' : hasRaces ? 'bg-base-100 border-base-300 hover:border-base-400' : 'bg-base-100 border-base-200'}"
+                                class="h-[100px] md:h-[130px] rounded border transition-colors cursor-pointer md:cursor-default overflow-hidden {isToday ? 'bg-primary/5 border-primary' : hasRaces ? 'bg-base-100 border-base-300 hover:border-base-400' : 'bg-base-100 border-base-200'}"
                                 onclick={() => hasRaces && openDayModal(`${month}월 ${day}일`, dayRaces)}
-                                tabindex={hasRaces ? 0 : -1}
+                                onkeydown={(e) => { if (hasRaces && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openDayModal(`${month}월 ${day}일`, dayRaces); } }}
+                                tabindex={hasRaces ? 0 : undefined}
                                 role={hasRaces ? 'button' : undefined}
                                 aria-label={hasRaces ? `${month}월 ${day}일 대회 ${dayRaces.length}개 보기` : undefined}
                             >
@@ -158,7 +160,7 @@
                                         {@const colors = getColors(race.sport)}
                                         <div>
                                             <a href={race.url} class="block text-[10px] md:text-xs p-0.5 rounded cursor-pointer pointer-events-none md:pointer-events-auto {colors['bg-light']} {colors.text} border-l {colors.border}" title="{race.title} - {race.location}" onclick={(e) => e.stopPropagation()}>
-                                                <span>{race.title}</span>
+                                                <span class="line-clamp-2">{race.title}</span>
                                             </a>
                                         </div>
                                     {/each}
@@ -235,19 +237,19 @@
                 </div>
             </div>
 
-            <div class="bg-slate-900 rounded-lg p-4 text-white">
+            <div class="bg-neutral rounded-lg p-4 text-neutral-content">
                 <h3 class="font-semibold text-sm mb-3">{month}월 요약</h3>
                 <div class="space-y-2">
                     {#each [{ key: 'running', name: '마라톤' }, { key: 'swimming', name: '수영' }, { key: 'cycling', name: '자전거' }, { key: 'triathlon', name: '철인3종' }, { key: 'trail_running', name: '트레일러닝' }] as item}
                         {@const colors = getColors(item.key)}
                         {@const count = getSportCount(item.key)}
                         <div class="flex items-center justify-between text-sm">
-                            <div class="flex items-center gap-2"><div class="w-1.5 h-1.5 rounded-full {colors.bg}"></div><span class="text-white/60">{item.name}</span></div>
+                            <div class="flex items-center gap-2"><div class="w-1.5 h-1.5 rounded-full {colors.bg}"></div><span class="text-neutral-content/60">{item.name}</span></div>
                             <span class="font-medium">{count}</span>
                         </div>
                     {/each}
-                    <div class="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
-                        <span class="text-sm text-white/60">총</span>
+                    <div class="pt-2 mt-2 border-t border-neutral-content/10 flex items-center justify-between">
+                        <span class="text-sm text-neutral-content/60">총</span>
                         <span class="font-bold">{totalRacesThisMonth}개</span>
                     </div>
                 </div>
@@ -325,6 +327,6 @@
                 <button class="btn btn-sm cursor-pointer" onclick={closeDayModal}>닫기</button>
             </div>
         </div>
-        <div class="modal-backdrop" onclick={closeDayModal} role="button" tabindex="0" aria-label="닫기"></div>
+        <button class="modal-backdrop" onclick={closeDayModal} aria-label="닫기"></button>
     </div>
 {/if}
