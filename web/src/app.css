@@ -2,7 +2,7 @@
 @plugin 'daisyui';
 
 @theme {
-    --font-sans: 'Pretendard', 'Noto Sans KR', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    --font-sans: 'Noto Sans KR', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
 

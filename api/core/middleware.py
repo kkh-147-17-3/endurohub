@@ -1,4 +1,43 @@
+import hashlib
+import time
+
 from django.conf import settings
+
+from core.notifications import notify_server_error
+
+
+class ErrorNotificationMiddleware:
+    """500 에러 발생 시 Telegram으로 알림을 보낸다. 동일 에러는 60초간 중복 전송하지 않는다."""
+
+    _recent_errors = {}
+    COOLDOWN = 60  # seconds
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        return self.get_response(request)
+
+    def process_exception(self, request, exception):
+        # 중복 알림 방지: 같은 에러 타입+경로는 60초간 1번만
+        key = hashlib.md5(
+            f'{type(exception).__name__}:{request.path}'.encode()
+        ).hexdigest()
+        now = time.time()
+
+        if key in self._recent_errors and now - self._recent_errors[key] < self.COOLDOWN:
+            return None
+
+        self._recent_errors[key] = now
+
+        # 오래된 항목 정리
+        cutoff = now - self.COOLDOWN
+        self._recent_errors = {
+            k: v for k, v in self._recent_errors.items() if v > cutoff
+        }
+
+        notify_server_error(request, exception)
+        return None
 
 
 class AdminTokenCookieMiddleware:

@@ -212,6 +212,24 @@ class MultiFileInput(forms.ClearableFileInput):
         return files.get(name)
 
 
+class MultipleFileField(forms.FileField):
+    """FileField that accepts multiple files from MultiFileInput.
+
+    save_model reads from request.FILES.getlist() directly,
+    so this field only needs to pass validation without breaking.
+    """
+
+    def clean(self, data, initial=None):
+        if not data or data == []:
+            if self.required:
+                raise forms.ValidationError(self.error_messages['required'])
+            return []
+        if isinstance(data, (list, tuple)):
+            single_clean = super().clean
+            return [single_clean(d, initial) for d in data]
+        return [super().clean(data, initial)]
+
+
 SPORT_CHOICES = [
     ('', '---------'),
     ('running', '러닝'),
@@ -263,13 +281,13 @@ class RaceAdminForm(forms.ModelForm):
         help_text='업로드하면 기존 image_path를 덮어씁니다.',
         widget=forms.FileInput(attrs={'accept': 'image/*'}),
     )
-    course_image_files = forms.FileField(
+    course_image_files = MultipleFileField(
         required=False,
         label='코스 이미지 추가',
         help_text='여러 파일 선택 가능. 기존 이미지 뒤에 추가됩니다.',
         widget=MultiFileInput(attrs={'accept': 'image/*'}),
     )
-    giveaway_image_files = forms.FileField(
+    giveaway_image_files = MultipleFileField(
         required=False,
         label='기념품 이미지 추가',
         help_text='여러 파일 선택 가능. 기존 이미지 뒤에 추가됩니다.',

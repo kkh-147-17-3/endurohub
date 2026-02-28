@@ -5,6 +5,7 @@ from django.conf import settings
 from django.contrib import admin
 from django.db.models import IntegerField, OuterRef, Subquery, Value
 from django.db.models.functions import Coalesce
+from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
@@ -440,6 +441,11 @@ class RaceAdmin(ModelAdmin):
             '{}건의 변경이 대기 중입니다</a>',
             url, obj.pk, count,
         )
+
+    def response_change(self, request, obj):
+        if '_continue' not in request.POST and '_addanother' not in request.POST:
+            return HttpResponseRedirect(request.path)
+        return super().response_change(request, obj)
 
     # --- File upload / delete / reorder handling ---
 
