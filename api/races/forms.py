@@ -131,6 +131,7 @@ class RepeaterWidget(forms.Widget):
     var items;
     try { items = JSON.parse(hidden.value); } catch(e) { items = []; }
     if (!Array.isArray(items)) items = [];
+    items.forEach(function(item) { if (item.fee != null) item.fee = parseInt(item.fee, 10) || null; });
 
     function sync() { hidden.value = JSON.stringify(items); }
 
@@ -157,10 +158,11 @@ class RepeaterWidget(forms.Widget):
             di.oninput = function() { items[idx].distance = this.value; sync(); };
 
             var fi = document.createElement("input");
-            fi.type = "text"; fi.value = item.fee || "";
-            fi.placeholder = "\\uc608: 50,000\\uc6d0";
+            fi.type = "number"; fi.value = item.fee != null ? item.fee : "";
+            fi.placeholder = "\\uc608: 50000";
+            fi.min = "0";
             fi.style.cssText = "padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:100%;box-sizing:border-box;";
-            fi.oninput = function() { items[idx].fee = this.value; sync(); };
+            fi.oninput = function() { items[idx].fee = this.value ? parseInt(this.value, 10) : null; sync(); };
 
             var rb = document.createElement("button");
             rb.type = "button"; rb.textContent = "\\u00d7";

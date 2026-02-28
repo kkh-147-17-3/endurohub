@@ -32,7 +32,7 @@ class RaceSerializer(serializers.ModelSerializer):
             'image_src', 'giveaways', 'course_image_srcs', 'giveaway_image_srcs',
             'view_count', 'days_until_race', 'days_until_registration_end',
             'is_registration_open', 'is_verified', 'verified_at', 'verified_by',
-            'recap_url', 'url',
+            'recap_url', 'ai_summary', 'url',
             'created_at', 'updated_at',
         ]
 

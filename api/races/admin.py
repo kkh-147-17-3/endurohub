@@ -295,6 +295,10 @@ class RaceAdmin(ModelAdmin):
         ('사은품', {
             'fields': ('giveaways', 'giveaway_images_preview', 'giveaway_image_files'),
         }),
+        ('AI 한줄평', {
+            'fields': ('ai_summary',),
+            'description': '마감된 대회에 대한 AI 한줄 평가 (Perplexity 등으로 작성)',
+        }),
         ('상태 관리', {
             'fields': ('status',),
             'description': '비워두면 날짜 기반으로 자동 계산됩니다.',

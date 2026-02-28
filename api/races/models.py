@@ -213,6 +213,7 @@ class Race(models.Model):
     entry_fee = models.JSONField(null=True, blank=True)
     official_url = models.CharField(max_length=500, null=True, blank=True)
     recap_url = models.CharField(max_length=500, null=True, blank=True)
+    ai_summary = models.TextField(null=True, blank=True)
     source = models.CharField(max_length=20, default='manual')
     source_url = models.CharField(max_length=500, null=True, blank=True)
     external_id = models.CharField(max_length=50, null=True, blank=True)
@@ -239,7 +240,6 @@ class Race(models.Model):
     objects = RaceQuerySet.as_manager()
 
     class Meta:
-        managed = False
         db_table = 'races'
         ordering = ['race_date']
 
@@ -468,7 +468,6 @@ class Review(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        managed = False
         db_table = 'race_reviews'
         ordering = ['-created_at']
 
@@ -524,7 +523,6 @@ class RacePendingChange(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        managed = False
         db_table = 'race_pending_changes'
         ordering = ['-created_at']
 
@@ -572,7 +570,6 @@ class DeviceToken(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        managed = False
         db_table = 'device_tokens'
 
     def __str__(self):

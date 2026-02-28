@@ -21,7 +21,7 @@ class Post(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        managed = False
+
         db_table = 'posts'
         ordering = ['-created_at']
 
@@ -62,7 +62,7 @@ class PostRace(models.Model):
     race = models.ForeignKey('races.Race', on_delete=models.CASCADE)
 
     class Meta:
-        managed = False
+
         db_table = 'post_race'
         unique_together = [('post', 'race')]
 
@@ -84,7 +84,7 @@ class PostComment(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        managed = False
+
         db_table = 'post_comments'
         ordering = ['-created_at']
 
@@ -111,7 +111,7 @@ class PostLike(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        managed = False
+
         db_table = 'post_likes'
         unique_together = [('post', 'ip_hash')]
 

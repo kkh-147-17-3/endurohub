@@ -78,6 +78,7 @@ export interface Race {
 	isRegistrationOpen: boolean;
 
 	recapUrl: string | null;
+	aiSummary: string | null;
 	url: string;
 
 	createdAt: string;
