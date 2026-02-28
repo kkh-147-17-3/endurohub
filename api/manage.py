@@ -6,6 +6,17 @@ import sys
 
 def main():
     """Run administrative tasks."""
+    
+    # Try to load .env from parent directory for local development
+    try:
+        from dotenv import load_dotenv
+        from pathlib import Path
+        env_path = Path(__file__).resolve().parent.parent / '.env'
+        if env_path.exists():
+            load_dotenv(env_path)
+    except ImportError:
+        pass
+
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
     try:
         from django.core.management import execute_from_command_line

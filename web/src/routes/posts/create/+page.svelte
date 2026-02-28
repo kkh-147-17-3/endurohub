@@ -3,14 +3,7 @@
     import { enhance } from '$app/forms';
     import { page } from '$app/stores';
     import RaceTagSelector from '$lib/components/RaceTagSelector.svelte';
-    import ImageUploader from '$lib/components/ImageUploader.svelte';
     import RichEditor from '$lib/components/RichEditor.svelte';
-
-    interface ImageFile {
-        file?: File;
-        preview: string;
-        path?: string;
-    }
 
     let { data, form } = $props();
 
@@ -23,7 +16,6 @@
     let password = $state('');
     let category = $state('');
     let selectedRaceIds = $state<number[]>([]);
-    let images = $state<ImageFile[]>([]);
 
     let isSubmitting = $state(false);
 
@@ -52,13 +44,6 @@
         // Save to localStorage
         if (nickname) localStorage.setItem('nickname', nickname);
         if (password) localStorage.setItem('postPassword', password);
-
-        // Append image files from component state
-        images.forEach((img, index) => {
-            if (img.file) {
-                formData.append('images', img.file);
-            }
-        });
 
         return async ({ update }: { update: () => Promise<void> }) => {
             isSubmitting = false;
@@ -225,12 +210,6 @@
             {#each selectedRaceIds as raceId}
                 <input type="hidden" name="race_ids" value={raceId} />
             {/each}
-
-            <!-- Image Uploader -->
-            <ImageUploader bind:images />
-            {#if errors.images}
-                <p class="text-sm text-error mt-1" role="alert">{errors.images}</p>
-            {/if}
 
             <!-- Error message -->
             {#if errors.post}

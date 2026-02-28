@@ -2,14 +2,7 @@
     import { browser } from '$app/environment';
     import { enhance } from '$app/forms';
     import RaceTagSelector from '$lib/components/RaceTagSelector.svelte';
-    import ImageUploader from '$lib/components/ImageUploader.svelte';
     import RichEditor from '$lib/components/RichEditor.svelte';
-
-    interface ImageFile {
-        file?: File;
-        preview: string;
-        path?: string;
-    }
 
     let { data, form } = $props();
 
@@ -19,7 +12,6 @@
     let textLength = $state(0);
     let category = $state('');
     let selectedRaceIds = $state<number[]>([]);
-    let images = $state<ImageFile[]>([]);
 
     $effect(() => {
         nickname = data.post.nickname === '익명' ? '' : data.post.nickname;
@@ -27,10 +19,6 @@
         content = data.post.content;
         category = data.post.category || '';
         selectedRaceIds = data.post.taggedRaces?.map((r: { id: number }) => r.id) || [];
-        images = (data.post.images || []).map((path: string, index: number) => ({
-            preview: data.post.imageSrcs?.[index] || '',
-            path: path,
-        }));
     });
 
     let isSubmitting = $state(false);
@@ -51,15 +39,6 @@
 
         // Save nickname to localStorage
         if (nickname) localStorage.setItem('nickname', nickname);
-
-        // Append existing image paths and new image files from component state
-        images.forEach((img) => {
-            if (img.path) {
-                formData.append('existing_images', img.path);
-            } else if (img.file) {
-                formData.append('images', img.file);
-            }
-        });
 
         return async ({ update }: { update: () => Promise<void> }) => {
             isSubmitting = false;
@@ -222,11 +201,6 @@
                             <input type="hidden" name="race_ids" value={raceId} />
                         {/each}
 
-                        <!-- Image Uploader -->
-                        <ImageUploader bind:images />
-                        {#if errors.images}
-                            <p class="text-sm text-error mt-1" role="alert">{errors.images}</p>
-                        {/if}
                     </div>
                 </div>
             </div>

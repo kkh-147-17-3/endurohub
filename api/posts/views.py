@@ -264,6 +264,22 @@ class PostDetailUpdateDeleteView(APIView):
         ip_hash = hash_ip(request)
         has_liked = PostLike.objects.filter(post=post, ip_hash=ip_hash).exists()
 
+        # Previous and next posts
+        prev_post = Post.objects.filter(created_at__lt=post.created_at).order_by('-created_at').first()
+        next_post = Post.objects.filter(created_at__gt=post.created_at).order_by('created_at').first()
+
+        # Sidebar data
+        from datetime import timedelta
+        seven_days_ago = timezone.now() - timedelta(days=7)
+        comment_count_sq, like_count_sq = post_count_subqueries()
+        popular_qs = Post.objects.prefetch_related('races').annotate(
+            _comment_count=comment_count_sq,
+            _like_count=like_count_sq,
+        ).filter(
+            created_at__gte=seven_days_ago,
+        ).order_by('-view_count')[:5]
+        upcoming_races = Race.objects.upcoming()[:5]
+
         return Response({
             'post': PostSerializer(
                 post,
@@ -274,6 +290,15 @@ class PostDetailUpdateDeleteView(APIView):
                 },
             ).data,
             'hasLiked': has_liked,
+            'prevPost': {'id': prev_post.id, 'title': prev_post.title} if prev_post else None,
+            'nextPost': {'id': next_post.id, 'title': next_post.title} if next_post else None,
+            'sidebar': {
+                'popularPosts': PostListSerializer(
+                    popular_qs, many=True,
+                    context={'include_tagged_races': False},
+                ).data,
+                'upcomingRaces': UpcomingRaceSerializer(upcoming_races, many=True).data,
+            }
         })
 
     def put(self, request, pk):
@@ -296,6 +321,7 @@ class PostDetailUpdateDeleteView(APIView):
             )
 
         data = serializer.validated_data
+        edit_token = ''
 
         if not is_owner:
             # Verify edit token for non-owner
@@ -311,8 +337,6 @@ class PostDetailUpdateDeleteView(APIView):
                     {'errors': {'password': ['수정 권한이 없습니다.']}},
                     status=status.HTTP_403_FORBIDDEN,
                 )
-            # Invalidate token
-            cache.delete(cache_key)
 
         # Handle images
         existing_images = data.get('existing_images') or []
@@ -360,6 +384,10 @@ class PostDetailUpdateDeleteView(APIView):
         # Sync races
         race_ids = data.get('race_ids') or []
         post.races.set(race_ids)
+
+        # Invalidate edit token after successful update
+        if not is_owner and edit_token:
+            cache.delete(f'edit_token:{post.pk}:{edit_token}')
 
         post.refresh_from_db()
         return Response({

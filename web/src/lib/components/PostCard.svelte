@@ -1,7 +1,6 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
     import type { Post } from '$lib/types';
-    import Avatar from './Avatar.svelte';
     import RaceTagBadges from './RaceTagBadges.svelte';
 
     let { post, showExcerpt = false }: { post: Post; showExcerpt?: boolean } = $props();
@@ -39,7 +38,7 @@
 </script>
 
 <div
-    class="bg-base-100 border border-base-300 rounded-lg hover:border-primary/40 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group p-4 {isHot ? 'border-l-4 border-l-error' : ''}"
+    class="bg-base-100 border border-base-300 rounded-lg hover:border-primary/40 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group p-4 sm:p-5 {isHot ? 'border-l-4 border-l-error' : ''}"
     onclick={handleClick}
     onkeypress={(e) => e.key === 'Enter' && handleClick()}
     role="button"
@@ -87,9 +86,8 @@
         {/if}
     </div>
 
-    <div class="flex items-center justify-between text-sm text-base-content/50 pt-2 border-t border-base-200">
+    <div class="flex items-center justify-between text-sm lg:text-base text-base-content/50 pt-2 border-t border-base-200">
         <div class="flex items-center gap-2">
-            <Avatar nickname={post.nickname} size="xs" />
             <span class="font-medium text-base-content/70">{post.nickname}</span>
             <span class="text-base-content/30">|</span>
             <span>{post.createdAtFormatted}</span>

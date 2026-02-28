@@ -64,7 +64,6 @@ class HomeView(APIView):
         sport_counts = {item['sport']: item['count'] for item in sport_counts_qs}
 
         total_upcoming = Race.objects.registration_open().count()
-        total_races = Race.objects.count()
 
         data = {
             'closingSoon': RaceSerializer(closing_soon, many=True).data,
@@ -76,7 +75,6 @@ class HomeView(APIView):
             ).data,
             'sportCounts': sport_counts,
             'totalUpcoming': total_upcoming,
-            'totalRaces': total_races,
         }
         cache.set(self.CACHE_KEY, data, self.CACHE_TTL)
         return Response(data)

@@ -49,6 +49,28 @@
     ];
 
     const sidebar = $derived(data.sidebar);
+
+    let showCategoryDropdown = $state(false);
+    let showSortDropdown = $state(false);
+
+    const selectedCategoryLabel = $derived(
+        categoryOptions.find(o => o.value === selectedCategory)?.label || '전체'
+    );
+    const selectedSortLabel = $derived(
+        selectedSort === 'popular' ? '인기순' : '최신순'
+    );
+
+    function selectCategory(value: string) {
+        selectedCategory = value;
+        showCategoryDropdown = false;
+        applyFilters();
+    }
+
+    function selectSort(value: string) {
+        selectedSort = value;
+        showSortDropdown = false;
+        applyFilters();
+    }
 </script>
 
 <svelte:head>
@@ -83,15 +105,78 @@
                 </button>
             </div>
             <div class="flex gap-2 shrink-0">
-                <select class="select select-bordered select-sm sm:select-md" bind:value={selectedCategory} onchange={applyFilters}>
-                    {#each categoryOptions as opt}
-                        <option value={opt.value}>{opt.label}</option>
-                    {/each}
-                </select>
-                <select class="select select-bordered select-sm sm:select-md" bind:value={selectedSort} onchange={applyFilters}>
-                    <option value="latest">최신순</option>
-                    <option value="popular">인기순</option>
-                </select>
+                <!-- Category dropdown -->
+                <div class="relative">
+                    <button
+                        type="button"
+                        class="btn btn-sm sm:btn-md btn-outline min-w-[7rem] justify-between"
+                        onclick={() => { showCategoryDropdown = !showCategoryDropdown; showSortDropdown = false; }}
+                    >
+                        <span class="truncate text-left">{selectedCategoryLabel}</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    {#if showCategoryDropdown}
+                        <button class="fixed inset-0 z-10 cursor-default" tabindex="-1" onclick={() => { showCategoryDropdown = false; }} aria-label="닫기"></button>
+                        <ul class="absolute right-0 top-full mt-2 z-20 menu bg-base-100 rounded-xl w-44 p-1.5 shadow-xl border border-base-200">
+                            {#each categoryOptions as opt}
+                                <li>
+                                    <button
+                                        type="button"
+                                        class="flex items-center justify-between gap-2 text-sm {selectedCategory === opt.value ? 'active font-semibold' : ''}"
+                                        onclick={() => selectCategory(opt.value)}
+                                    >
+                                        <span>{opt.label}</span>
+                                        {#if selectedCategory === opt.value}
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
+                                        {/if}
+                                    </button>
+                                </li>
+                            {/each}
+                        </ul>
+                    {/if}
+                </div>
+
+                <!-- Sort dropdown -->
+                <div class="relative">
+                    <button
+                        type="button"
+                        class="btn btn-sm sm:btn-md btn-outline min-w-[6rem] justify-between"
+                        onclick={() => { showSortDropdown = !showSortDropdown; showCategoryDropdown = false; }}
+                    >
+                        <span class="truncate text-left">{selectedSortLabel}</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    {#if showSortDropdown}
+                        <button class="fixed inset-0 z-10 cursor-default" tabindex="-1" onclick={() => { showSortDropdown = false; }} aria-label="닫기"></button>
+                        <ul class="absolute right-0 top-full mt-2 z-20 menu bg-base-100 rounded-xl w-36 p-1.5 shadow-xl border border-base-200">
+                            <li>
+                                <button
+                                    type="button"
+                                    class="flex items-center justify-between gap-2 text-sm {selectedSort === 'latest' ? 'active font-semibold' : ''}"
+                                    onclick={() => selectSort('latest')}
+                                >
+                                    <span>최신순</span>
+                                    {#if selectedSort === 'latest'}
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
+                                    {/if}
+                                </button>
+                            </li>
+                            <li>
+                                <button
+                                    type="button"
+                                    class="flex items-center justify-between gap-2 text-sm {selectedSort === 'popular' ? 'active font-semibold' : ''}"
+                                    onclick={() => selectSort('popular')}
+                                >
+                                    <span>인기순</span>
+                                    {#if selectedSort === 'popular'}
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
+                                    {/if}
+                                </button>
+                            </li>
+                        </ul>
+                    {/if}
+                </div>
+
                 <a href="/posts/create" class="btn btn-primary btn-sm sm:btn-md shrink-0">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
                     <span class="hidden sm:inline">글쓰기</span>
@@ -149,10 +234,10 @@
                                 {#each sidebar.popularPosts as post, i}
                                     <li>
                                         <a href="/posts/{post.id}" class="flex items-start gap-2 group">
-                                            <span class="text-sm font-bold text-base-content/40 mt-0.5">{i + 1}</span>
+                                            <span class="text-sm lg:text-base font-bold text-base-content/40 mt-0.5">{i + 1}</span>
                                             <div class="min-w-0">
-                                                <p class="text-sm font-medium line-clamp-1 group-hover:text-primary transition-colors">{post.title}</p>
-                                                <p class="text-xs text-base-content/50">조회 {post.viewCount} · 추천 {post.likeCount}</p>
+                                                <p class="text-sm lg:text-base font-medium line-clamp-1 group-hover:text-primary transition-colors">{post.title}</p>
+                                                <p class="text-xs lg:text-sm text-base-content/50">조회 {post.viewCount} · 추천 {post.likeCount}</p>
                                             </div>
                                         </a>
                                     </li>
@@ -173,13 +258,13 @@
                                 {#each sidebar.upcomingRaces as race}
                                     <li>
                                         <a href="/races/{race.id}" class="flex items-center justify-between group">
-                                            <span class="text-sm font-medium line-clamp-1 group-hover:text-primary transition-colors">{race.title}</span>
-                                            <span class="text-xs text-base-content/50 shrink-0 ml-2">{race.raceDate}</span>
+                                            <span class="text-sm lg:text-base font-medium line-clamp-1 group-hover:text-primary transition-colors">{race.title}</span>
+                                            <span class="text-xs lg:text-sm text-base-content/50 shrink-0 ml-2">{race.raceDate}</span>
                                         </a>
                                     </li>
                                 {/each}
                             </ul>
-                            <a href="/races" class="text-sm text-primary hover:underline mt-2">전체 대회 보기 →</a>
+                            <a href="/races" class="text-sm lg:text-base text-primary hover:underline mt-2">전체 대회 보기 →</a>
                         </div>
                     </div>
                 {/if}

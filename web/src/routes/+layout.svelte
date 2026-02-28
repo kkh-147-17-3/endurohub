@@ -188,35 +188,6 @@
                     </svg>
                 {/if}
             </button>
-            {#if data.user}
-                <div class="dropdown dropdown-end">
-                    <div tabindex="0" role="button" class="btn btn-ghost btn-sm gap-2 cursor-pointer">
-                        {#if data.user.profileImage}
-                            <img src={data.user.profileImage} alt={data.user.nickname} class="w-6 h-6 rounded-full" />
-                        {:else}
-                            <div class="w-6 h-6 rounded-full bg-primary text-primary-content flex items-center justify-center text-xs font-bold">
-                                {data.user.nickname?.charAt(0) || '?'}
-                            </div>
-                        {/if}
-                        <span class="hidden sm:inline">{data.user.nickname || '닉네임 설정 필요'}</span>
-                    </div>
-                    <ul tabindex="0" role="menu" class="dropdown-content menu bg-base-100 rounded-lg z-[1] w-44 p-2 shadow-lg border border-base-200">
-                        {#if data.user.needsNickname}
-                            <li><a href="/auth/nickname" class="text-warning">닉네임 설정</a></li>
-                        {/if}
-                        {#if data.user.needsEmailVerification}
-                            <li><a href="/auth/verify-email" class="text-warning">이메일 인증</a></li>
-                        {/if}
-                        <li>
-                            <form method="POST" action="/auth/logout">
-                                <button type="submit" class="w-full text-left">로그아웃</button>
-                            </form>
-                        </li>
-                    </ul>
-                </div>
-            {:else}
-                <a href="/auth/login" class="btn btn-ghost btn-sm cursor-pointer">로그인</a>
-            {/if}
             <a href="/races" class="btn btn-primary cursor-pointer">
                 대회 찾기
             </a>

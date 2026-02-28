@@ -56,12 +56,14 @@
     let modalImageSrc = $state('');
     let shareModalOpen = $state(false);
     let modalImageAlt = $state('');
+    let reviewModalOpen = $state(false);
 
     // Reset modal state on navigation
     $effect(() => {
         race.slug;
         modalOpen = false;
         shareModalOpen = false;
+        reviewModalOpen = false;
     });
 
     function openImageModal(src: string, alt: string = '') {
@@ -76,8 +78,9 @@
 
     function handleKeydown(e: KeyboardEvent) {
         if (e.key === 'Escape') {
-            if (shareModalOpen) closeShareModal();
-            if (modalOpen) closeImageModal();
+            if (reviewModalOpen) reviewModalOpen = false;
+            else if (shareModalOpen) closeShareModal();
+            else if (modalOpen) closeImageModal();
         }
     }
 
@@ -470,15 +473,22 @@
                 <span class="badge badge-primary badge-sm">{reviewStats.count}</span>
             {/if}
         </h2>
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="lg:col-span-2">
-                <ReviewList {reviews} stats={reviewStats} {relatedPosts} />
-            </div>
-            <div class="lg:col-span-1">
-                <ReviewForm raceSlug={race.slug} {hasReviewed} raceStatus={race.status} />
-            </div>
-        </div>
+        <ReviewList
+            {reviews}
+            stats={reviewStats}
+            {relatedPosts}
+            canReview={!hasReviewed}
+            onwriteReview={() => reviewModalOpen = true}
+        />
     </section>
+
+    <ReviewForm
+        raceSlug={race.slug}
+        {hasReviewed}
+        raceStatus={race.status}
+        bind:open={reviewModalOpen}
+        onclose={() => reviewModalOpen = false}
+    />
 
     {#each relatedRaceSlots as slot}
         {#if slot.races.length > 0}

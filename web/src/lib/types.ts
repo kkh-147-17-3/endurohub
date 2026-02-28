@@ -203,7 +203,6 @@ export interface HomeResponse {
 	recentPosts: Post[];
 	sportCounts: Record<string, number>;
 	totalUpcoming: number;
-	totalRaces: number;
 }
 
 export interface RaceListResponse extends PaginatedResponse<Race> {

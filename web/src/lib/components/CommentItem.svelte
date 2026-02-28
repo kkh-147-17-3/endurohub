@@ -98,29 +98,26 @@
     }
 </script>
 
-<div class="py-3 {isReply ? 'ml-8 border-l-2 border-base-200 pl-4' : ''}">
-    <div class="flex items-center justify-between mb-2">
-        <div class="flex items-center gap-2 text-sm">
-            <span class="font-medium">{comment.nickname}</span>
-            <span class="text-base-content/50">{comment.createdAtFormatted}</span>
+<div class="group/comment py-4 px-2 rounded-lg transition-colors {isReply ? 'ml-6 sm:ml-10 border-l-2 border-base-200 pl-4 bg-base-200/20 mt-2' : 'border-b border-base-200 last:border-0'}">
+    <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold">
+                {comment.nickname?.[0]?.toUpperCase() || '익'}
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-center sm:gap-2">
+                <span class="text-sm font-semibold">{comment.nickname}</span>
+                <span class="text-[10px] sm:text-xs text-base-content/40">{comment.createdAtFormatted}</span>
+            </div>
         </div>
-        <div class="flex items-center gap-1">
-            {#if !isReply}
-                <button
-                    class="btn btn-ghost btn-xs"
-                    onclick={() => { showReplyForm = !showReplyForm; }}
-                >
-                    답글
-                </button>
-            {/if}
+        <div class="flex items-center gap-1 opacity-60 sm:opacity-0 group-hover/comment:opacity-100 transition-opacity">
             <button
-                class="btn btn-ghost btn-xs"
+                class="btn btn-ghost btn-xs h-7 min-h-[1.75rem] px-2 text-base-content/60 hover:text-primary"
                 onclick={() => { showEditForm = true; }}
             >
                 수정
             </button>
             <button
-                class="btn btn-ghost btn-xs text-error"
+                class="btn btn-ghost btn-xs h-7 min-h-[1.75rem] px-2 text-base-content/60 hover:text-error"
                 onclick={() => { showDeleteModal = true; }}
             >
                 삭제
@@ -129,18 +126,19 @@
     </div>
 
     {#if showEditForm}
-        <div class="space-y-2">
+        <div class="space-y-3 bg-base-100 p-3 rounded-lg border border-base-300 shadow-sm mb-3">
             <textarea
-                class="textarea textarea-bordered w-full h-20"
+                class="textarea textarea-bordered w-full h-24 text-sm resize-none focus:textarea-primary"
                 class:textarea-error={errors.content}
                 bind:value={editContent}
                 maxlength="1000"
+                placeholder="수정할 내용을 입력하세요..."
             ></textarea>
             <div class="flex items-center gap-2">
                 {#if !isOwner}
                     <input
                         type="password"
-                        class="input input-bordered input-sm w-32"
+                        class="input input-bordered input-sm w-36"
                         class:input-error={errors.password}
                         placeholder="비밀번호"
                         bind:value={password}
@@ -152,27 +150,45 @@
                     {#if isSubmitting}
                         <span class="loading loading-spinner loading-xs"></span>
                     {/if}
-                    수정
+                    수정 완료
                 </button>
             </div>
             {#if errors.content}
-                <p class="text-sm text-error">{errors.content}</p>
+                <p class="text-xs text-error mt-1">{errors.content}</p>
             {/if}
             {#if errors.password}
-                <p class="text-sm text-error">{errors.password}</p>
+                <p class="text-xs text-error mt-1">{errors.password}</p>
             {/if}
         </div>
     {:else}
-        <p class="text-sm whitespace-pre-wrap">{comment.content}</p>
+        <div class="pl-10 pr-2">
+            <p class="text-sm text-base-content/80 leading-relaxed whitespace-pre-wrap">{comment.content}</p>
+            
+            <div class="mt-3 flex items-center gap-4">
+                {#if !isReply}
+                    <button
+                        class="text-[11px] font-medium text-base-content/50 hover:text-primary flex items-center gap-1 transition-colors"
+                        onclick={() => { showReplyForm = !showReplyForm; }}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+                        답글 달기
+                    </button>
+                {/if}
+            </div>
+        </div>
     {/if}
 
     {#if showReplyForm}
-        <div class="mt-3">
+        <div class="mt-4 ml-10 p-4 bg-base-200/30 rounded-xl border border-base-300/50">
+            <div class="flex items-center gap-2 mb-3">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-base-content/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+                <span class="text-xs font-medium text-base-content/60">답글 작성</span>
+            </div>
             <CommentForm
                 {postId}
                 parentId={comment.id}
                 onCancel={cancelReply}
-                placeholder="답글을 입력하세요..."
+                placeholder="{comment.nickname}님에게 답글 남기기..."
             />
         </div>
     {/if}
