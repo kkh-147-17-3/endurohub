@@ -4,14 +4,14 @@
 
     let { data } = $props();
 
-    const year: number = data.year;
-    const month: number = data.month;
-    const startOfMonth: string = data.startOfMonth;
-    const racesGrouped: Record<string, Race[]> = data.racesGrouped;
-    const previousMonth = data.previousMonth;
-    const nextMonth = data.nextMonth;
-    const sport: string | null = data.sport;
-    const sports: SportOption[] = data.sports;
+    const year = $derived(data.year as number);
+    const month = $derived(data.month as number);
+    const startOfMonth = $derived(data.startOfMonth as string);
+    const racesGrouped = $derived(data.racesGrouped as Record<string, Race[]>);
+    const previousMonth = $derived(data.previousMonth);
+    const nextMonth = $derived(data.nextMonth);
+    const sport = $derived(data.sport as string | null);
+    const sports = $derived(data.sports as SportOption[]);
 
     type StatusType = 'registration_open' | 'registration_closed' | 'upcoming' | 'finished';
 

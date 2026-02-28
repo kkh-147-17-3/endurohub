@@ -6,9 +6,9 @@
 
     let { data } = $props();
 
-    const races: Record<string, Race[]> = data.races;
-    const year: number = data.year;
-    const totalCount: number = data.totalCount;
+    const races = $derived(data.races as Record<string, Race[]>);
+    const year = $derived(data.year as number);
+    const totalCount = $derived(data.totalCount as number);
 
     type StatusType = 'registration_open' | 'registration_closed' | 'upcoming' | 'finished';
 
