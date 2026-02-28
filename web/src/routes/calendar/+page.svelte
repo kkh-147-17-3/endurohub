@@ -129,7 +129,7 @@
                         {/each}
 
                         {#each Array(firstDayOfMonth) as _}
-                            <div class="h-[90px] md:h-[130px] bg-base-200/30 rounded"></div>
+                            <div class="h-[100px] md:h-[110px] bg-base-200/30 rounded"></div>
                         {/each}
 
                         {#each Array(daysInMonth) as _, i}
@@ -142,7 +142,7 @@
 
                             <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                             <div
-                                class="h-[90px] md:h-[130px] flex flex-col rounded border transition-colors cursor-pointer md:cursor-default overflow-hidden {isToday ? 'bg-primary/5 border-primary' : hasRaces ? 'bg-base-100 border-base-300 hover:border-base-400' : 'bg-base-100 border-base-200'}"
+                                class="h-[100px] md:h-[110px] flex flex-col rounded border transition-colors cursor-pointer md:cursor-default overflow-hidden {isToday ? 'bg-primary/5 border-primary' : hasRaces ? 'bg-base-100 border-base-300 hover:border-base-400' : 'bg-base-100 border-base-200'}"
                                 onclick={() => hasRaces && openDayModal(`${month}월 ${day}일`, dayRaces)}
                                 onkeydown={(e) => { if (hasRaces && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openDayModal(`${month}월 ${day}일`, dayRaces); } }}
                                 tabindex={hasRaces ? 0 : undefined}
@@ -152,9 +152,7 @@
                                 <div class="flex items-center justify-between p-0.5 md:p-1">
                                     <span class="text-sm md:text-base font-medium {isToday ? 'bg-primary text-primary-content w-5 h-5 md:w-6 md:h-6 rounded flex items-center justify-center text-xs' : ''} {dayOfWeek === 0 && !isToday ? 'text-error' : ''} {dayOfWeek === 6 && !isToday ? 'text-info' : ''}">{day}</span>
                                     {#if dayRaces.length > 2}
-                                        <span class="text-[10px] md:text-xs text-base-content/40">+{dayRaces.length - 2}</span>
-                                    {:else if hasRaces}
-                                        <span class="text-[10px] md:text-xs text-base-content/40">{dayRaces.length}</span>
+                                        <span class="w-4 h-4 md:w-5 md:h-5 rounded-full bg-base-300 text-base-content/60 text-[10px] md:text-xs flex items-center justify-center font-medium">+{dayRaces.length - 2}</span>
                                     {/if}
                                 </div>
                                 <div class="px-0.5 space-y-0.5 flex-1 min-h-0 overflow-hidden">
@@ -167,31 +165,6 @@
                                         </div>
                                     {/each}
                                 </div>
-                                {#if dayRaces.length > 2}
-                                    {@const dropdownPosition = dayOfWeek <= 3 ? 'dropdown-start' : 'dropdown-end'}
-                                    <div class="hidden md:block px-0.5 pb-0.5">
-                                        <div class="dropdown dropdown-top {dropdownPosition} w-full">
-                                            <div tabindex="0" role="button" class="text-xs text-center py-0.5 text-base-content/40 hover:text-primary hover:bg-primary/10 rounded cursor-pointer transition-colors">
-                                                +{dayRaces.length - 2}개 더보기
-                                            </div>
-                                            <div class="dropdown-content z-50 bg-base-100 shadow-lg rounded-lg p-3 w-64 max-h-80 overflow-y-auto border border-base-300">
-                                                <div class="flex items-center gap-2 mb-2 pb-2 border-b border-base-200">
-                                                    <span class="text-sm font-semibold">{month}월 {day}일</span>
-                                                    <span class="text-xs text-base-content/50">{dayRaces.length}개</span>
-                                                </div>
-                                                <div class="space-y-1.5">
-                                                    {#each dayRaces as race}
-                                                        {@const colors = getColors(race.sport)}
-                                                        <a href={race.url} class="block p-2 rounded cursor-pointer {colors['bg-light']} border-l-2 {colors.border}">
-                                                            <div class="text-xs font-medium {colors.text}">{race.title}</div>
-                                                            <div class="text-[10px] text-base-content/50 mt-0.5">{race.location}</div>
-                                                        </a>
-                                                    {/each}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                {/if}
                             </div>
                         {/each}
                     </div>
