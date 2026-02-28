@@ -31,6 +31,7 @@ export interface FetchOptions {
 	body?: unknown;
 	headers?: Record<string, string>;
 	clientIp?: string;
+	authToken?: string;
 }
 
 /**
@@ -54,6 +55,10 @@ export async function apiFetch<T>(
 
 	if (options.clientIp) {
 		headers['X-Forwarded-For'] = options.clientIp;
+	}
+
+	if (options.authToken) {
+		headers['Authorization'] = `Bearer ${options.authToken}`;
 	}
 
 	const fetchOptions: RequestInit = {

@@ -10,6 +10,7 @@ export const sportStyles: Record<Sport, {
     icon: string;
     text: string;
     border: string;
+    gradient: string;
 }> = {
     running: {
         hoverBorder: 'hover:border-primary',
@@ -21,6 +22,7 @@ export const sportStyles: Record<Sport, {
         icon: 'text-primary',
         text: 'text-primary',
         border: 'border-primary',
+        gradient: 'from-violet-500/20 via-primary/30 to-blue-500/20',
     },
     swimming: {
         hoverBorder: 'hover:border-info',
@@ -32,6 +34,7 @@ export const sportStyles: Record<Sport, {
         icon: 'text-info',
         text: 'text-info',
         border: 'border-info',
+        gradient: 'from-cyan-500/20 via-info/30 to-blue-500/20',
     },
     cycling: {
         hoverBorder: 'hover:border-warning',
@@ -43,6 +46,7 @@ export const sportStyles: Record<Sport, {
         icon: 'text-warning',
         text: 'text-warning',
         border: 'border-warning',
+        gradient: 'from-amber-500/20 via-warning/30 to-orange-500/20',
     },
     triathlon: {
         hoverBorder: 'hover:border-secondary',
@@ -54,6 +58,7 @@ export const sportStyles: Record<Sport, {
         icon: 'text-secondary',
         text: 'text-secondary',
         border: 'border-secondary',
+        gradient: 'from-pink-500/20 via-secondary/30 to-purple-500/20',
     },
     trail_running: {
         hoverBorder: 'hover:border-success',
@@ -65,6 +70,7 @@ export const sportStyles: Record<Sport, {
         icon: 'text-success',
         text: 'text-success',
         border: 'border-success',
+        gradient: 'from-emerald-500/20 via-success/30 to-teal-500/20',
     },
 };
 

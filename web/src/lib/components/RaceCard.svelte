@@ -1,13 +1,12 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
     import type { Race, Sport } from '$lib/types';
-    import { sportStyles, sportEmojis } from '$lib/race';
+    import { sportStyles } from '$lib/race';
     import { formatDate, formatDateShort, formatDateSlash } from '$lib/date';
 
     let { race }: { race: Race } = $props();
 
     let style = $derived(sportStyles[race.sport as Sport] || sportStyles.running);
-    let emoji = $derived(sportEmojis[race.sport as Sport] || '🏃');
 
     let dDayBadgeClass = $derived(
         race.daysUntilRegistrationEnd !== null && race.daysUntilRegistrationEnd <= 3
@@ -41,8 +40,9 @@
             {/if}
         </figure>
     {:else}
-        <figure class="relative aspect-[5/3] {style.bgLight} flex items-center justify-center rounded-t-lg">
-            <div class="text-4xl">{emoji}</div>
+        <figure class="relative aspect-[5/3] bg-gradient-to-br {style.gradient} flex flex-col items-center justify-center rounded-t-lg px-4">
+            <span class="badge {style.badge} badge-xs mb-2">{race.sportLabel}</span>
+            <p class="text-sm font-semibold text-base-content/70 text-center line-clamp-2 leading-snug">{race.title}</p>
             {#if race.daysUntilRegistrationEnd !== null && race.daysUntilRegistrationEnd <= 7 && race.daysUntilRegistrationEnd >= 0}
                 <div class="absolute top-2 right-2">
                     <span class="text-xs font-bold px-2.5 py-1 rounded-full shadow-md {dDayBadgeClass}">{race.daysUntilRegistrationEnd === 0 ? 'D-Day' : `D-${race.daysUntilRegistrationEnd}`}</span>

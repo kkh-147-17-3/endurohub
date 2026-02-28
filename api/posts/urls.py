@@ -5,6 +5,7 @@ from . import views
 urlpatterns = [
     # Posts - list (GET) + create (POST)
     path('posts/', views.PostListCreateView.as_view(), name='post-list-create'),
+    path('posts/upload-image/', views.PostInlineImageUploadView.as_view(), name='post-upload-image'),
     path('posts/races/', views.PostAvailableRacesView.as_view(), name='post-available-races'),
 
     # Post detail (GET) + update (PUT) + delete (DELETE)

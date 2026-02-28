@@ -64,6 +64,7 @@ class HomeView(APIView):
         sport_counts = {item['sport']: item['count'] for item in sport_counts_qs}
 
         total_upcoming = Race.objects.registration_open().count()
+        total_races = Race.objects.count()
 
         data = {
             'closingSoon': RaceSerializer(closing_soon, many=True).data,
@@ -75,6 +76,7 @@ class HomeView(APIView):
             ).data,
             'sportCounts': sport_counts,
             'totalUpcoming': total_upcoming,
+            'totalRaces': total_races,
         }
         cache.set(self.CACHE_KEY, data, self.CACHE_TTL)
         return Response(data)
@@ -210,7 +212,13 @@ class RaceDetailView(APIView):
         review_stats = reviews.aggregate(
             count=Count('id'),
             average=Avg('rating'),
+            average_operation_satisfaction=Avg('operation_satisfaction'),
         )
+
+        # Difficulty distribution
+        difficulty_dist = {}
+        for entry in reviews.exclude(course_difficulty__isnull=True).values('course_difficulty').annotate(cnt=Count('id')):
+            difficulty_dist[entry['course_difficulty']] = entry['cnt']
 
         # Check if current IP has reviewed
         ip_hash = hash_ip(request)
@@ -233,6 +241,8 @@ class RaceDetailView(APIView):
             'reviewStats': {
                 'count': review_stats['count'] or 0,
                 'average': round(review_stats['average'] or 0, 1),
+                'averageOperationSatisfaction': round(review_stats['average_operation_satisfaction'] or 0, 1),
+                'difficultyDistribution': difficulty_dist,
             },
             'hasReviewed': has_reviewed,
         })
@@ -410,11 +420,16 @@ class ReviewCreateView(APIView):
                 status=status.HTTP_422_UNPROCESSABLE_ENTITY,
             )
 
+        data = serializer.validated_data
         review = Review.objects.create(
             race=race,
-            nickname=serializer.validated_data.get('nickname') or None,
-            rating=serializer.validated_data['rating'],
-            comment=serializer.validated_data['comment'],
+            nickname=data.get('nickname') or None,
+            rating=data['rating'],
+            comment=data['comment'],
+            completion_time=data.get('completion_time') or None,
+            course_difficulty=data.get('course_difficulty') or None,
+            operation_satisfaction=data.get('operation_satisfaction'),
+            recommendation_tags=data.get('recommendation_tags') or None,
             ip_hash=ip_hash,
         )
 

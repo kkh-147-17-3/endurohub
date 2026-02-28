@@ -1,0 +1,328 @@
+import logging
+import random
+import secrets
+import string
+
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.core.mail import send_mail
+from django.utils import timezone
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .models import EmailVerification, SocialAccount, UserProfile
+from .providers import OAuthError, get_provider
+from .serializers import NicknameSetupSerializer, UserMeSerializer
+from .tokens import create_access_token
+
+logger = logging.getLogger(__name__)
+User = get_user_model()
+
+
+class OAuthLoginView(APIView):
+    """POST /api/v1/auth/{provider}/login/ — returns OAuth authorize URL."""
+
+    def post(self, request, provider):
+        try:
+            oauth = get_provider(provider)
+        except OAuthError:
+            return Response(
+                {'error': '지원하지 않는 소셜 로그인입니다.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        redirect_uri = request.data.get('redirect_uri', '')
+        if not redirect_uri:
+            return Response(
+                {'error': 'redirect_uri가 필요합니다.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        kwargs = {'redirect_uri': redirect_uri}
+        if provider == 'naver':
+            state = secrets.token_urlsafe(16)
+            kwargs['state'] = state
+
+        authorize_url = oauth.get_authorize_url(**kwargs)
+
+        response_data = {'authorize_url': authorize_url}
+        if provider == 'naver':
+            response_data['state'] = state
+
+        return Response(response_data)
+
+
+class OAuthCallbackView(APIView):
+    """POST /api/v1/auth/{provider}/callback/ — exchange code for JWT."""
+
+    def post(self, request, provider):
+        try:
+            oauth = get_provider(provider)
+        except OAuthError:
+            return Response(
+                {'error': '지원하지 않는 소셜 로그인입니다.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        code = request.data.get('code', '')
+        redirect_uri = request.data.get('redirect_uri', '')
+        state = request.data.get('state', '')
+
+        if not code or not redirect_uri:
+            return Response(
+                {'error': 'code와 redirect_uri가 필요합니다.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            # Exchange code for tokens
+            kwargs = {'code': code, 'redirect_uri': redirect_uri}
+            if provider == 'naver':
+                kwargs['state'] = state
+            token_data = oauth.exchange_code(**kwargs)
+
+            access_token = token_data.get('access_token', '')
+            refresh_token = token_data.get('refresh_token', '')
+
+            # Get user info from provider
+            user_info = oauth.get_user_info(access_token)
+        except OAuthError as e:
+            logger.error('OAuth error for %s: %s', provider, str(e))
+            return Response(
+                {'error': '소셜 로그인에 실패했습니다. 다시 시도해주세요.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        provider_uid = user_info['provider_uid']
+        email = user_info.get('email', '')
+
+        if not email:
+            return Response(
+                {'error': '이메일 정보를 가져올 수 없습니다. 소셜 계정에서 이메일 제공을 허용해주세요.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Find or create user
+        social_account = SocialAccount.objects.filter(
+            provider=provider,
+            provider_uid=provider_uid,
+        ).select_related('user', 'user__profile').first()
+
+        if social_account:
+            # Existing user - update tokens
+            social_account.access_token = access_token
+            social_account.refresh_token = refresh_token
+            social_account.email = email
+            social_account.extra_data = user_info
+            social_account.save(update_fields=[
+                'access_token', 'refresh_token', 'email', 'extra_data', 'updated_at',
+            ])
+            user = social_account.user
+        else:
+            # Check if a user with this email already exists via another provider
+            existing_social = SocialAccount.objects.filter(
+                email=email,
+            ).select_related('user').first()
+
+            if existing_social:
+                user = existing_social.user
+            else:
+                # Create new user
+                username = f'{provider}_{provider_uid}'
+                user = User.objects.create_user(
+                    username=username,
+                    email=email,
+                )
+
+            # Create social account link
+            SocialAccount.objects.create(
+                user=user,
+                provider=provider,
+                provider_uid=provider_uid,
+                email=email,
+                access_token=access_token,
+                refresh_token=refresh_token,
+                extra_data=user_info,
+            )
+
+        # Ensure profile exists
+        profile, created = UserProfile.objects.get_or_create(
+            user=user,
+            defaults={
+                'nickname': '',
+                'profile_image': user_info.get('profile_image', ''),
+            },
+        )
+        if not created and not profile.profile_image and user_info.get('profile_image'):
+            profile.profile_image = user_info['profile_image']
+            profile.save(update_fields=['profile_image', 'updated_at'])
+
+        # Generate JWT
+        jwt_token = create_access_token(user.id)
+
+        return Response({
+            'token': jwt_token,
+            'user': UserMeSerializer(profile).data,
+        })
+
+
+class NicknameSetupView(APIView):
+    """POST /api/v1/auth/nickname/ — set nickname after first login."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = NicknameSetupSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {'errors': serializer.errors},
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+
+        nickname = serializer.validated_data['nickname']
+
+        profile, _ = UserProfile.objects.get_or_create(
+            user=request.user,
+            defaults={'nickname': nickname},
+        )
+        if profile.nickname != nickname:
+            profile.nickname = nickname
+            profile.save(update_fields=['nickname', 'updated_at'])
+
+        return Response({
+            'success': True,
+            'user': UserMeSerializer(profile).data,
+        })
+
+
+class EmailSendView(APIView):
+    """POST /api/v1/auth/email/send/ — send verification code email."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        email = user.email
+
+        if not email:
+            return Response(
+                {'error': '이메일이 설정되어 있지 않습니다.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check for recent verification to prevent spam
+        recent = EmailVerification.objects.filter(
+            user=user,
+            created_at__gte=timezone.now() - timezone.timedelta(minutes=1),
+        ).exists()
+        if recent:
+            return Response(
+                {'error': '1분 후에 다시 시도해주세요.'},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
+        # Generate 6-digit code
+        code = ''.join(random.choices(string.digits, k=6))
+        expires_at = timezone.now() + timezone.timedelta(minutes=10)
+
+        EmailVerification.objects.create(
+            user=user,
+            email=email,
+            code=code,
+            expires_at=expires_at,
+        )
+
+        # Send email
+        try:
+            send_mail(
+                subject='[EnduroHub] 이메일 인증 코드',
+                message=f'인증 코드: {code}\n\n이 코드는 10분간 유효합니다.',
+                html_message=(
+                    f'<div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px;">'
+                    f'<h2 style="color:#333;">EnduroHub 이메일 인증</h2>'
+                    f'<p>아래 인증 코드를 입력해주세요:</p>'
+                    f'<div style="font-size:32px;font-weight:bold;letter-spacing:8px;'
+                    f'text-align:center;padding:20px;background:#f5f5f5;border-radius:8px;'
+                    f'margin:20px 0;">{code}</div>'
+                    f'<p style="color:#666;font-size:14px;">이 코드는 10분간 유효합니다.</p>'
+                    f'</div>'
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[email],
+                fail_silently=False,
+            )
+        except Exception:
+            logger.exception('Failed to send verification email to %s', email)
+            return Response(
+                {'error': '이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response({
+            'success': True,
+            'message': f'{email}로 인증 코드를 발송했습니다.',
+        })
+
+
+class EmailVerifyView(APIView):
+    """POST /api/v1/auth/email/verify/ — verify email with code."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        code = request.data.get('code', '').strip()
+        if not code or len(code) != 6:
+            return Response(
+                {'errors': {'code': ['6자리 인증 코드를 입력해주세요.']}},
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+
+        verification = EmailVerification.objects.filter(
+            user=request.user,
+            code=code,
+            is_used=False,
+            expires_at__gte=timezone.now(),
+        ).order_by('-created_at').first()
+
+        if not verification:
+            return Response(
+                {'errors': {'code': ['유효하지 않거나 만료된 인증 코드입니다.']}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        verification.is_used = True
+        verification.save(update_fields=['is_used'])
+
+        # Mark profile as verified
+        profile = UserProfile.objects.get(user=request.user)
+        profile.email_verified = True
+        profile.save(update_fields=['email_verified', 'updated_at'])
+
+        return Response({
+            'success': True,
+            'message': '이메일 인증이 완료되었습니다.',
+            'user': UserMeSerializer(profile).data,
+        })
+
+
+class MeView(APIView):
+    """GET /api/v1/auth/me/ — current user info (optional auth)."""
+
+    def get(self, request):
+        if not request.user or not request.user.is_authenticated:
+            return Response({'user': None})
+
+        try:
+            profile = request.user.profile
+        except UserProfile.DoesNotExist:
+            return Response({'user': None})
+
+        return Response({
+            'user': UserMeSerializer(profile).data,
+        })
+
+
+class LogoutView(APIView):
+    """POST /api/v1/auth/logout/ — placeholder for future token blacklist."""
+
+    def post(self, request):
+        return Response({'success': True, 'message': '로그아웃되었습니다.'})

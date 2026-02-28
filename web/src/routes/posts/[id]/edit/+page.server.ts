@@ -23,7 +23,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 };
 
 export const actions: Actions = {
-	default: async ({ params, request }) => {
+	default: async ({ params, request, locals }) => {
 		const formData = await request.formData();
 		const editToken = formData.get('edit_token') as string;
 
@@ -33,6 +33,8 @@ export const actions: Actions = {
 		apiFormData.append('title', formData.get('title') as string);
 		apiFormData.append('content', formData.get('content') as string);
 		apiFormData.append('edit_token', editToken);
+		const category = formData.get('category') as string;
+		if (category) apiFormData.append('category', category);
 
 		// Race IDs (repeated key for DRF ListField)
 		const raceIds = formData.getAll('race_ids');
@@ -56,7 +58,7 @@ export const actions: Actions = {
 
 		const result = await apiFetch<PostUpdateResponse | ApiErrors>(
 			`/posts/${params.id}/`,
-			{ method: 'PUT', body: apiFormData }
+			{ method: 'PUT', body: apiFormData, authToken: locals.authToken }
 		);
 
 		if (isApiError(result)) return fail(400, { errors: result.errors });

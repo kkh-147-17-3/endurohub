@@ -1,6 +1,7 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
     import type { Post } from '$lib/types';
+    import Avatar from './Avatar.svelte';
     import RaceTagBadges from './RaceTagBadges.svelte';
 
     let { post, showExcerpt = false }: { post: Post; showExcerpt?: boolean } = $props();
@@ -11,7 +12,7 @@
 
     const excerpt = $derived(() => {
         if (!post.content) return '';
-        const text = post.content.replace(/\n/g, ' ').trim();
+        const text = post.content.replace(/<[^>]*>/g, '').replace(/\n/g, ' ').trim();
         return text.length > 150 ? text.substring(0, 150) + '...' : text;
     });
 
@@ -25,10 +26,20 @@
 
     const isHot = $derived(post.likeCount >= 5 || post.commentCount >= 5);
     const thumbnail = $derived(post.imageSrcs?.[0] || null);
+
+    const categoryConfig: Record<string, { label: string; badge: string }> = {
+        race_review: { label: '대회 후기', badge: 'badge-primary' },
+        injury: { label: '부상/재활', badge: 'badge-error' },
+        gear: { label: '장비 추천', badge: 'badge-warning' },
+        training: { label: '훈련 팁', badge: 'badge-success' },
+        question: { label: '질문', badge: 'badge-info' },
+        free: { label: '자유', badge: 'badge-ghost' },
+    };
+    const categoryInfo = $derived(post.category ? categoryConfig[post.category] : null);
 </script>
 
 <div
-    class="bg-base-100 border border-base-300 rounded-lg hover:border-primary/40 hover:shadow-sm transition-all duration-200 cursor-pointer group p-4"
+    class="bg-base-100 border border-base-300 rounded-lg hover:border-primary/40 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group p-4 {isHot ? 'border-l-4 border-l-error' : ''}"
     onclick={handleClick}
     onkeypress={(e) => e.key === 'Enter' && handleClick()}
     role="button"
@@ -36,8 +47,11 @@
 >
     <div class="flex gap-4">
         <div class="flex-1 min-w-0">
-            {#if isHot || isNew}
+            {#if isHot || isNew || categoryInfo}
                 <div class="flex items-center gap-1.5 mb-1.5">
+                    {#if categoryInfo}
+                        <span class="badge {categoryInfo.badge} badge-sm">{categoryInfo.label}</span>
+                    {/if}
                     {#if isHot}
                         <span class="badge badge-error badge-sm font-semibold">인기</span>
                     {/if}
@@ -53,9 +67,9 @@
                 </span>
             </h2>
 
-            {#if showExcerpt && excerpt()}
-                <p class="text-sm text-base-content/70 mb-3 line-clamp-2">
-                    {excerpt()}
+            {#if showExcerpt}
+                <p class="text-sm text-base-content/70 mb-3 line-clamp-2 min-h-[2.5rem]">
+                    {excerpt() || '\u00A0'}
                 </p>
             {/if}
 
@@ -75,6 +89,7 @@
 
     <div class="flex items-center justify-between text-sm text-base-content/50 pt-2 border-t border-base-200">
         <div class="flex items-center gap-2">
+            <Avatar nickname={post.nickname} size="xs" />
             <span class="font-medium text-base-content/70">{post.nickname}</span>
             <span class="text-base-content/30">|</span>
             <span>{post.createdAtFormatted}</span>

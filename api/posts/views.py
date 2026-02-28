@@ -35,16 +35,26 @@ class PostListCreateView(APIView):
 
     def get(self, request):
         search = request.query_params.get('search')
+        category = request.query_params.get('category')
+        sort = request.query_params.get('sort', 'latest')
         comment_count_sq, like_count_sq = post_count_subqueries()
         qs = Post.objects.prefetch_related('races').annotate(
             _comment_count=comment_count_sq,
             _like_count=like_count_sq,
-        ).order_by('-created_at')
+        )
 
         if search:
             qs = qs.filter(
                 Q(title__icontains=search) | Q(content__icontains=search)
             )
+
+        if category:
+            qs = qs.filter(category=category)
+
+        if sort == 'popular':
+            qs = qs.order_by('-view_count', '-created_at')
+        else:
+            qs = qs.order_by('-created_at')
 
         paginator = LaravelStylePagination()
         page = paginator.paginate_queryset(qs, request)
@@ -55,6 +65,28 @@ class PostListCreateView(APIView):
 
         response_data = paginator.get_paginated_response(serializer.data).data
         response_data['search'] = search
+        response_data['category'] = category
+        response_data['sort'] = sort
+
+        # Sidebar data
+        from datetime import timedelta
+        seven_days_ago = timezone.now() - timedelta(days=7)
+        popular_qs = Post.objects.prefetch_related('races').annotate(
+            _comment_count=comment_count_sq,
+            _like_count=like_count_sq,
+        ).filter(
+            created_at__gte=seven_days_ago,
+        ).order_by('-view_count')[:5]
+        upcoming_races = Race.objects.upcoming()[:5]
+
+        response_data['sidebar'] = {
+            'popularPosts': PostListSerializer(
+                popular_qs, many=True,
+                context={'include_tagged_races': False},
+            ).data,
+            'upcomingRaces': UpcomingRaceSerializer(upcoming_races, many=True).data,
+        }
+
         return Response(response_data)
 
     def post(self, request):
@@ -68,7 +100,8 @@ class PostListCreateView(APIView):
                 status=status.HTTP_429_TOO_MANY_REQUESTS,
             )
 
-        serializer = PostCreateSerializer(data=request.data)
+        is_authenticated = request.user and request.user.is_authenticated
+        serializer = PostCreateSerializer(data=request.data, context={'request': request})
         if not serializer.is_valid():
             return Response(
                 {'errors': serializer.errors},
@@ -87,11 +120,15 @@ class PostListCreateView(APIView):
                     status=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 )
 
+        password_hash = make_password(data['password']) if data.get('password') else ''
+
         post = Post.objects.create(
+            user=request.user if is_authenticated else None,
             nickname=data.get('nickname') or None,
             title=data['title'],
             content=data['content'],
-            password=make_password(data['password']),
+            category=data.get('category') or None,
+            password=password_hash,
             ip_hash=ip_hash,
         )
 
@@ -112,7 +149,7 @@ class PostListCreateView(APIView):
             'message': '글이 등록되었습니다.',
             'post': PostSerializer(
                 post,
-                context={'include_tagged_races': True},
+                context={'include_tagged_races': True, 'request': request},
             ).data,
             'redirect': f'/posts/{post.id}',
         }, status=status.HTTP_201_CREATED)
@@ -142,6 +179,60 @@ class PostListCreateView(APIView):
                     dest.write(chunk)
             paths.append(f'posts/{post_id}/{filename}')
         return paths
+
+
+class PostInlineImageUploadView(APIView):
+    """POST /api/v1/posts/upload-image/"""
+
+    ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+    MAX_SIZE = 5 * 1024 * 1024  # 5MB
+
+    def post(self, request):
+        ip_hash = hash_ip(request)
+
+        # Rate limit: 30/hour
+        allowed, _ = check_rate_limit(ip_hash, 'inline_image', 30, 3600)
+        if not allowed:
+            return Response(
+                {'error': '이미지 업로드 제한에 도달했습니다. 잠시 후 다시 시도해주세요.'},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
+        image = request.FILES.get('image')
+        if not image:
+            return Response(
+                {'error': '이미지 파일을 선택해주세요.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if image.content_type not in self.ALLOWED_TYPES:
+            return Response(
+                {'error': '지원되는 이미지 형식: jpeg, png, gif, webp'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if image.size > self.MAX_SIZE:
+            return Response(
+                {'error': '이미지 크기는 최대 5MB까지 가능합니다.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Save to storage/posts/inline/{YYYY-MM}/{uuid12}.{ext}
+        now = timezone.now()
+        month_dir = now.strftime('%Y-%m')
+        save_dir = os.path.join(str(settings.MEDIA_ROOT), 'posts', 'inline', month_dir)
+        os.makedirs(save_dir, exist_ok=True)
+
+        ext = os.path.splitext(image.name)[1].lower() or '.jpg'
+        filename = f'{uuid.uuid4().hex[:12]}{ext}'
+        filepath = os.path.join(save_dir, filename)
+
+        with open(filepath, 'wb') as dest:
+            for chunk in image.chunks():
+                dest.write(chunk)
+
+        url = f'/storage/posts/inline/{month_dir}/{filename}'
+        return Response({'url': url}, status=status.HTTP_201_CREATED)
 
 
 class PostAvailableRacesView(APIView):
@@ -179,6 +270,7 @@ class PostDetailUpdateDeleteView(APIView):
                 context={
                     'include_tagged_races': True,
                     'include_comments': True,
+                    'request': request,
                 },
             ).data,
             'hasLiked': has_liked,
@@ -190,6 +282,12 @@ class PostDetailUpdateDeleteView(APIView):
         except Post.DoesNotExist:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
+        # Check authorization: either authenticated owner or edit token
+        is_owner = (
+            request.user and request.user.is_authenticated
+            and post.user_id and post.user_id == request.user.id
+        )
+
         serializer = PostUpdateSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(
@@ -199,17 +297,22 @@ class PostDetailUpdateDeleteView(APIView):
 
         data = serializer.validated_data
 
-        # Verify edit token
-        edit_token = data['edit_token']
-        cache_key = f'edit_token:{post.pk}:{edit_token}'
-        if not cache.get(cache_key):
-            return Response(
-                {'errors': {'password': ['수정 권한이 없습니다.']}},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        # Invalidate token
-        cache.delete(cache_key)
+        if not is_owner:
+            # Verify edit token for non-owner
+            edit_token = data.get('edit_token', '')
+            if not edit_token:
+                return Response(
+                    {'errors': {'password': ['수정 권한이 없습니다.']}},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            cache_key = f'edit_token:{post.pk}:{edit_token}'
+            if not cache.get(cache_key):
+                return Response(
+                    {'errors': {'password': ['수정 권한이 없습니다.']}},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            # Invalidate token
+            cache.delete(cache_key)
 
         # Handle images
         existing_images = data.get('existing_images') or []
@@ -250,6 +353,7 @@ class PostDetailUpdateDeleteView(APIView):
             nickname=data.get('nickname') or None,
             title=data['title'],
             content=data['content'],
+            category=data.get('category') or None,
             images=all_images or None,
         )
 
@@ -274,12 +378,18 @@ class PostDetailUpdateDeleteView(APIView):
         except Post.DoesNotExist:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        password = request.data.get('password', '')
-        if not post.check_password(password):
-            return Response(
-                {'errors': {'password': ['비밀번호가 일치하지 않습니다.']}},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        is_owner = (
+            request.user and request.user.is_authenticated
+            and post.user_id and post.user_id == request.user.id
+        )
+
+        if not is_owner:
+            password = request.data.get('password', '')
+            if not post.check_password(password):
+                return Response(
+                    {'errors': {'password': ['비밀번호가 일치하지 않습니다.']}},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
         # Delete image files
         if post.images:
@@ -310,12 +420,18 @@ class PostVerifyPasswordView(APIView):
         except Post.DoesNotExist:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        password = request.data.get('password', '')
-        if not post.check_password(password):
-            return Response(
-                {'errors': {'password': ['비밀번호가 일치하지 않습니다.']}},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        is_owner = (
+            request.user and request.user.is_authenticated
+            and post.user_id and post.user_id == request.user.id
+        )
+
+        if not is_owner:
+            password = request.data.get('password', '')
+            if not post.check_password(password):
+                return Response(
+                    {'errors': {'password': ['비밀번호가 일치하지 않습니다.']}},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
         # Generate edit token (valid for 5 minutes)
         edit_token = secrets.token_hex(32)
@@ -359,7 +475,8 @@ class CommentCreateView(APIView):
                 status=status.HTTP_429_TOO_MANY_REQUESTS,
             )
 
-        serializer = CommentCreateSerializer(data=request.data)
+        is_authenticated = request.user and request.user.is_authenticated
+        serializer = CommentCreateSerializer(data=request.data, context={'request': request})
         if not serializer.is_valid():
             return Response(
                 {'errors': serializer.errors},
@@ -390,19 +507,22 @@ class CommentCreateView(APIView):
         else:
             parent = None
 
+        password_hash = make_password(data['password']) if data.get('password') else ''
+
         comment = PostComment.objects.create(
             post=post,
             parent=parent,
+            user=request.user if is_authenticated else None,
             nickname=data.get('nickname') or None,
             content=data['content'],
-            password=make_password(data['password']),
+            password=password_hash,
             ip_hash=ip_hash,
         )
 
         return Response({
             'success': True,
             'message': '댓글이 등록되었습니다.',
-            'comment': PostCommentSerializer(comment).data,
+            'comment': PostCommentSerializer(comment, context={'request': request}).data,
         }, status=status.HTTP_201_CREATED)
 
 
@@ -415,6 +535,11 @@ class CommentUpdateDeleteView(APIView):
         except PostComment.DoesNotExist:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
+        is_owner = (
+            request.user and request.user.is_authenticated
+            and comment.user_id and comment.user_id == request.user.id
+        )
+
         serializer = CommentUpdateSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(
@@ -424,11 +549,12 @@ class CommentUpdateDeleteView(APIView):
 
         data = serializer.validated_data
 
-        if not comment.check_password(data['password']):
-            return Response(
-                {'errors': {'password': ['비밀번호가 일치하지 않습니다.']}},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        if not is_owner:
+            if not comment.check_password(data.get('password', '')):
+                return Response(
+                    {'errors': {'password': ['비밀번호가 일치하지 않습니다.']}},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
         PostComment.objects.filter(pk=comment.pk).update(content=data['content'])
         comment.refresh_from_db()
@@ -436,7 +562,7 @@ class CommentUpdateDeleteView(APIView):
         return Response({
             'success': True,
             'message': '댓글이 수정되었습니다.',
-            'comment': PostCommentSerializer(comment).data,
+            'comment': PostCommentSerializer(comment, context={'request': request}).data,
         })
 
     def delete(self, request, post_id, comment_id):
@@ -445,18 +571,24 @@ class CommentUpdateDeleteView(APIView):
         except PostComment.DoesNotExist:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = CommentDeleteSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(
-                {'errors': serializer.errors},
-                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            )
+        is_owner = (
+            request.user and request.user.is_authenticated
+            and comment.user_id and comment.user_id == request.user.id
+        )
 
-        if not comment.check_password(serializer.validated_data['password']):
-            return Response(
-                {'errors': {'password': ['비밀번호가 일치하지 않습니다.']}},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        if not is_owner:
+            serializer = CommentDeleteSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(
+                    {'errors': serializer.errors},
+                    status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                )
+
+            if not comment.check_password(serializer.validated_data.get('password', '')):
+                return Response(
+                    {'errors': {'password': ['비밀번호가 일치하지 않습니다.']}},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
         comment.delete()
         return Response({

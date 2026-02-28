@@ -4,11 +4,28 @@ from django.db import models
 
 
 class Post(models.Model):
+    CATEGORY_CHOICES = [
+        ('free', '자유'),
+        ('race_review', '대회 후기'),
+        ('injury', '부상/재활'),
+        ('gear', '장비 추천'),
+        ('training', '훈련 팁'),
+        ('question', '질문'),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='posts',
+    )
     nickname = models.CharField(max_length=50, null=True, blank=True)
     title = models.CharField(max_length=100)
     content = models.TextField()
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, null=True, blank=True)
     images = models.JSONField(null=True, blank=True)
-    password = models.CharField(max_length=255)
+    password = models.CharField(max_length=255, blank=True, default='')
     ip_hash = models.CharField(max_length=64)
     view_count = models.PositiveIntegerField(default=0)
     races = models.ManyToManyField(
@@ -30,6 +47,11 @@ class Post(models.Model):
 
     @property
     def display_nickname(self):
+        if self.user_id:
+            try:
+                return self.user.profile.nickname or self.nickname or '익명'
+            except Exception:
+                return self.nickname or '익명'
         return self.nickname or '익명'
 
     @property
@@ -76,9 +98,16 @@ class PostComment(models.Model):
         blank=True,
         related_name='replies',
     )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='post_comments',
+    )
     nickname = models.CharField(max_length=50, null=True, blank=True)
     content = models.TextField()
-    password = models.CharField(max_length=255)
+    password = models.CharField(max_length=255, blank=True, default='')
     ip_hash = models.CharField(max_length=64)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -93,6 +122,11 @@ class PostComment(models.Model):
 
     @property
     def display_nickname(self):
+        if self.user_id:
+            try:
+                return self.user.profile.nickname or self.nickname or '익명'
+            except Exception:
+                return self.nickname or '익명'
         return self.nickname or '익명'
 
     @property

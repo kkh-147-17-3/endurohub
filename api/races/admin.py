@@ -698,6 +698,9 @@ class ReviewAdmin(ModelAdmin):
         ('리뷰 정보', {
             'fields': ('race', 'nickname', 'rating', 'comment'),
         }),
+        ('상세 정보', {
+            'fields': ('completion_time', 'course_difficulty', 'operation_satisfaction', 'recommendation_tags'),
+        }),
     )
 
     @admin.display(description='대회명')

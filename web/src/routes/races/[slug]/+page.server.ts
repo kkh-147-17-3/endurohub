@@ -20,10 +20,17 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '';
 
-		const body = {
+		const recommendationTags = formData.getAll('recommendation_tags') as string[];
+		const operationSat = formData.get('operation_satisfaction');
+
+		const body: Record<string, unknown> = {
 			rating: Number(formData.get('rating')),
 			comment: formData.get('comment') as string,
 			nickname: (formData.get('nickname') as string) || '익명',
+			completion_time: (formData.get('completion_time') as string) || null,
+			course_difficulty: (formData.get('course_difficulty') as string) || null,
+			operation_satisfaction: operationSat ? Number(operationSat) : null,
+			recommendation_tags: recommendationTags.length > 0 ? recommendationTags : null,
 		};
 
 		const result = await apiFetch<ReviewCreateResponse | ApiErrors>(

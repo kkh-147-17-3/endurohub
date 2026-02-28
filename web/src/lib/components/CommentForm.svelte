@@ -1,5 +1,6 @@
 <script lang="ts">
     import { invalidateAll } from '$app/navigation';
+    import { page } from '$app/stores';
     import { clientApiFetch } from '$lib/api.client';
     import type { CommentCreateResponse } from '$lib/types';
 
@@ -14,6 +15,8 @@
         onCancel?: (() => void) | null;
         placeholder?: string;
     } = $props();
+
+    let isLoggedIn = $derived(!!$page.data.user);
 
     let nickname = $state('');
     let content = $state('');
@@ -79,25 +82,27 @@
 </script>
 
 <form onsubmit={handleSubmit} class="space-y-3">
-    <div class="flex gap-3">
-        <input
-            type="text"
-            class="input input-bordered input-sm w-32"
-            placeholder="닉네임"
-            maxlength="50"
-            bind:value={nickname}
-        />
-        <input
-            type="password"
-            class="input input-bordered input-sm w-32"
-            class:input-error={errors.password}
-            placeholder="비밀번호"
-            minlength="4"
-            maxlength="50"
-            required
-            bind:value={password}
-        />
-    </div>
+    {#if !isLoggedIn}
+        <div class="flex gap-3">
+            <input
+                type="text"
+                class="input input-bordered input-sm w-32"
+                placeholder="닉네임"
+                maxlength="50"
+                bind:value={nickname}
+            />
+            <input
+                type="password"
+                class="input input-bordered input-sm w-32"
+                class:input-error={errors.password}
+                placeholder="비밀번호"
+                minlength="4"
+                maxlength="50"
+                required
+                bind:value={password}
+            />
+        </div>
+    {/if}
 
     <textarea
         class="textarea textarea-bordered w-full h-24"

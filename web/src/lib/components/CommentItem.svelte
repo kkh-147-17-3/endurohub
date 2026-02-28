@@ -11,6 +11,8 @@
         isReply?: boolean;
     } = $props();
 
+    let isOwner = $derived(!!comment.isOwner);
+
     let showReplyForm = $state(false);
     let showEditForm = $state(false);
     let showDeleteModal = $state(false);
@@ -37,7 +39,7 @@
                 `/posts/${postId}/comments/${comment.id}/`,
                 {
                     method: 'PUT',
-                    body: { content: editContent, password },
+                    body: { content: editContent, password: isOwner ? '' : password },
                 }
             );
 
@@ -66,7 +68,7 @@
                 `/posts/${postId}/comments/${comment.id}/`,
                 {
                     method: 'DELETE',
-                    body: { password },
+                    body: { password: isOwner ? '' : password },
                 }
             );
 
@@ -135,13 +137,15 @@
                 maxlength="1000"
             ></textarea>
             <div class="flex items-center gap-2">
-                <input
-                    type="password"
-                    class="input input-bordered input-sm w-32"
-                    class:input-error={errors.password}
-                    placeholder="비밀번호"
-                    bind:value={password}
-                />
+                {#if !isOwner}
+                    <input
+                        type="password"
+                        class="input input-bordered input-sm w-32"
+                        class:input-error={errors.password}
+                        placeholder="비밀번호"
+                        bind:value={password}
+                    />
+                {/if}
                 <div class="flex-1"></div>
                 <button class="btn btn-ghost btn-sm" onclick={cancelEdit}>취소</button>
                 <button class="btn btn-primary btn-sm" onclick={handleEdit} disabled={isSubmitting}>
@@ -187,20 +191,22 @@
         <div class="modal-box max-w-sm">
             <h3 class="font-bold text-lg mb-4">댓글 삭제</h3>
             <p class="text-base-content/70 mb-4">정말 이 댓글을 삭제하시겠습니까?</p>
-            <div class="form-control">
-                <input
-                    type="password"
-                    class="input input-bordered"
-                    class:input-error={errors.password}
-                    placeholder="비밀번호"
-                    bind:value={password}
-                />
-                {#if errors.password}
-                    <div class="label">
-                        <span class="label-text-alt text-error">{errors.password}</span>
-                    </div>
-                {/if}
-            </div>
+            {#if !isOwner}
+                <div class="form-control">
+                    <input
+                        type="password"
+                        class="input input-bordered"
+                        class:input-error={errors.password}
+                        placeholder="비밀번호"
+                        bind:value={password}
+                    />
+                    {#if errors.password}
+                        <div class="label">
+                            <span class="label-text-alt text-error">{errors.password}</span>
+                        </div>
+                    {/if}
+                </div>
+            {/if}
             <div class="modal-action">
                 <button class="btn btn-ghost" onclick={() => { showDeleteModal = false; errors = {}; }}>취소</button>
                 <button class="btn btn-error" onclick={handleDelete} disabled={isSubmitting}>

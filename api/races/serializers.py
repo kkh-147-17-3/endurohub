@@ -104,7 +104,12 @@ class ReviewSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Review
-        fields = ['id', 'nickname', 'rating', 'comment', 'created_at', 'created_at_formatted']
+        fields = [
+            'id', 'nickname', 'rating', 'comment',
+            'completion_time', 'course_difficulty',
+            'operation_satisfaction', 'recommendation_tags',
+            'created_at', 'created_at_formatted',
+        ]
 
     def get_nickname(self, obj):
         return obj.display_nickname
@@ -119,6 +124,18 @@ class ReviewCreateSerializer(serializers.Serializer):
     nickname = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
     rating = serializers.IntegerField(min_value=1, max_value=5)
     comment = serializers.CharField(min_length=5, max_length=200)
+    completion_time = serializers.CharField(max_length=20, required=False, allow_blank=True, allow_null=True)
+    course_difficulty = serializers.ChoiceField(
+        choices=['easy', 'normal', 'hard'],
+        required=False, allow_blank=True, allow_null=True,
+    )
+    operation_satisfaction = serializers.IntegerField(
+        min_value=1, max_value=5, required=False, allow_null=True,
+    )
+    recommendation_tags = serializers.ListField(
+        child=serializers.CharField(max_length=20),
+        required=False, allow_null=True, max_length=10,
+    )
 
     def validate_rating(self, value):
         if not isinstance(value, int) or value < 1:

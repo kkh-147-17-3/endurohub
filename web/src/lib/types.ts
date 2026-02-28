@@ -85,6 +85,48 @@ export interface Race {
 	updatedAt: string;
 }
 
+// === Auth ===
+
+export interface AuthUser {
+	id: number;
+	email: string;
+	nickname: string;
+	profileImage: string;
+	emailVerified: boolean;
+	needsNickname: boolean;
+	needsEmailVerification: boolean;
+}
+
+export interface OAuthLoginResponse {
+	authorizeUrl: string;
+	state?: string;
+}
+
+export interface OAuthCallbackResponse {
+	token: string;
+	user: AuthUser;
+}
+
+export interface NicknameSetupResponse {
+	success: boolean;
+	user: AuthUser;
+}
+
+export interface EmailSendResponse {
+	success: boolean;
+	message: string;
+}
+
+export interface EmailVerifyResponse {
+	success: boolean;
+	message: string;
+	user: AuthUser;
+}
+
+export interface MeResponse {
+	user: AuthUser | null;
+}
+
 // === Post ===
 
 export interface TaggedRace {
@@ -100,6 +142,8 @@ export interface Post {
 	nickname: string;
 	title: string;
 	content: string;
+	contentText: string;
+	category?: string | null;
 	images: string[] | null;
 	imageSrcs: string[];
 	viewCount: number;
@@ -110,6 +154,7 @@ export interface Post {
 	updatedAt: string;
 	taggedRaces?: TaggedRace[];
 	comments?: PostComment[];
+	isOwner?: boolean;
 }
 
 // === PostComment ===
@@ -124,6 +169,7 @@ export interface PostComment {
 	createdAt: string;
 	createdAtFormatted: string;
 	replies?: PostComment[];
+	isOwner?: boolean;
 }
 
 // === Review ===
@@ -133,6 +179,10 @@ export interface Review {
 	nickname: string;
 	rating: number;
 	comment: string;
+	completionTime?: string | null;
+	courseDifficulty?: string | null;
+	operationSatisfaction?: number | null;
+	recommendationTags?: string[] | null;
 	createdAt: string;
 	createdAtFormatted: string;
 }
@@ -140,6 +190,8 @@ export interface Review {
 export interface ReviewStats {
 	count: number;
 	average: number;
+	averageOperationSatisfaction?: number;
+	difficultyDistribution?: Record<string, number>;
 }
 
 // === API Response Types ===
@@ -151,6 +203,7 @@ export interface HomeResponse {
 	recentPosts: Post[];
 	sportCounts: Record<string, number>;
 	totalUpcoming: number;
+	totalRaces: number;
 }
 
 export interface RaceListResponse extends PaginatedResponse<Race> {
@@ -203,6 +256,18 @@ export interface PostDetailResponse {
 
 export interface PostListResponse extends PaginatedResponse<Post> {
 	search: string | null;
+	category: string | null;
+	sort: string;
+	sidebar: {
+		popularPosts: Post[];
+		upcomingRaces: Array<{
+			id: number;
+			title: string;
+			sport: Sport;
+			sportLabel: string;
+			raceDate: string;
+		}>;
+	};
 }
 
 export interface PostRacesResponse {

@@ -42,6 +42,8 @@ export async function clientApiFetch<T>(
 		}
 	}
 
+	fetchOptions.credentials = 'include';
+
 	const response = await fetch(`/api/v1${path}`, fetchOptions);
 	return response.json() as Promise<T>;
 }

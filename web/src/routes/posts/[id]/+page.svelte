@@ -7,6 +7,7 @@
     import RaceTagBadges from '$lib/components/RaceTagBadges.svelte';
     import CommentList from '$lib/components/CommentList.svelte';
     import { clientApiFetch } from '$lib/api.client';
+    import { formatPostContent } from '$lib/utils';
     import type { Post, LikeToggleResponse } from '$lib/types';
 
     let { data } = $props();
@@ -14,6 +15,7 @@
     let post = $derived(data.post as Post);
     let appUrl = $derived(data.appUrl || 'https://www.endurohub.kr');
     const pageUrl = $derived(`${appUrl}${$page.url.pathname}`);
+    let isOwner = $derived(!!post.isOwner);
 
     let showDeleteModal = $state(false);
     let showEditModal = $state(false);
@@ -30,6 +32,8 @@
     let showImageModal = $state(false);
     let currentImageIndex = $state(0);
 
+    const contentText = $derived(post.contentText || '');
+
     let articleSchema = $derived({
         '@context': 'https://schema.org',
         '@type': 'Article',
@@ -37,7 +41,7 @@
         'author': { '@type': 'Person', 'name': post.nickname },
         'datePublished': post.createdAt,
         'dateModified': post.updatedAt,
-        'articleBody': post.content.substring(0, 500),
+        'articleBody': contentText.substring(0, 500),
         'image': post.imageSrcs && post.imageSrcs.length > 0 ? post.imageSrcs[0] : undefined,
         'publisher': { '@type': 'Organization', 'name': 'EnduroHub', 'url': appUrl },
         'mainEntityOfPage': pageUrl,
@@ -68,6 +72,19 @@
         isSubmitting = true;
         errors = {};
 
+        if (isOwner) {
+            // Authenticated owner - go directly to edit (server will generate token)
+            const formData = new FormData();
+            formData.set('password', '');
+            const response = await fetch(`?/verifyEdit`, { method: 'POST', body: formData });
+            const result = await response.json();
+            if (result.type === 'failure') {
+                errors = Object.fromEntries(Object.entries(result.data?.errors || {}).map(([k, v]) => [k, Array.isArray(v) ? v[0] : v]));
+            }
+            isSubmitting = false;
+            return;
+        }
+
         const formData = new FormData();
         formData.set('password', password);
 
@@ -88,7 +105,7 @@
         errors = {};
 
         const formData = new FormData();
-        formData.set('password', password);
+        formData.set('password', isOwner ? '' : password);
 
         const response = await fetch(`?/delete`, { method: 'POST', body: formData });
         const result = await response.json();
@@ -130,7 +147,7 @@
                 objectType: 'feed',
                 content: {
                     title: post.title,
-                    description: post.content.substring(0, 100),
+                    description: contentText.substring(0, 100),
                     imageUrl: post.imageSrcs && post.imageSrcs.length > 0 ? post.imageSrcs[0] : '',
                     link: { webUrl: window.location.href, mobileWebUrl: window.location.href },
                 },
@@ -161,10 +178,10 @@
 
 <svelte:head>
     <title>{post.title} - 엔듀로허브</title>
-    <meta name="description" content={post.content.substring(0, 160)} />
+    <meta name="description" content={contentText.substring(0, 160)} />
     <meta property="og:type" content="article" />
     <meta property="og:title" content={post.title} />
-    <meta property="og:description" content={post.content.substring(0, 160)} />
+    <meta property="og:description" content={contentText.substring(0, 160)} />
     {#if post.imageSrcs && post.imageSrcs.length > 0}
         <meta property="og:image" content={post.imageSrcs[0]} />
     {/if}
@@ -206,7 +223,7 @@
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
                         </button>
                         <ul tabindex="0" role="menu" class="dropdown-content menu bg-base-100 rounded-box z-10 w-40 p-2 shadow-lg border border-base-300">
-                            <li><button onclick={() => { showEditModal = true; }} class="gap-2">
+                            <li><button onclick={() => { if (isOwner) { handleEdit(); } else { showEditModal = true; } }} class="gap-2">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                                 수정
                             </button></li>
@@ -218,7 +235,7 @@
                     </div>
                 </div>
 
-                <div class="prose max-w-none min-h-32">{@html post.content.replace(/\n/g, '<br>')}</div>
+                <div class="prose max-w-none min-h-32">{@html formatPostContent(post.content)}</div>
 
                 {#if post.imageSrcs && post.imageSrcs.length > 0}
                     <div class="mt-6 pt-6 border-t border-base-200">
@@ -286,11 +303,13 @@
         <div class="modal-box max-w-sm">
             <h3 class="font-bold text-lg mb-4">글 삭제</h3>
             <p class="text-base-content/70 mb-4">정말 이 글을 삭제하시겠습니까? 삭제된 글은 복구할 수 없습니다.</p>
-            <div class="form-control">
-                <label class="label" for="delete-password"><span class="label-text">비밀번호</span></label>
-                <input type="password" id="delete-password" class="input input-bordered" class:input-error={errors.password} placeholder="글 작성 시 입력한 비밀번호" bind:value={password} />
-                {#if errors.password}<div class="label"><span class="label-text-alt text-error">{errors.password}</span></div>{/if}
-            </div>
+            {#if !isOwner}
+                <div class="form-control">
+                    <label class="label" for="delete-password"><span class="label-text">비밀번호</span></label>
+                    <input type="password" id="delete-password" class="input input-bordered" class:input-error={errors.password} placeholder="글 작성 시 입력한 비밀번호" bind:value={password} />
+                    {#if errors.password}<div class="label"><span class="label-text-alt text-error">{errors.password}</span></div>{/if}
+                </div>
+            {/if}
             <div class="modal-action">
                 <button class="btn btn-ghost" onclick={() => { showDeleteModal = false; errors = {}; }}>취소</button>
                 <button class="btn btn-error" onclick={handleDelete} disabled={isSubmitting}>

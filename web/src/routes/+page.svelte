@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { goto } from '$app/navigation';
     import RaceCard from '$lib/components/RaceCard.svelte';
     import PostCard from '$lib/components/PostCard.svelte';
     import type { Race, Post } from '$lib/types';
@@ -11,6 +12,9 @@
     let recentPosts = $derived(data.recentPosts as Post[]);
     let sportCounts = $derived(data.sportCounts);
     let totalUpcoming = $derived(data.totalUpcoming as number);
+    let totalRaces = $derived(data.totalRaces as number);
+
+    let searchQuery = $state('');
 
     let appUrl = $derived(data.appUrl || 'https://www.endurohub.kr');
 
@@ -51,25 +55,41 @@
 </svelte:head>
 
 <!-- Hero Section -->
-<section class="relative bg-neutral">
-    <div class="container mx-auto px-4 py-3 md:py-4">
-        <div class="flex items-center justify-center md:justify-start md:relative">
-            <h1 class="hidden md:block text-xl font-bold text-neutral-content">
-                지구력 스포츠 대회 모음
-            </h1>
-            <div class="flex items-center gap-2 md:absolute md:left-1/2 md:-translate-x-1/2">
-                <a href="/calendar" class="btn btn-primary btn-xs md:btn-sm gap-1.5 cursor-pointer">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+<section class="relative bg-gradient-to-r from-neutral via-neutral/95 to-primary/20">
+    <div class="container mx-auto px-4 py-4 md:py-5">
+        <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-center md:justify-between">
+                <h1 class="hidden md:block text-xl font-bold text-neutral-content">
+                    국내 지구력 스포츠 대회, 한눈에
+                </h1>
+                <div class="flex items-center gap-2">
+                    <a href="/calendar" class="btn btn-primary btn-xs md:btn-sm gap-1.5 cursor-pointer">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        캘린더
+                    </a>
+                    <a href="/races" class="btn btn-ghost btn-xs md:btn-sm text-neutral-content hover:bg-neutral-content/10 cursor-pointer">
+                        전체 대회
+                    </a>
+                    <a href="/posts" class="btn btn-ghost btn-xs md:btn-sm text-neutral-content hover:bg-neutral-content/10 cursor-pointer">
+                        자유게시판
+                    </a>
+                </div>
+            </div>
+            <div class="flex justify-center">
+                <div class="relative w-full max-w-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-base-content/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
-                    캘린더
-                </a>
-                <a href="/races" class="btn btn-ghost btn-xs md:btn-sm text-neutral-content hover:bg-neutral-content/10 cursor-pointer">
-                    전체 대회
-                </a>
-                <a href="/posts" class="btn btn-ghost btn-xs md:btn-sm text-neutral-content hover:bg-neutral-content/10 cursor-pointer">
-                    자유게시판
-                </a>
+                    <input
+                        type="text"
+                        bind:value={searchQuery}
+                        onkeydown={(e) => { if (e.key === 'Enter' && searchQuery.trim()) goto(`/races?name=${encodeURIComponent(searchQuery.trim())}`); }}
+                        placeholder="대회명으로 검색..."
+                        class="input input-sm w-full pl-9 bg-neutral-content/10 border-neutral-content/20 text-neutral-content placeholder:text-neutral-content/40 focus:border-primary focus:outline-none"
+                    />
+                </div>
             </div>
         </div>
     </div>
@@ -225,6 +245,20 @@
         <p class="text-neutral-content/50 text-base mb-6">
             캘린더에서 대회 일정을 확인하고 계획을 세워보세요
         </p>
+        <div class="flex justify-center gap-6 md:gap-10 mb-8">
+            <div>
+                <p class="text-3xl font-bold text-primary">{totalUpcoming}</p>
+                <p class="text-sm text-neutral-content/50">접수중</p>
+            </div>
+            <div>
+                <p class="text-3xl font-bold text-neutral-content">{totalRaces}</p>
+                <p class="text-sm text-neutral-content/50">등록된 대회</p>
+            </div>
+            <div>
+                <p class="text-3xl font-bold text-neutral-content">5</p>
+                <p class="text-sm text-neutral-content/50">종목</p>
+            </div>
+        </div>
         <div class="flex flex-wrap gap-3 justify-center">
             <a href="/calendar" class="btn btn-primary btn-sm gap-2 cursor-pointer">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

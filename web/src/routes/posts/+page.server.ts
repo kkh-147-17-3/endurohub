@@ -8,6 +8,10 @@ export const load: PageServerLoad = async ({ url }) => {
 	if (page) params.page = page;
 	const search = url.searchParams.get('search');
 	if (search) params.search = search;
+	const category = url.searchParams.get('category');
+	if (category) params.category = category;
+	const sort = url.searchParams.get('sort');
+	if (sort) params.sort = sort;
 
 	const data = await apiFetch<PostListResponse>('/posts/', {}, params);
 	return data;

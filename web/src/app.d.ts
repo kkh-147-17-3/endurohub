@@ -10,6 +10,7 @@ declare global {
 		}
 		interface Locals {
 			clientIp: string;
+			authToken: string;
 		}
 		interface PageData {
 			appName: string;
@@ -19,6 +20,7 @@ declare global {
 			naverMapClientId: string;
 			googleAnalyticsId: string;
 			feedbackFormUrl: string;
+			user: import('$lib/types').AuthUser | null;
 		}
 		// interface PageState {}
 		// interface Platform {}

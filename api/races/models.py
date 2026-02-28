@@ -459,10 +459,20 @@ class Race(models.Model):
 
 
 class Review(models.Model):
+    DIFFICULTY_CHOICES = [
+        ('easy', '쉬움'),
+        ('normal', '보통'),
+        ('hard', '어려움'),
+    ]
+
     race = models.ForeignKey(Race, on_delete=models.CASCADE, related_name='reviews')
     nickname = models.CharField(max_length=50, null=True, blank=True)
     rating = models.SmallIntegerField()
     comment = models.CharField(max_length=200)
+    completion_time = models.CharField(max_length=20, null=True, blank=True)
+    course_difficulty = models.CharField(max_length=10, choices=DIFFICULTY_CHOICES, null=True, blank=True)
+    operation_satisfaction = models.SmallIntegerField(null=True, blank=True)
+    recommendation_tags = models.JSONField(null=True, blank=True)
     ip_hash = models.CharField(max_length=64)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

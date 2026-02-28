@@ -1,7 +1,9 @@
 <script lang="ts">
+    import { browser } from '$app/environment';
     import { enhance } from '$app/forms';
     import RaceTagSelector from '$lib/components/RaceTagSelector.svelte';
     import ImageUploader from '$lib/components/ImageUploader.svelte';
+    import RichEditor from '$lib/components/RichEditor.svelte';
 
     interface ImageFile {
         file?: File;
@@ -14,6 +16,8 @@
     let nickname = $state('');
     let title = $state('');
     let content = $state('');
+    let textLength = $state(0);
+    let category = $state('');
     let selectedRaceIds = $state<number[]>([]);
     let images = $state<ImageFile[]>([]);
 
@@ -21,6 +25,7 @@
         nickname = data.post.nickname === '익명' ? '' : data.post.nickname;
         title = data.post.title;
         content = data.post.content;
+        category = data.post.category || '';
         selectedRaceIds = data.post.taggedRaces?.map((r: { id: number }) => r.id) || [];
         images = (data.post.images || []).map((path: string, index: number) => ({
             preview: data.post.imageSrcs?.[index] || '',
@@ -134,6 +139,28 @@
                             />
                         </div>
 
+                        <!-- Category -->
+                        <div class="form-control w-full">
+                            <label class="label" for="category">
+                                <span class="label-text font-medium">카테고리</span>
+                                <span class="label-text-alt">선택사항</span>
+                            </label>
+                            <select
+                                id="category"
+                                name="category"
+                                class="select select-bordered w-full"
+                                bind:value={category}
+                            >
+                                <option value="">카테고리 선택 (선택사항)</option>
+                                <option value="free">자유</option>
+                                <option value="race_review">대회 후기</option>
+                                <option value="injury">부상/재활</option>
+                                <option value="gear">장비 추천</option>
+                                <option value="training">훈련 팁</option>
+                                <option value="question">질문</option>
+                            </select>
+                        </div>
+
                         <!-- Title -->
                         <div class="form-control w-full">
                             <label class="label" for="title">
@@ -160,20 +187,21 @@
 
                         <!-- Content -->
                         <div class="form-control w-full">
-                            <label class="label" for="content">
+                            <label class="label">
                                 <span class="label-text font-medium">내용 <span class="text-error">*</span></span>
-                                <span class="label-text-alt">{content.length}/10000</span>
                             </label>
-                            <textarea
-                                id="content"
-                                name="content"
-                                class="textarea textarea-bordered w-full min-h-[200px]"
-                                class:textarea-error={errors.content}
-                                placeholder="내용을 입력하세요"
-                                maxlength="10000"
-                                required
-                                bind:value={content}
-                            ></textarea>
+                            {#if browser}
+                                <RichEditor
+                                    bind:content
+                                    bind:textLength
+                                    maxLength={10000}
+                                    placeholder="내용을 입력하세요"
+                                    error={!!errors.content}
+                                />
+                            {:else}
+                                <div class="min-h-[200px] bg-base-200 rounded-lg animate-pulse"></div>
+                            {/if}
+                            <input type="hidden" name="content" value={content} />
                             {#if errors.content}
                                 <div class="label" role="alert">
                                     <span class="label-text-alt text-error">{errors.content}</span>

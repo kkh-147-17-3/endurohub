@@ -7,57 +7,60 @@ import type {
 	LikeToggleResponse, PostDeleteResponse, VerifyPasswordResponse
 } from '$lib/types';
 
-export const load: PageServerLoad = async ({ params, request }) => {
+export const load: PageServerLoad = async ({ params, request, locals }) => {
 	const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '';
-	const data = await apiFetch<PostDetailResponse>(`/posts/${params.id}/`, { clientIp });
+	const data = await apiFetch<PostDetailResponse>(`/posts/${params.id}/`, {
+		clientIp,
+		authToken: locals.authToken,
+	});
 	return data;
 };
 
 export const actions: Actions = {
-	comment: async ({ params, request }) => {
+	comment: async ({ params, request, locals }) => {
 		const formData = await request.formData();
 		const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '';
 		const body = {
 			nickname: (formData.get('nickname') as string) || '익명',
 			content: formData.get('content') as string,
-			password: formData.get('password') as string,
+			password: (formData.get('password') as string) || '',
 			parent_id: formData.get('parent_id') ? Number(formData.get('parent_id')) : null,
 		};
 
 		const result = await apiFetch<CommentCreateResponse | ApiErrors>(
 			`/posts/${params.id}/comments/`,
-			{ method: 'POST', body, clientIp }
+			{ method: 'POST', body, clientIp, authToken: locals.authToken }
 		);
 
 		if (isApiError(result)) return fail(400, { errors: result.errors });
 		return { success: true, comment: (result as CommentCreateResponse).comment };
 	},
 
-	updateComment: async ({ params, request }) => {
+	updateComment: async ({ params, request, locals }) => {
 		const formData = await request.formData();
 		const commentId = formData.get('comment_id') as string;
 		const body = {
 			content: formData.get('content') as string,
-			password: formData.get('password') as string,
+			password: (formData.get('password') as string) || '',
 		};
 
 		const result = await apiFetch<CommentUpdateResponse | ApiErrors>(
 			`/posts/${params.id}/comments/${commentId}/`,
-			{ method: 'PUT', body }
+			{ method: 'PUT', body, authToken: locals.authToken }
 		);
 
 		if (isApiError(result)) return fail(400, { errors: result.errors });
 		return { success: true, comment: (result as CommentUpdateResponse).comment };
 	},
 
-	deleteComment: async ({ params, request }) => {
+	deleteComment: async ({ params, request, locals }) => {
 		const formData = await request.formData();
 		const commentId = formData.get('comment_id') as string;
-		const body = { password: formData.get('password') as string };
+		const body = { password: (formData.get('password') as string) || '' };
 
 		const result = await apiFetch<CommentDeleteResponse | ApiErrors>(
 			`/posts/${params.id}/comments/${commentId}/`,
-			{ method: 'DELETE', body }
+			{ method: 'DELETE', body, authToken: locals.authToken }
 		);
 
 		if (isApiError(result)) return fail(400, { errors: result.errors });
@@ -75,26 +78,26 @@ export const actions: Actions = {
 		return result;
 	},
 
-	delete: async ({ params, request }) => {
+	delete: async ({ params, request, locals }) => {
 		const formData = await request.formData();
-		const body = { password: formData.get('password') as string };
+		const body = { password: (formData.get('password') as string) || '' };
 
 		const result = await apiFetch<PostDeleteResponse | ApiErrors>(
 			`/posts/${params.id}/`,
-			{ method: 'DELETE', body }
+			{ method: 'DELETE', body, authToken: locals.authToken }
 		);
 
 		if (isApiError(result)) return fail(400, { errors: result.errors });
 		redirect(303, '/posts');
 	},
 
-	verifyEdit: async ({ params, request }) => {
+	verifyEdit: async ({ params, request, locals }) => {
 		const formData = await request.formData();
-		const body = { password: formData.get('password') as string };
+		const body = { password: (formData.get('password') as string) || '' };
 
 		const result = await apiFetch<VerifyPasswordResponse | ApiErrors>(
 			`/posts/${params.id}/verify-password/`,
-			{ method: 'POST', body }
+			{ method: 'POST', body, authToken: locals.authToken }
 		);
 
 		if (isApiError(result)) return fail(400, { errors: result.errors });

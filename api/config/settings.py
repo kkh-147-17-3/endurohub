@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     'core',
     'races',
     'posts',
+    'accounts',
 ]
 
 MIDDLEWARE = [
@@ -101,6 +102,7 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PAGINATION_CLASS': None,
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'accounts.authentication.JWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
@@ -121,12 +123,32 @@ CORS_ALLOWED_ORIGINS = os.environ.get(
     'http://localhost:3000,http://localhost:5173'
 ).split(',')
 CORS_ALLOW_ALL_ORIGINS = DEBUG
+CORS_ALLOW_CREDENTIALS = True
 
 # Admin secret (shared with SvelteKit for isAdmin cookie)
 ADMIN_SECRET = os.environ.get('ADMIN_SECRET', '')
 
 # Crawler API key
 CRAWLER_API_KEY = os.environ.get('CRAWLER_API_KEY', '')
+
+# OAuth providers
+KAKAO_CLIENT_ID = os.environ.get('KAKAO_CLIENT_ID', '')
+KAKAO_CLIENT_SECRET = os.environ.get('KAKAO_CLIENT_SECRET', '')
+NAVER_CLIENT_ID = os.environ.get('NAVER_CLIENT_ID', '')
+NAVER_CLIENT_SECRET = os.environ.get('NAVER_CLIENT_SECRET', '')
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')
+
+# Email
+EMAIL_BACKEND = os.environ.get(
+    'EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend'
+)
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@endurohub.kr')
 
 # Slack
 SLACK_BOT_USER_OAUTH_TOKEN = os.environ.get('SLACK_BOT_USER_OAUTH_TOKEN', '')

@@ -6,5 +6,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const realIp = event.request.headers.get('x-real-ip');
 	event.locals.clientIp = forwardedFor?.split(',')[0]?.trim() || realIp || event.getClientAddress();
 
+	// Extract auth token from cookie
+	event.locals.authToken = event.cookies.get('auth_token') || '';
+
 	return resolve(event);
 };

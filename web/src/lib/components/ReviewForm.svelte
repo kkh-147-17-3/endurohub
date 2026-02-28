@@ -15,9 +15,26 @@
 
     let rating = $state(0);
     let comment = $state('');
+    let completionTime = $state('');
+    let courseDifficulty = $state('');
+    let operationSatisfaction = $state(0);
+    let selectedTags = $state<string[]>([]);
     let isSubmitting = $state(false);
 
     let commentLength = $derived(comment.length);
+
+    const RECOMMENDATION_TAGS = [
+        '초보자 추천', '경치 좋은', '잘 운영된', '기념품 좋은',
+        '코스 좋은', '접근성 좋은', '다시 참가하고 싶은',
+    ];
+
+    function toggleTag(tag: string) {
+        if (selectedTags.includes(tag)) {
+            selectedTags = selectedTags.filter(t => t !== tag);
+        } else {
+            selectedTags = [...selectedTags, tag];
+        }
+    }
 </script>
 
 <div class="card bg-base-100 shadow-xl">
@@ -41,7 +58,7 @@
         {:else}
             <form
                 method="POST"
-                action="?/createReview"
+                action="?/review"
                 use:enhance={() => {
                     isSubmitting = true;
                     return async ({ update }) => {
@@ -97,6 +114,65 @@
                             <span class="label-text-alt text-error">{errors.comment[0]}</span>
                         </div>
                     {/if}
+                </div>
+
+                <!-- Completion Time -->
+                <div class="form-control">
+                    <label class="label" for="completion_time">
+                        <span class="label-text">완주 기록 (선택)</span>
+                    </label>
+                    <input
+                        type="text"
+                        id="completion_time"
+                        name="completion_time"
+                        bind:value={completionTime}
+                        placeholder="예: 4:30:00"
+                        maxlength="20"
+                        class="input input-bordered w-full"
+                    />
+                </div>
+
+                <!-- Course Difficulty -->
+                <div class="form-control">
+                    <div class="label">
+                        <span class="label-text">코스 난이도 (선택)</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" class="btn btn-sm flex-1 {courseDifficulty === 'easy' ? 'btn-success' : 'btn-outline'}" onclick={() => courseDifficulty = courseDifficulty === 'easy' ? '' : 'easy'}>쉬움</button>
+                        <button type="button" class="btn btn-sm flex-1 {courseDifficulty === 'normal' ? 'btn-warning' : 'btn-outline'}" onclick={() => courseDifficulty = courseDifficulty === 'normal' ? '' : 'normal'}>보통</button>
+                        <button type="button" class="btn btn-sm flex-1 {courseDifficulty === 'hard' ? 'btn-error' : 'btn-outline'}" onclick={() => courseDifficulty = courseDifficulty === 'hard' ? '' : 'hard'}>어려움</button>
+                    </div>
+                    <input type="hidden" name="course_difficulty" value={courseDifficulty} />
+                </div>
+
+                <!-- Operation Satisfaction -->
+                <div class="form-control">
+                    <div class="label">
+                        <span class="label-text">운영 만족도 (선택)</span>
+                    </div>
+                    <StarRating bind:rating={operationSatisfaction} onchange={(value) => operationSatisfaction = value} size="md" />
+                    <input type="hidden" name="operation_satisfaction" value={operationSatisfaction || ''} />
+                </div>
+
+                <!-- Recommendation Tags -->
+                <div class="form-control">
+                    <div class="label">
+                        <span class="label-text">추천 태그 (선택)</span>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        {#each RECOMMENDATION_TAGS as tag}
+                            <button
+                                type="button"
+                                class="badge badge-lg cursor-pointer {selectedTags.includes(tag) ? 'badge-primary' : 'badge-outline'}"
+                                onclick={() => toggleTag(tag)}
+                            >
+                                {tag}
+                            </button>
+                        {/each}
+                    </div>
+                    {#each selectedTags as tag}
+                        <input type="hidden" name="recommendation_tags" value={tag} />
+                    {/each}
                 </div>
 
                 {#if errors.review}
