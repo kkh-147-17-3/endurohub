@@ -142,7 +142,7 @@
 
                             <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                             <div
-                                class="h-[100px] md:h-[130px] rounded border transition-colors cursor-pointer md:cursor-default overflow-hidden {isToday ? 'bg-primary/5 border-primary' : hasRaces ? 'bg-base-100 border-base-300 hover:border-base-400' : 'bg-base-100 border-base-200'}"
+                                class="h-[100px] md:h-[130px] flex flex-col rounded border transition-colors cursor-pointer md:cursor-default overflow-hidden {isToday ? 'bg-primary/5 border-primary' : hasRaces ? 'bg-base-100 border-base-300 hover:border-base-400' : 'bg-base-100 border-base-200'}"
                                 onclick={() => hasRaces && openDayModal(`${month}월 ${day}일`, dayRaces)}
                                 onkeydown={(e) => { if (hasRaces && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openDayModal(`${month}월 ${day}일`, dayRaces); } }}
                                 tabindex={hasRaces ? 0 : undefined}
@@ -155,7 +155,7 @@
                                         <span class="text-[10px] md:text-xs text-base-content/40">{dayRaces.length}</span>
                                     {/if}
                                 </div>
-                                <div class="px-0.5 pb-0.5 space-y-0.5">
+                                <div class="px-0.5 space-y-0.5 flex-1 min-h-0">
                                     {#each dayRaces.slice(0, 2) as race}
                                         {@const colors = getColors(race.sport)}
                                         <div>
@@ -164,8 +164,10 @@
                                             </a>
                                         </div>
                                     {/each}
-                                    {#if dayRaces.length > 2}
-                                        {@const dropdownPosition = dayOfWeek <= 3 ? 'dropdown-start' : 'dropdown-end'}
+                                </div>
+                                {#if dayRaces.length > 2}
+                                    {@const dropdownPosition = dayOfWeek <= 3 ? 'dropdown-start' : 'dropdown-end'}
+                                    <div class="px-0.5 pb-0.5">
                                         <div class="dropdown dropdown-top {dropdownPosition} w-full">
                                             <div tabindex="0" role="button" class="text-xs text-center py-0.5 text-base-content/40 hover:text-primary hover:bg-primary/10 rounded cursor-pointer transition-colors">
                                                 +{dayRaces.length - 2}개 더보기
@@ -186,8 +188,8 @@
                                                 </div>
                                             </div>
                                         </div>
-                                    {/if}
-                                </div>
+                                    </div>
+                                {/if}
                             </div>
                         {/each}
                     </div>
