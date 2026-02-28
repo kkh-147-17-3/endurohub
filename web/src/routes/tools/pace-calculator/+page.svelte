@@ -84,14 +84,14 @@
 </script>
 
 <svelte:head>
-    <title>마라톤 페이스 계산기 - EnduroHub</title>
+    <title>마라톤 페이스 계산기 - 엔듀로허브</title>
     <meta name="description" content="마라톤 페이스 계산기 - 목표 시간에 맞는 km당 페이스, 평균 속도, 구간별 스플릿을 계산하세요. 5km, 10km, 하프마라톤, 풀마라톤 지원." />
-    <meta property="og:title" content="마라톤 페이스 계산기 - EnduroHub" />
+    <meta property="og:title" content="마라톤 페이스 계산기 - 엔듀로허브" />
     <meta property="og:description" content="목표 시간에 맞는 km당 페이스, 평균 속도, 구간별 스플릿을 계산하세요." />
     {@html `<script type="application/ld+json">${JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'WebApplication',
-        'name': '마라톤 페이스 계산기 - EnduroHub',
+        'name': '마라톤 페이스 계산기 - 엔듀로허브',
         'description': '마라톤 페이스 계산기 - 목표 시간으로 km당 페이스를 계산하고, 구간별 스플릿 테이블을 확인하세요.',
         'applicationCategory': 'SportsApplication',
         'operatingSystem': 'Web',

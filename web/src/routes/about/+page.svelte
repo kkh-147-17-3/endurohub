@@ -1,19 +1,19 @@
 <svelte:head>
-    <title>소개 - EnduroHub</title>
-    <meta name="description" content="EnduroHub는 국내 마라톤, 수영, 자전거, 철인3종, 트레일러닝 대회 정보를 제공하는 플랫폼입니다." />
-    <meta property="og:title" content="소개 - EnduroHub" />
-    <meta property="og:description" content="EnduroHub는 국내 마라톤, 수영, 자전거, 철인3종, 트레일러닝 대회 정보를 제공하는 플랫폼입니다." />
+    <title>소개 - 엔듀로허브</title>
+    <meta name="description" content="엔듀로허브는 국내 마라톤, 수영, 자전거, 철인3종, 트레일러닝 대회 정보를 제공하는 플랫폼입니다." />
+    <meta property="og:title" content="소개 - 엔듀로허브" />
+    <meta property="og:description" content="엔듀로허브는 국내 마라톤, 수영, 자전거, 철인3종, 트레일러닝 대회 정보를 제공하는 플랫폼입니다." />
 </svelte:head>
 
 <div class="container mx-auto px-4 py-8">
     <div class="max-w-3xl mx-auto">
-        <h1 class="text-3xl font-bold mb-8 text-center">EnduroHub 소개</h1>
+        <h1 class="text-3xl font-bold mb-8 text-center">엔듀로허브 소개</h1>
 
         <div class="card bg-base-100 shadow-xl">
             <div class="card-body prose max-w-none">
                 <h2>서비스 소개</h2>
                 <p>
-                    EnduroHub는 국내에서 개최되는 마라톤, 수영, 자전거, 철인3종, 트레일러닝 대회 정보를 한곳에서 확인할 수 있는 플랫폼입니다.
+                    엔듀로허브는 국내에서 개최되는 마라톤, 수영, 자전거, 철인3종, 트레일러닝 대회 정보를 한곳에서 확인할 수 있는 플랫폼입니다.
                 </p>
 
                 <h2>제공 기능</h2>

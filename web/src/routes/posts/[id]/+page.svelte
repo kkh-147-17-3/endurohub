@@ -159,7 +159,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <svelte:head>
-    <title>{post.title} - EnduroHub</title>
+    <title>{post.title} - 엔듀로허브</title>
     <meta name="description" content={post.content.substring(0, 160)} />
     <meta property="og:type" content="article" />
     <meta property="og:title" content={post.title} />

@@ -20,9 +20,9 @@
 </script>
 
 <svelte:head>
-    <title>{title} - EnduroHub</title>
+    <title>{title} - 엔듀로허브</title>
     <meta name="description" content={metaDescription} />
-    <meta property="og:title" content="{title} - EnduroHub" />
+    <meta property="og:title" content="{title} - 엔듀로허브" />
     <meta property="og:description" content={metaDescription} />
 </svelte:head>
 

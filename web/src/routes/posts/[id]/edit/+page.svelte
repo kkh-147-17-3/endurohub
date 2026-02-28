@@ -60,7 +60,7 @@
 </script>
 
 <svelte:head>
-    <title>글 수정 - EnduroHub</title>
+    <title>글 수정 - 엔듀로허브</title>
     <meta name="description" content="자유게시판 글을 수정합니다." />
     <meta name="robots" content="noindex" />
 </svelte:head>

@@ -115,14 +115,14 @@
 </script>
 
 <svelte:head>
-    <title>러닝 용어 사전 - EnduroHub</title>
+    <title>러닝 용어 사전 - 엔듀로허브</title>
     <meta name="description" content="마라톤 러닝 용어 사전 - LSD, 인터벌, 템포런, VO2max, 네거티브 스플릿, 카보로딩 등 러닝 용어를 초보자도 이해하기 쉽게 설명합니다." />
-    <meta property="og:title" content="러닝 용어 사전 - EnduroHub" />
+    <meta property="og:title" content="러닝 용어 사전 - 엔듀로허브" />
     <meta property="og:description" content="LSD, 인터벌, 템포런, VO2max, 네거티브 스플릿 등 러닝 용어를 쉽게 알아보세요." />
     {@html `<script type="application/ld+json">${JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'WebPage',
-        'name': '러닝 용어 사전 - EnduroHub',
+        'name': '러닝 용어 사전 - 엔듀로허브',
         'description': '마라톤, 러닝 용어 사전 - LSD, 인터벌, 템포런, VO2max, 네거티브 스플릿 등 러닝 용어를 쉽게 알아보세요.',
     })}</script>`}
     {@html `<script type="application/ld+json">${JSON.stringify(faqSchema)}</script>`}

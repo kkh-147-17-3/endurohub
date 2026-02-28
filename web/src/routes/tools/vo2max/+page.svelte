@@ -31,14 +31,14 @@
 </script>
 
 <svelte:head>
-    <title>VO2max 계산기 - EnduroHub</title>
+    <title>VO2max 계산기 - 엔듀로허브</title>
     <meta name="description" content="VO2max 계산기 - 대회 기록으로 최대산소섭취량을 추정하고 체력 등급과 훈련 페이스를 확인하세요. Jack Daniels VDOT 공식 기반." />
-    <meta property="og:title" content="VO2max 계산기 - EnduroHub" />
+    <meta property="og:title" content="VO2max 계산기 - 엔듀로허브" />
     <meta property="og:description" content="대회 기록으로 최대산소섭취량을 추정하고 체력 등급을 확인하세요." />
     {@html `<script type="application/ld+json">${JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'WebApplication',
-        'name': 'VO2max 계산기 - EnduroHub',
+        'name': 'VO2max 계산기 - 엔듀로허브',
         'description': '대회 기록으로 VO2max(최대산소섭취량)를 추정하고 체력 등급을 확인하세요.',
         'applicationCategory': 'SportsApplication',
         'operatingSystem': 'Web',

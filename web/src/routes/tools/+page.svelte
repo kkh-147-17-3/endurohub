@@ -59,14 +59,14 @@
 </script>
 
 <svelte:head>
-    <title>러닝 도구 모음 - EnduroHub</title>
+    <title>러닝 도구 모음 - 엔듀로허브</title>
     <meta name="description" content="마라톤 페이스 계산기, 훈련 플랜 생성기, VO2max 계산기, 대회 기록 예측기, 러닝 용어 사전 등 러너를 위한 무료 도구 모음." />
-    <meta property="og:title" content="러닝 도구 모음 - EnduroHub" />
+    <meta property="og:title" content="러닝 도구 모음 - 엔듀로허브" />
     <meta property="og:description" content="마라톤 페이스 계산기, 훈련 플랜 생성기, VO2max 계산기, 대회 기록 예측기, 러닝 용어 사전 등 러너를 위한 무료 도구 모음." />
     {@html `<script type="application/ld+json">${JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'CollectionPage',
-        'name': '러닝 도구 모음 - EnduroHub',
+        'name': '러닝 도구 모음 - 엔듀로허브',
         'description': '마라톤 페이스 계산기, 훈련 플랜, VO2max 계산기, 대회 기록 예측기 등 러너를 위한 무료 도구 모음.',
     })}</script>`}
 </svelte:head>

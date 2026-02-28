@@ -143,9 +143,9 @@
 </script>
 
 <svelte:head>
-    <title>{year}년 대회 일정 - EnduroHub</title>
+    <title>{year}년 대회 일정 - 엔듀로허브</title>
     <meta name="description" content="{year}년 국내 마라톤, 수영, 자전거, 철인3종, 트레일러닝 대회 일정을 월별로 확인하세요. 총 {totalCount}개 대회" />
-    <meta property="og:title" content="{year}년 대회 일정 - EnduroHub" />
+    <meta property="og:title" content="{year}년 대회 일정 - 엔듀로허브" />
     <meta property="og:description" content="{year}년 국내 마라톤, 수영, 자전거, 철인3종, 트레일러닝 대회 일정을 월별로 확인하세요. 총 {totalCount}개 대회" />
 </svelte:head>
 

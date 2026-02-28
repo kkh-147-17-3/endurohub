@@ -28,14 +28,14 @@
 </script>
 
 <svelte:head>
-    <title>대회 기록 예측기 - EnduroHub</title>
+    <title>대회 기록 예측기 - 엔듀로허브</title>
     <meta name="description" content="마라톤 기록 예측기 - 10km 기록으로 하프마라톤, 풀마라톤 예상 기록을 계산하세요. Riegel 공식 기반 과학적 예측." />
-    <meta property="og:title" content="대회 기록 예측기 - EnduroHub" />
+    <meta property="og:title" content="대회 기록 예측기 - 엔듀로허브" />
     <meta property="og:description" content="10km 기록으로 하프마라톤, 풀마라톤 예상 기록을 계산하세요." />
     {@html `<script type="application/ld+json">${JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'WebApplication',
-        'name': '대회 기록 예측기 - EnduroHub',
+        'name': '대회 기록 예측기 - 엔듀로허브',
         'description': '마라톤 기록 예측기 - 현재 대회 기록으로 다른 거리의 예상 완주 시간을 계산하세요.',
         'applicationCategory': 'SportsApplication',
         'operatingSystem': 'Web',

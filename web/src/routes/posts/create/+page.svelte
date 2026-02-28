@@ -61,7 +61,7 @@
 </script>
 
 <svelte:head>
-    <title>글쓰기 - EnduroHub</title>
+    <title>글쓰기 - 엔듀로허브</title>
     <meta name="description" content="자유게시판에 글을 작성합니다." />
     <meta name="robots" content="noindex" />
 </svelte:head>

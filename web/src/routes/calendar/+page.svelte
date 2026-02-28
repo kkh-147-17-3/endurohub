@@ -89,9 +89,9 @@
 </script>
 
 <svelte:head>
-    <title>{year}년 {month}월 대회 캘린더 - EnduroHub</title>
+    <title>{year}년 {month}월 대회 캘린더 - 엔듀로허브</title>
     <meta name="description" content="{year}년 {month}월 마라톤, 수영, 자전거, 철인3종, 트레일러닝 대회 일정" />
-    <meta property="og:title" content="{year}년 {month}월 대회 캘린더 - EnduroHub" />
+    <meta property="og:title" content="{year}년 {month}월 대회 캘린더 - 엔듀로허브" />
     <meta property="og:description" content="{year}년 {month}월 마라톤, 수영, 자전거, 철인3종, 트레일러닝 대회 일정" />
 </svelte:head>
 

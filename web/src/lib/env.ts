@@ -23,7 +23,7 @@ export const FEEDBACK_FORM_URL = publicEnv.PUBLIC_FEEDBACK_FORM_URL || '';
 export const APP_URL = publicEnv.PUBLIC_APP_URL || 'https://www.endurohub.kr';
 
 /** App name */
-export const APP_NAME = publicEnv.PUBLIC_APP_NAME || 'EnduroHub';
+export const APP_NAME = publicEnv.PUBLIC_APP_NAME || '엔듀로허브';
 
 /** Admin secret token for admin UI features (compared against admin_token cookie) */
 export const ADMIN_SECRET = env.ADMIN_SECRET || '';

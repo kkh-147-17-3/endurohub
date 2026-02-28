@@ -211,7 +211,7 @@
 <svelte:window onkeydown={handleKeydown} />
 
 <svelte:head>
-    <title>{race.title} | {race.raceDate ? formatDateFull(race.raceDate) : ''} {race.sportLabel} - EnduroHub</title>
+    <title>{race.title} | {race.raceDate ? formatDateFull(race.raceDate) : ''} {race.sportLabel} - 엔듀로허브</title>
     <meta name="description" content={metaDesc()} />
     <meta property="og:title" content={race.title} />
     <meta property="og:description" content={metaDesc()} />

@@ -23,9 +23,9 @@
 </script>
 
 <svelte:head>
-    <title>자유게시판 - EnduroHub</title>
+    <title>자유게시판 - 엔듀로허브</title>
     <meta name="description" content="대회 후기, 훈련 이야기, 자유로운 이야기를 나눠보세요." />
-    <meta property="og:title" content="자유게시판 - EnduroHub" />
+    <meta property="og:title" content="자유게시판 - 엔듀로허브" />
     <meta property="og:description" content="대회 후기, 훈련 이야기, 자유로운 이야기를 나눠보세요." />
 </svelte:head>
 

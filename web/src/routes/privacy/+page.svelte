@@ -4,10 +4,10 @@
 </script>
 
 <svelte:head>
-    <title>개인정보처리방침 - EnduroHub</title>
-    <meta name="description" content="EnduroHub의 개인정보처리방침" />
-    <meta property="og:title" content="개인정보처리방침 - EnduroHub" />
-    <meta property="og:description" content="EnduroHub의 개인정보처리방침" />
+    <title>개인정보처리방침 - 엔듀로허브</title>
+    <meta name="description" content="엔듀로허브의 개인정보처리방침" />
+    <meta property="og:title" content="개인정보처리방침 - 엔듀로허브" />
+    <meta property="og:description" content="엔듀로허브의 개인정보처리방침" />
     <meta name="robots" content="noindex" />
 </svelte:head>
 
@@ -20,7 +20,7 @@
                 <p class="text-sm text-base-content/70">시행일: {dateStr}</p>
 
                 <h2>1. 개인정보의 처리 목적</h2>
-                <p>EnduroHub(이하 "서비스")는 다음의 목적을 위하여 개인정보를 처리합니다.</p>
+                <p>엔듀로허브(이하 "서비스")는 다음의 목적을 위하여 개인정보를 처리합니다.</p>
                 <ul>
                     <li>서비스 제공 및 운영</li>
                     <li>푸시 알림 서비스 제공</li>

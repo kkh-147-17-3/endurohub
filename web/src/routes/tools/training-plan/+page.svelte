@@ -65,14 +65,14 @@
 </script>
 
 <svelte:head>
-    <title>마라톤 훈련 플랜 - EnduroHub</title>
+    <title>마라톤 훈련 플랜 - 엔듀로허브</title>
     <meta name="description" content="마라톤 훈련 플랜 생성기 - 목표 시간에 맞는 12주/16주 훈련 계획을 무료로 만들어 보세요. 풀마라톤, 하프마라톤 서브3, 서브4 훈련 지원." />
-    <meta property="og:title" content="마라톤 훈련 플랜 - EnduroHub" />
+    <meta property="og:title" content="마라톤 훈련 플랜 - 엔듀로허브" />
     <meta property="og:description" content="목표 시간에 맞는 12주/16주 훈련 계획을 무료로 만들어 보세요." />
     {@html `<script type="application/ld+json">${JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'WebApplication',
-        'name': '마라톤 훈련 플랜 - EnduroHub',
+        'name': '마라톤 훈련 플랜 - 엔듀로허브',
         'description': '마라톤 훈련 플랜 생성기 - 목표 시간에 맞는 12주/16주 훈련 계획을 무료로 만들어 보세요.',
         'applicationCategory': 'SportsApplication',
         'operatingSystem': 'Web',
