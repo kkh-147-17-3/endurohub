@@ -129,7 +129,7 @@
                         {/each}
 
                         {#each Array(firstDayOfMonth) as _}
-                            <div class="h-[120px] md:h-[130px] bg-base-200/30 rounded"></div>
+                            <div class="h-[90px] md:h-[130px] bg-base-200/30 rounded"></div>
                         {/each}
 
                         {#each Array(daysInMonth) as _, i}
@@ -142,7 +142,7 @@
 
                             <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                             <div
-                                class="h-[120px] md:h-[130px] flex flex-col rounded border transition-colors cursor-pointer md:cursor-default overflow-hidden {isToday ? 'bg-primary/5 border-primary' : hasRaces ? 'bg-base-100 border-base-300 hover:border-base-400' : 'bg-base-100 border-base-200'}"
+                                class="h-[90px] md:h-[130px] flex flex-col rounded border transition-colors cursor-pointer md:cursor-default overflow-hidden {isToday ? 'bg-primary/5 border-primary' : hasRaces ? 'bg-base-100 border-base-300 hover:border-base-400' : 'bg-base-100 border-base-200'}"
                                 onclick={() => hasRaces && openDayModal(`${month}월 ${day}일`, dayRaces)}
                                 onkeydown={(e) => { if (hasRaces && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openDayModal(`${month}월 ${day}일`, dayRaces); } }}
                                 tabindex={hasRaces ? 0 : undefined}
@@ -151,7 +151,9 @@
                             >
                                 <div class="flex items-center justify-between p-0.5 md:p-1">
                                     <span class="text-sm md:text-base font-medium {isToday ? 'bg-primary text-primary-content w-5 h-5 md:w-6 md:h-6 rounded flex items-center justify-center text-xs' : ''} {dayOfWeek === 0 && !isToday ? 'text-error' : ''} {dayOfWeek === 6 && !isToday ? 'text-info' : ''}">{day}</span>
-                                    {#if hasRaces}
+                                    {#if dayRaces.length > 2}
+                                        <span class="text-[10px] md:text-xs text-base-content/40">+{dayRaces.length - 2}</span>
+                                    {:else if hasRaces}
                                         <span class="text-[10px] md:text-xs text-base-content/40">{dayRaces.length}</span>
                                     {/if}
                                 </div>
@@ -167,11 +169,8 @@
                                 </div>
                                 {#if dayRaces.length > 2}
                                     {@const dropdownPosition = dayOfWeek <= 3 ? 'dropdown-start' : 'dropdown-end'}
-                                    <div class="px-0.5 pb-0.5">
-                                        <div class="text-xs text-center py-0.5 text-base-content/40 md:hidden">
-                                            +{dayRaces.length - 2}개
-                                        </div>
-                                        <div class="dropdown dropdown-top {dropdownPosition} w-full hidden md:block">
+                                    <div class="hidden md:block px-0.5 pb-0.5">
+                                        <div class="dropdown dropdown-top {dropdownPosition} w-full">
                                             <div tabindex="0" role="button" class="text-xs text-center py-0.5 text-base-content/40 hover:text-primary hover:bg-primary/10 rounded cursor-pointer transition-colors">
                                                 +{dayRaces.length - 2}개 더보기
                                             </div>
