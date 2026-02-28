@@ -7,7 +7,7 @@ services:
       - api_static:/app/staticfiles
       - api_media:/app/storage
     environment:
-      DATABASE_HOST: db
+      DATABASE_HOST: ${DATABASE_HOST:-host.docker.internal}
       DATABASE_PORT: "5432"
       DATABASE_NAME: ${DATABASE_NAME:-endurohub}
       DATABASE_USER: ${DATABASE_USER:-enduro}
@@ -20,6 +20,8 @@ services:
       ADMIN_SECRET: ${ADMIN_SECRET:-}
     ports:
       - "8000:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   web:
     build:
@@ -40,6 +42,8 @@ services:
     ports:
       - "3000:3000"
       - "5173:5173"
+    depends_on:
+      - api
 
   nginx:
     profiles:
