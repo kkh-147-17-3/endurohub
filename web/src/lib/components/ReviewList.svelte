@@ -1,6 +1,5 @@
 <script lang="ts">
     import type { Review, ReviewStats, Post } from '$lib/types';
-    import Avatar from './Avatar.svelte';
     import StarRating from './StarRating.svelte';
 
     interface Props {
@@ -22,23 +21,13 @@
 
 <div class="card bg-base-100 shadow-xl">
     <div class="card-body">
-        <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center gap-2">
-                <h3 class="card-title text-lg">참가자 리뷰</h3>
-                {#if stats.count > 0}
-                    <div class="flex items-center gap-1.5">
-                        <StarRating rating={Math.round(stats.average)} readonly size="sm" />
-                        <span class="text-sm text-base-content/70">
-                            {stats.average.toFixed(1)} ({stats.count}개)
-                        </span>
-                    </div>
-                {/if}
-            </div>
-            {#if canReview && onwriteReview && reviews.length > 0}
-                <button onclick={onwriteReview} class="btn btn-primary btn-sm cursor-pointer">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                    리뷰 작성
-                </button>
+        <div class="flex items-center gap-2 mb-4">
+            <h3 class="card-title text-lg shrink-0">참가자 리뷰</h3>
+            {#if stats.count > 0}
+                <StarRating rating={Math.round(stats.average)} readonly size="sm" />
+                <span class="text-sm text-base-content/70">
+                    {stats.average.toFixed(1)} ({stats.count}개)
+                </span>
             {/if}
         </div>
 
@@ -75,7 +64,6 @@
                     <div class="border-b border-base-200 pb-4 last:border-b-0 last:pb-0">
                         <div class="flex items-start justify-between mb-2">
                             <div class="flex items-center gap-2">
-                                <Avatar nickname={review.nickname} size="sm" />
                                 <span class="font-medium">{review.nickname}</span>
                                 <StarRating rating={review.rating} readonly size="sm" />
                             </div>
@@ -92,18 +80,18 @@
                                 {/if}
                                 {#if review.completionTime}
                                     <span class="badge badge-sm badge-outline">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                         {review.completionTime}
                                     </span>
                                 {/if}
                                 {#if review.operationSatisfaction}
-                                    <span class="text-xs text-base-content/60 inline-flex items-center gap-1">운영 <StarRating rating={review.operationSatisfaction} readonly size="sm" /></span>
+                                    <span class="text-sm text-base-content/60 inline-flex items-center gap-1">운영 <StarRating rating={review.operationSatisfaction} readonly size="sm" /></span>
                                 {/if}
                             </div>
                             {#if review.recommendationTags && review.recommendationTags.length > 0}
-                                <div class="flex flex-wrap gap-1 mt-1.5">
+                                <div class="flex flex-wrap gap-1.5 mt-2">
                                     {#each review.recommendationTags as tag}
-                                        <span class="badge badge-xs badge-primary badge-outline">{tag}</span>
+                                        <span class="badge badge-sm badge-primary badge-outline">{tag}</span>
                                     {/each}
                                 </div>
                             {/if}
