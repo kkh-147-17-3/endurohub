@@ -1,5 +1,7 @@
 @import 'tailwindcss';
-@plugin 'daisyui';
+@plugin "daisyui" {
+    themes: light --default, dark --prefersdark;
+}
 
 @theme {
     --font-sans: 'Noto Sans KR', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
@@ -48,11 +50,11 @@
     border-radius: 9999px !important;
 }
 
-/* Handle: white circle + primary border + shadow */
+/* Handle: circle + primary border + shadow */
 .month-range-slider .rangeNub {
     border-radius: 50% !important;
     transform: none !important;
-    background-color: white !important;
+    background-color: var(--color-base-100) !important;
     border: 2.5px solid var(--color-primary) !important;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15) !important;
     transition: box-shadow 0.2s ease-out, border-color 0.2s ease-out !important;

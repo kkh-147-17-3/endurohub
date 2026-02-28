@@ -16,15 +16,15 @@
     let otherTools = $derived(tools.filter(t => t.key !== current));
 </script>
 
-<div class="card bg-slate-900 text-white">
+<div class="card bg-neutral text-neutral-content">
     <div class="card-body">
-        <h2 class="font-semibold text-sm uppercase tracking-wide text-white/50 mb-3">다른 도구</h2>
+        <h2 class="font-semibold text-sm uppercase tracking-wide text-neutral-content/50 mb-3">다른 도구</h2>
         <ul class="space-y-1">
             {#each otherTools as tool (tool.key)}
                 <li>
                     <a
                         href={tool.href}
-                        class="flex items-center gap-3 px-3 py-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 text-sm cursor-pointer transition-all duration-200"
+                        class="flex items-center gap-3 px-3 py-2 rounded-lg text-neutral-content/70 hover:text-neutral-content hover:bg-neutral-content/10 text-sm cursor-pointer transition-all duration-200"
                     >
                         {#if tool.icon === 'clock'}
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>

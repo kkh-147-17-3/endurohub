@@ -3,6 +3,8 @@
     import { page } from '$app/stores';
     import { navigating } from '$app/stores';
     import { afterNavigate } from '$app/navigation';
+    import { onMount } from 'svelte';
+    import { getTheme, toggleTheme, type Theme } from '$lib/theme';
 
     let { data, children } = $props();
 
@@ -11,6 +13,16 @@
     let googleAnalyticsId = $derived(data.googleAnalyticsId);
     let kakaoJsKey = $derived(data.kakaoJsKey);
     let currentPath = $derived($page.url.pathname);
+
+    let theme = $state<Theme>('light');
+
+    onMount(() => {
+        theme = getTheme();
+    });
+
+    function handleToggleTheme() {
+        theme = toggleTheme();
+    }
 
     afterNavigate(() => {
         if (googleAnalyticsId && typeof gtag === 'function') {
@@ -160,7 +172,22 @@
         </div>
 
         <!-- CTA -->
-        <div class="navbar-end">
+        <div class="navbar-end gap-2">
+            <button
+                onclick={handleToggleTheme}
+                class="btn btn-ghost btn-sm btn-square cursor-pointer"
+                aria-label={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
+            >
+                {#if theme === 'dark'}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                {:else}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                    </svg>
+                {/if}
+            </button>
             <a href="/races" class="btn btn-primary cursor-pointer">
                 대회 찾기
             </a>
@@ -179,7 +206,7 @@
 </main>
 
 <!-- Footer -->
-<footer class="bg-slate-900 text-white">
+<footer class="bg-neutral text-neutral-content">
     <div class="container mx-auto px-4">
         <div class="py-10 grid grid-cols-1 md:grid-cols-4 gap-8">
             <!-- Brand -->
@@ -190,7 +217,7 @@
                     </svg>
                     <span><span class="text-primary">Enduro</span>Hub</span>
                 </a>
-                <p class="mt-3 text-slate-400 text-sm max-w-md">
+                <p class="mt-3 text-neutral-content/60 text-sm max-w-md">
                     국내 마라톤, 수영, 자전거, 철인3종, 트레일러닝 대회 정보를 한곳에서 확인하세요.
                 </p>
             </div>
@@ -199,18 +226,18 @@
             <div>
                 <h3 class="font-semibold text-sm mb-3">바로가기</h3>
                 <ul class="space-y-2 text-sm">
-                    <li><a href="/races" class="text-slate-400 hover:text-white cursor-pointer">전체 대회</a></li>
-                    <li><a href="/calendar" class="text-slate-400 hover:text-white cursor-pointer">캘린더</a></li>
-                    <li><a href="/running" class="text-slate-400 hover:text-white cursor-pointer">마라톤</a></li>
-                    <li><a href="/swimming" class="text-slate-400 hover:text-white cursor-pointer">수영</a></li>
-                    <li><a href="/cycling" class="text-slate-400 hover:text-white cursor-pointer">자전거</a></li>
-                    <li><a href="/triathlon" class="text-slate-400 hover:text-white cursor-pointer">철인3종</a></li>
-                    <li><a href="/trail-running" class="text-slate-400 hover:text-white cursor-pointer">트레일러닝</a></li>
-                    <li><a href="/tools/pace-calculator" class="text-slate-400 hover:text-white cursor-pointer">페이스 계산기</a></li>
-                    <li><a href="/tools/training-plan" class="text-slate-400 hover:text-white cursor-pointer">훈련 플랜</a></li>
-                    <li><a href="/tools/vo2max" class="text-slate-400 hover:text-white cursor-pointer">VO2max</a></li>
-                    <li><a href="/tools/race-predictor" class="text-slate-400 hover:text-white cursor-pointer">기록 예측</a></li>
-                    <li><a href="/running-terms" class="text-slate-400 hover:text-white cursor-pointer">러닝 용어</a></li>
+                    <li><a href="/races" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">전체 대회</a></li>
+                    <li><a href="/calendar" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">캘린더</a></li>
+                    <li><a href="/running" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">마라톤</a></li>
+                    <li><a href="/swimming" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">수영</a></li>
+                    <li><a href="/cycling" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">자전거</a></li>
+                    <li><a href="/triathlon" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">철인3종</a></li>
+                    <li><a href="/trail-running" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">트레일러닝</a></li>
+                    <li><a href="/tools/pace-calculator" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">페이스 계산기</a></li>
+                    <li><a href="/tools/training-plan" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">훈련 플랜</a></li>
+                    <li><a href="/tools/vo2max" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">VO2max</a></li>
+                    <li><a href="/tools/race-predictor" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">기록 예측</a></li>
+                    <li><a href="/running-terms" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">러닝 용어</a></li>
                 </ul>
             </div>
 
@@ -218,12 +245,12 @@
             <div>
                 <h3 class="font-semibold text-sm mb-3">지원</h3>
                 <ul class="space-y-2 text-sm">
-                    <li><a href="/about" class="text-slate-400 hover:text-white cursor-pointer">서비스 소개</a></li>
-                    <li><a href="/privacy" class="text-slate-400 hover:text-white cursor-pointer">개인정보처리방침</a></li>
-                    <li><a href="mailto:contact@endurohub.kr" class="text-slate-400 hover:text-white cursor-pointer">문의하기</a></li>
+                    <li><a href="/about" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">서비스 소개</a></li>
+                    <li><a href="/privacy" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">개인정보처리방침</a></li>
+                    <li><a href="mailto:contact@endurohub.kr" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">문의하기</a></li>
                     {#if feedbackFormUrl}
                     <li>
-                        <a href={feedbackFormUrl} target="_blank" rel="noopener" class="text-slate-400 hover:text-white cursor-pointer inline-flex items-center gap-1">
+                        <a href={feedbackFormUrl} target="_blank" rel="noopener" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer inline-flex items-center gap-1">
                             피드백 보내기
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -236,11 +263,11 @@
         </div>
 
         <!-- Bottom Bar -->
-        <div class="py-4 border-t border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-slate-500">
+        <div class="py-4 border-t border-neutral-content/10 flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-neutral-content/40">
             <p>&copy; {currentYear} EnduroHub</p>
             <div class="flex items-center gap-4">
-                <a href="/privacy" class="hover:text-white cursor-pointer">개인정보처리방침</a>
-                <a href="/about" class="hover:text-white cursor-pointer">이용약관</a>
+                <a href="/privacy" class="hover:text-neutral-content cursor-pointer">개인정보처리방침</a>
+                <a href="/about" class="hover:text-neutral-content cursor-pointer">이용약관</a>
             </div>
         </div>
     </div>

@@ -11,8 +11,8 @@
 
     let dDayBadgeClass = $derived(
         race.daysUntilRegistrationEnd !== null && race.daysUntilRegistrationEnd <= 3
-            ? 'bg-orange-500 text-white'
-            : 'bg-slate-700 text-white'
+            ? 'bg-error text-error-content'
+            : 'bg-neutral text-neutral-content'
     );
 
     function handleClick() {
@@ -90,7 +90,7 @@
                     </svg>
                     접수마감 {formatDateSlash(race.registrationEnd)}
                     {#if race.daysUntilRegistrationEnd !== null && race.daysUntilRegistrationEnd >= 0}
-                        <span class="{race.daysUntilRegistrationEnd !== null && race.daysUntilRegistrationEnd <= 3 ? 'text-orange-500' : 'text-base-content/70'} font-semibold">({race.daysUntilRegistrationEnd === 0 ? 'D-Day' : `D-${race.daysUntilRegistrationEnd}`})</span>
+                        <span class="{race.daysUntilRegistrationEnd !== null && race.daysUntilRegistrationEnd <= 3 ? 'text-error' : 'text-base-content/70'} font-semibold">({race.daysUntilRegistrationEnd === 0 ? 'D-Day' : `D-${race.daysUntilRegistrationEnd}`})</span>
                     {/if}
                 </p>
             {/if}
