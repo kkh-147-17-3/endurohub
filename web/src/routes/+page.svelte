@@ -65,7 +65,7 @@
                     </svg>
                     캘린더
                 </a>
-                <a href="/races" class="btn btn-ghost btn-xs md:btn-sm text-neutral-content hover:bg-neutral-content/10 cursor-pointer">
+                <a href="/races?reset=1" class="btn btn-ghost btn-xs md:btn-sm text-neutral-content hover:bg-neutral-content/10 cursor-pointer">
                     전체 대회
                 </a>
                 <a href="/posts" class="btn btn-ghost btn-xs md:btn-sm text-neutral-content hover:bg-neutral-content/10 cursor-pointer">
@@ -105,7 +105,7 @@
                         </div>
                     {/each}
                 </div>
-                <a href="/races?status=closing_soon" class="shrink-0 flex flex-col items-center gap-1.5 cursor-pointer group/more">
+                <a href="/races?status=closing_soon&reset=1" class="shrink-0 flex flex-col items-center gap-1.5 cursor-pointer group/more">
                     <div class="w-10 h-10 rounded-full border border-base-300 group-hover/more:border-primary group-hover/more:bg-primary/10 flex items-center justify-center transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-base-content/50 group-hover/more:text-primary transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
@@ -219,7 +219,7 @@
             </div>
             {#if recentlyAdded.length > 4}
                 <div class="mt-4 text-center md:hidden">
-                    <a href="/races" class="btn btn-ghost btn-sm">더보기 →</a>
+                    <a href="/races?reset=1" class="btn btn-ghost btn-sm">더보기 →</a>
                 </div>
             {/if}
         {/if}
@@ -240,7 +240,7 @@
                 </svg>
                 캘린더 보기
             </a>
-            <a href="/races" class="btn btn-ghost btn-sm text-neutral-content hover:bg-neutral-content/10 gap-2 cursor-pointer">
+            <a href="/races?reset=1" class="btn btn-ghost btn-sm text-neutral-content hover:bg-neutral-content/10 gap-2 cursor-pointer">
                 전체 대회 목록
             </a>
         </div>
@@ -255,7 +255,7 @@
                 <h2 class="text-xl md:text-2xl font-bold">다가오는 대회</h2>
                 <p class="text-base-content/50 text-base">곧 열리는 대회를 확인하세요</p>
             </div>
-            <a href="/races" class="text-base text-base-content/60 hover:text-primary cursor-pointer">
+            <a href="/races?reset=1" class="text-base text-base-content/60 hover:text-primary cursor-pointer">
                 전체보기 →
             </a>
         </div>
@@ -274,7 +274,7 @@
             </div>
             {#if upcomingRaces.length > 4}
                 <div class="mt-4 text-center md:hidden">
-                    <a href="/races" class="btn btn-ghost btn-sm">더보기 →</a>
+                    <a href="/races?reset=1" class="btn btn-ghost btn-sm">더보기 →</a>
                 </div>
             {/if}
         {/if}

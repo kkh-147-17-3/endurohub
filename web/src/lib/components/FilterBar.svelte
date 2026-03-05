@@ -143,7 +143,7 @@
     function hasUrlParams(): boolean {
         if (typeof window === 'undefined') return false;
         const urlParams = new URLSearchParams(window.location.search);
-        return urlParams.has('sport') || urlParams.has('region') || urlParams.has('status') || urlParams.has('name') || urlParams.has('distance_category') || urlParams.has('month_from') || urlParams.has('month_to');
+        return urlParams.has('sport') || urlParams.has('region') || urlParams.has('status') || urlParams.has('name') || urlParams.has('distance_category') || urlParams.has('month_from') || urlParams.has('month_to') || urlParams.has('reset');
     }
 
     function saveToStorage() {
@@ -176,6 +176,18 @@
     let hasRouteSport = $derived(selectedSport.length > 0 && !hasUrlParams());
 
     onMount(() => {
+        // ?reset=1 clears saved filters (used by home page "view all" links)
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('reset')) {
+            clearStorage();
+            urlParams.delete('reset');
+            const cleanUrl = urlParams.toString()
+                ? `${window.location.pathname}?${urlParams.toString()}`
+                : window.location.pathname;
+            goto(cleanUrl, { replaceState: true, noScroll: true });
+            return;
+        }
+
         if (hasUrlParams()) {
             const filterData = {
                 name: selectedName || null,
