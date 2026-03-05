@@ -173,10 +173,11 @@ UNFOLD = {
 # File upload settings (match nginx client_max_body_size 20M)
 DATA_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024  # 20MB
 
-# Cache (for rate limiting)
+# Cache (file-based for cross-worker sharing without Redis)
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': os.path.join(BASE_DIR, '.cache'),
     }
 }
 
