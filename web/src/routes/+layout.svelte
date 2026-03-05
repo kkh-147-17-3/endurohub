@@ -47,12 +47,7 @@
         </script>
     {/if}
     {#if kakaoJsKey}
-        <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js" crossorigin="anonymous"></script>
-        <script>
-            if (typeof Kakao !== 'undefined' && !Kakao.isInitialized()) {
-                Kakao.init('{kakaoJsKey}');
-            }
-        </script>
+        <script defer src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js" crossorigin="anonymous" onload="if(typeof Kakao!=='undefined'&&!Kakao.isInitialized())Kakao.init('{kakaoJsKey}')"></script>
     {/if}
 </svelte:head>
 

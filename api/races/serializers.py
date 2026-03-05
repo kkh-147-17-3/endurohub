@@ -8,6 +8,7 @@ class RaceSerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
     status_label = serializers.SerializerMethodField()
     image_src = serializers.SerializerMethodField()
+    image_src_thumb = serializers.SerializerMethodField()
     course_image_srcs = serializers.SerializerMethodField()
     giveaway_image_srcs = serializers.SerializerMethodField()
     days_until_race = serializers.SerializerMethodField()
@@ -29,7 +30,7 @@ class RaceSerializer(serializers.ModelSerializer):
             'official_url', 'source', 'source_url',
             'status', 'status_label',
             'description', 'organizer', 'organizer_contact', 'organizer_email',
-            'image_src', 'giveaways', 'course_image_srcs', 'giveaway_image_srcs',
+            'image_src', 'image_src_thumb', 'giveaways', 'course_image_srcs', 'giveaway_image_srcs',
             'view_count', 'days_until_race', 'days_until_registration_end',
             'is_registration_open', 'is_verified', 'verified_at', 'verified_by',
             'recap_url', 'ai_summary', 'url',
@@ -47,6 +48,9 @@ class RaceSerializer(serializers.ModelSerializer):
 
     def get_image_src(self, obj):
         return obj.image_src
+
+    def get_image_src_thumb(self, obj):
+        return obj.image_src_thumb
 
     def get_course_image_srcs(self, obj):
         return obj.course_image_srcs

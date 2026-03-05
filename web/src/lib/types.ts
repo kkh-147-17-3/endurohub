@@ -68,6 +68,7 @@ export interface Race {
 	organizerEmail: string | null;
 
 	imageSrc: string | null;
+	imageSrcThumb: string | null;
 	giveaways: string[] | null;
 	courseImageSrcs: string[];
 	giveawayImageSrcs: string[];

@@ -96,10 +96,10 @@
         {:else}
             <div class="flex items-center gap-3">
                 <div class="flex-1 min-w-0 flex items-stretch gap-3 overflow-x-auto snap-x snap-mandatory pb-2 scrollbar-hide">
-                    {#each closingSoon as race (race.id)}
+                    {#each closingSoon as race, i (race.id)}
                         <div class="w-[280px] snap-start shrink-0 flex">
                             <div class="flex-1">
-                                <RaceCard {race} />
+                                <RaceCard {race} eager={i < 3} />
                             </div>
                         </div>
                     {/each}

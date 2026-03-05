@@ -4,7 +4,7 @@
     import { sportStyles, sportEmojis } from '$lib/race';
     import { formatDate, formatDateShort, formatDateSlash } from '$lib/date';
 
-    let { race, variant = 'default' }: { race: Race; variant?: 'default' | 'minimal' } = $props();
+    let { race, variant = 'default', eager = false }: { race: Race; variant?: 'default' | 'minimal'; eager?: boolean } = $props();
 
     let style = $derived(sportStyles[race.sport as Sport] || sportStyles.running);
     let emoji = $derived(sportEmojis[race.sport as Sport] || '🏃');
@@ -58,7 +58,7 @@
 
         {#if race.imageSrc}
             <figure class="relative">
-                <img src={race.imageSrc} alt={race.title} class="w-full aspect-[5/3] object-cover rounded-t-lg" loading="lazy" />
+                <img src={race.imageSrcThumb || race.imageSrc} alt={race.title} class="w-full aspect-[5/3] object-cover rounded-t-lg" loading={eager ? 'eager' : 'lazy'} fetchpriority={eager ? 'high' : 'auto'} />
                 <div class="absolute inset-0 bg-gradient-to-t from-black/15 to-transparent rounded-t-lg pointer-events-none"></div>
                 <div class="absolute inset-0 rounded-t-lg ring-1 ring-inset ring-black/5 pointer-events-none"></div>
                 {#if race.daysUntilRegistrationEnd !== null && race.daysUntilRegistrationEnd <= 7 && race.daysUntilRegistrationEnd >= 0}

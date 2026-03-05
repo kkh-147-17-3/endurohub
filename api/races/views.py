@@ -604,6 +604,10 @@ class RaceImageUploadView(APIView):
             stored_paths.append(rel_path)
             urls.append(f'{settings.STORAGE_URL}{rel_path}')
 
+            # Convert to WebP + thumbnail
+            from races.image_utils import process_image
+            process_image(rel_path)
+
         # Create pending change for admin review
         import json
         if image_type == 'main' and stored_paths:

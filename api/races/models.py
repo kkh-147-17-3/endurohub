@@ -6,6 +6,7 @@ from django.db import models
 from django.utils import timezone
 
 from .constants import DISTANCE_CATEGORIES, SPORT_LABELS, STATUS_LABELS
+from .image_utils import get_thumb_path, get_webp_path
 
 
 class RaceQuerySet(models.QuerySet):
@@ -275,7 +276,19 @@ class Race(models.Model):
         if self.image_url:
             return self.image_url
         if self.image_path:
-            return f'{settings.STORAGE_URL}{self.image_path}'
+            webp = get_webp_path(self.image_path)
+            return f'{settings.STORAGE_URL}{webp}'
+        return None
+
+    @property
+    def image_src_thumb(self):
+        if self.image_url:
+            return self.image_url
+        if self.image_path:
+            thumb = get_thumb_path(self.image_path)
+            if thumb:
+                return f'{settings.STORAGE_URL}{thumb}'
+            return self.image_src
         return None
 
     @property
@@ -285,7 +298,7 @@ class Race(models.Model):
             images.extend(self._resolve_image_urls(self.course_images))
         if self.course_image_uploads:
             images.extend(
-                f'{settings.STORAGE_URL}{p}' for p in self.course_image_uploads
+                f'{settings.STORAGE_URL}{get_webp_path(p)}' for p in self.course_image_uploads
             )
         return images
 
@@ -296,7 +309,7 @@ class Race(models.Model):
             images.extend(self._resolve_image_urls(self.giveaway_images))
         if self.giveaway_image_uploads:
             images.extend(
-                f'{settings.STORAGE_URL}{p}' for p in self.giveaway_image_uploads
+                f'{settings.STORAGE_URL}{get_webp_path(p)}' for p in self.giveaway_image_uploads
             )
         return images
 
