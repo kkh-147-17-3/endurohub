@@ -12,6 +12,7 @@
     let sportCounts = $derived(data.sportCounts);
     let totalUpcoming = $derived(data.totalUpcoming as number);
 
+
     let appUrl = $derived(data.appUrl || 'https://www.endurohub.kr');
 
     let websiteSchema = $derived({
@@ -210,10 +211,17 @@
             </div>
         {:else}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {#each recentlyAdded as race (race.id)}
-                    <RaceCard {race} />
+                {#each recentlyAdded as race, i (race.id)}
+                    <div class={i >= 4 ? 'hidden md:block' : ''}>
+                        <RaceCard {race} />
+                    </div>
                 {/each}
             </div>
+            {#if recentlyAdded.length > 4}
+                <div class="mt-4 text-center md:hidden">
+                    <a href="/races" class="btn btn-ghost btn-sm">더보기 →</a>
+                </div>
+            {/if}
         {/if}
     </div>
 </section>
@@ -258,10 +266,17 @@
             </div>
         {:else}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {#each upcomingRaces as race (race.id)}
-                    <RaceCard {race} />
+                {#each upcomingRaces as race, i (race.id)}
+                    <div class={i >= 4 ? 'hidden md:block' : ''}>
+                        <RaceCard {race} />
+                    </div>
                 {/each}
             </div>
+            {#if upcomingRaces.length > 4}
+                <div class="mt-4 text-center md:hidden">
+                    <a href="/races" class="btn btn-ghost btn-sm">더보기 →</a>
+                </div>
+            {/if}
         {/if}
     </div>
 </section>

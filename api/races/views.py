@@ -44,13 +44,13 @@ class HomeView(APIView):
 
         closing_soon = Race.objects.closing_soon(7).exclude(
             title__contains='(취소)'
-        )[:4]
+        )[:6]
 
         upcoming_races = Race.objects.upcoming().exclude(
             title__contains='(취소)'
-        )[:6]
+        )[:12]
 
-        recently_added = Race.objects.order_by('-created_at')[:4]
+        recently_added = Race.objects.order_by('-created_at')[:8]
 
         comment_count_sq, like_count_sq = post_count_subqueries()
         recent_posts = Post.objects.prefetch_related('races').annotate(
