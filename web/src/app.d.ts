@@ -2,6 +2,10 @@
 
 declare global {
 	function gtag(...args: unknown[]): void;
+	interface Window {
+		dataLayer: unknown[];
+		gtag: (...args: unknown[]) => void;
+	}
 
 	namespace App {
 		interface Error {

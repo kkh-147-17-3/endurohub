@@ -19,8 +19,21 @@
     onMount(() => {
         theme = getTheme();
 
+        // Load Google Analytics deferred
+        if (googleAnalyticsId && !document.querySelector('script[src*="googletagmanager"]')) {
+            window.dataLayer = window.dataLayer || [];
+            window.gtag = function() { window.dataLayer.push(arguments); };
+            window.gtag('js', new Date());
+            window.gtag('config', googleAnalyticsId);
+
+            const gaScript = document.createElement('script');
+            gaScript.src = `https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}`;
+            gaScript.async = true;
+            document.head.appendChild(gaScript);
+        }
+
         // Load Kakao SDK deferred
-        if (kakaoJsKey && typeof document !== 'undefined' && !document.querySelector('script[src*="kakao_js_sdk"]')) {
+        if (kakaoJsKey && !document.querySelector('script[src*="kakao_js_sdk"]')) {
             const script = document.createElement('script');
             script.src = 'https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js';
             script.crossOrigin = 'anonymous';
@@ -51,15 +64,6 @@
     <meta property="og:locale" content="ko_KR" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="canonical" href="{data.appUrl}{currentPath}" />
-    {#if googleAnalyticsId}
-        <script async src="https://www.googletagmanager.com/gtag/js?id={googleAnalyticsId}"></script>
-        <script>
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', '{googleAnalyticsId}');
-        </script>
-    {/if}
 </svelte:head>
 
 <header class="sticky top-0 z-50 bg-base-100 border-b border-base-200">
