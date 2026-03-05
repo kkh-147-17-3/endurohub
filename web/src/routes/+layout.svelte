@@ -18,6 +18,20 @@
 
     onMount(() => {
         theme = getTheme();
+
+        // Load Kakao SDK deferred
+        if (kakaoJsKey && typeof document !== 'undefined' && !document.querySelector('script[src*="kakao_js_sdk"]')) {
+            const script = document.createElement('script');
+            script.src = 'https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js';
+            script.crossOrigin = 'anonymous';
+            script.defer = true;
+            script.onload = () => {
+                if (typeof Kakao !== 'undefined' && !Kakao.isInitialized()) {
+                    Kakao.init(kakaoJsKey);
+                }
+            };
+            document.head.appendChild(script);
+        }
     });
 
     function handleToggleTheme() {
@@ -45,9 +59,6 @@
             gtag('js', new Date());
             gtag('config', '{googleAnalyticsId}');
         </script>
-    {/if}
-    {#if kakaoJsKey}
-        <script defer src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js" crossorigin="anonymous" onload="if(typeof Kakao!=='undefined'&&!Kakao.isInitialized())Kakao.init('{kakaoJsKey}')"></script>
     {/if}
 </svelte:head>
 
