@@ -48,6 +48,13 @@
     let activeMonth = $state<number | null>(null);
     let observer: IntersectionObserver | null = null;
 
+    // Lazy rendering: only render months near viewport
+    const currentMonth = new Date().getMonth() + 1;
+    let visibleMonths = $state<Set<number>>(new Set(
+        [currentMonth - 1, currentMonth, currentMonth + 1, currentMonth + 2].filter(m => m >= 1 && m <= 12)
+    ));
+    let lazyObserver: IntersectionObserver | null = null;
+
     onMount(() => {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
@@ -59,6 +66,7 @@
             } catch { /* ignore */ }
         }
 
+        // Observe month sections for active month indicator
         const sections = document.querySelectorAll('section[id^="month-"]');
         observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
@@ -70,9 +78,30 @@
             });
         }, { root: null, rootMargin: '-20% 0px -60% 0px', threshold: 0 });
         sections.forEach(section => observer?.observe(section));
+
+        // Lazy load months as they approach viewport
+        lazyObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const month = parseInt(entry.target.getAttribute('data-month') || '0');
+                    if (month >= 1 && month <= 12) {
+                        visibleMonths.add(month);
+                        visibleMonths = new Set(visibleMonths);
+                        lazyObserver?.unobserve(entry.target);
+                    }
+                }
+            });
+        }, { rootMargin: '200px 0px' });
+
+        document.querySelectorAll('[data-lazy-month]').forEach(el => {
+            const month = parseInt(el.getAttribute('data-month') || '0');
+            if (!visibleMonths.has(month)) {
+                lazyObserver?.observe(el);
+            }
+        });
     });
 
-    onDestroy(() => { observer?.disconnect(); });
+    onDestroy(() => { observer?.disconnect(); lazyObserver?.disconnect(); });
 
     const sports = [
         { key: 'running' as Sport, label: '마라톤', color: 'bg-blue-500' },
@@ -221,7 +250,7 @@
                 {#each Array(12) as _, i}
                     {@const m = i + 1}
                     {@const monthRaces = getMonthRaces(m)}
-                    <section id="month-{m}" class="scroll-mt-32 {m > 1 ? 'mt-8' : ''}">
+                    <section id="month-{m}" class="scroll-mt-32 {m > 1 ? 'mt-8' : ''}" data-lazy-month data-month={m}>
                         <div class="py-3 mb-3">
                             <div class="flex items-center gap-4">
                                 <div class="flex items-baseline gap-1.5">
@@ -237,7 +266,21 @@
                             </div>
                         </div>
 
-                        {#if monthRaces.length > 0}
+                        {#if !visibleMonths.has(m)}
+                            <!-- Placeholder for lazy months -->
+                            {#if monthRaces.length > 0}
+                                <div class="py-12 text-center text-base-content/30">
+                                    <span class="loading loading-dots loading-sm"></span>
+                                </div>
+                            {:else}
+                                <div class="text-center py-12 px-4">
+                                    <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-base-200/50 mb-4">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                    </div>
+                                    <p class="text-base-content/40 text-base">등록된 대회가 없습니다</p>
+                                </div>
+                            {/if}
+                        {:else if monthRaces.length > 0}
                             <div class="hidden md:block overflow-hidden rounded-2xl border border-base-200/70 bg-base-100/80 backdrop-blur-sm shadow-sm">
                                 <table class="table w-full">
                                     <thead><tr class="bg-base-200/50"><th class="w-28 py-3 text-sm font-semibold text-base-content/70">날짜</th><th class="w-24 py-3 text-sm font-semibold text-base-content/70">종목</th><th class="py-3 text-sm font-semibold text-base-content/70">대회명</th><th class="w-24 py-3 text-sm font-semibold text-base-content/70">지역</th><th class="w-24 py-3 text-sm font-semibold text-base-content/70 text-center">상태</th></tr></thead>
