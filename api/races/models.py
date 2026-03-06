@@ -567,7 +567,10 @@ class RacePendingChange(models.Model):
             return False
         new_value = self.new_value
         if self.field_name in self.JSON_FIELDS:
-            new_value = json.loads(new_value)
+            try:
+                new_value = json.loads(new_value)
+            except (json.JSONDecodeError, TypeError):
+                pass
         setattr(race, self.field_name, new_value)
         race.save(update_fields=[self.field_name, 'updated_at'])
         self.status = 'approved'

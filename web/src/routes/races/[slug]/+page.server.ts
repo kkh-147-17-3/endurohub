@@ -9,7 +9,7 @@ export const load: PageServerLoad = async ({ params, request }) => {
 
 	// ID로 접근한 경우 slug URL로 301 리다이렉트 (SEO)
 	if (/^\d+$/.test(params.slug) && data.race?.slug) {
-		redirect(301, `/races/${data.race.slug}`);
+		redirect(301, `/races/${encodeURIComponent(data.race.slug)}`);
 	}
 
 	return data;
