@@ -4,15 +4,17 @@ export type Theme = 'light' | 'dark';
 
 export function getTheme(): Theme {
 	if (typeof window === 'undefined') return 'light';
-	const stored = localStorage.getItem(STORAGE_KEY);
-	if (stored === 'light' || stored === 'dark') return stored;
+	try {
+		const stored = localStorage.getItem(STORAGE_KEY);
+		if (stored === 'light' || stored === 'dark') return stored;
+	} catch {}
 	return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
 export function setTheme(theme: Theme) {
 	if (typeof document === 'undefined') return;
 	document.documentElement.setAttribute('data-theme', theme);
-	localStorage.setItem(STORAGE_KEY, theme);
+	try { localStorage.setItem(STORAGE_KEY, theme); } catch {}
 }
 
 export function toggleTheme(): Theme {

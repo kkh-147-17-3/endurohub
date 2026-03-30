@@ -13,6 +13,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from core.analytics import track
 from core.pagination import LaravelStylePagination
 from core.utils import check_rate_limit, hash_ip
 from posts.models import Post
@@ -127,9 +128,9 @@ class RaceListView(APIView):
             regular_statuses = [s for s in status_filter if s != 'closing_soon']
 
             if has_closing_soon and regular_statuses:
-                closing_qs = Race.objects.closing_soon(7)
-                status_qs = Race.objects.by_status(regular_statuses)
-                qs = (closing_qs | status_qs).distinct()
+                closing_ids = Race.objects.closing_soon(7).values_list('pk', flat=True)
+                status_ids = Race.objects.by_status(regular_statuses).values_list('pk', flat=True)
+                qs = Race.objects.filter(pk__in=set(closing_ids) | set(status_ids))
             elif has_closing_soon:
                 qs = Race.objects.closing_soon(7)
             elif regular_statuses:
@@ -163,7 +164,7 @@ class RaceListView(APIView):
             'sports': SPORTS,
             'distanceCategories': DISTANCE_CATEGORIES,
         }
-        response_data['applied'] = {
+        applied = {
             'sport': sport,
             'region': region,
             'status': status_filter,
@@ -172,6 +173,12 @@ class RaceListView(APIView):
             'monthFrom': month_from,
             'monthTo': month_to,
         }
+        response_data['applied'] = applied
+
+        if sport or region or name or distance_category or status_filter:
+            track('race_search', request, {
+                k: v for k, v in applied.items() if v
+            })
 
         return Response(response_data)
 
@@ -186,8 +193,14 @@ class RaceDetailView(APIView):
         except Race.DoesNotExist:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Increment view count
         Race.objects.filter(pk=race.pk).update(view_count=F('view_count') + 1)
+
+        track('race_view', request, {
+            'race_id': race.id,
+            'slug': race.slug,
+            'sport': race.sport,
+            'region': race.region,
+        })
 
         # Related races (slot-based, cached 10min)
         cache_key = f'related_races_{race.id}'
@@ -430,6 +443,12 @@ class ReviewCreateView(APIView):
             recommendation_tags=data.get('recommendation_tags') or None,
             ip_hash=ip_hash,
         )
+
+        track('review_submit', request, {
+            'race_id': race.id,
+            'sport': race.sport,
+            'rating': review.rating,
+        })
 
         return Response({
             'success': True,
