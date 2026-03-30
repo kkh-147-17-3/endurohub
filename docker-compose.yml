@@ -14,6 +14,7 @@ services:
       CRAWLER_API_KEY: ${CRAWLER_API_KEY:-}
       SLACK_BOT_USER_OAUTH_TOKEN: ${SLACK_BOT_USER_OAUTH_TOKEN:-}
       ADMIN_SECRET: ${ADMIN_SECRET:-}
+      SENTRY_DSN: ${SENTRY_DSN_API:-}
     volumes:
       - api_static:/app/staticfiles
       - api_media:/app/storage
@@ -31,6 +32,8 @@ services:
       PUBLIC_GOOGLE_ANALYTICS_ID: ${GOOGLE_ANALYTICS_ID:-}
       PUBLIC_FEEDBACK_FORM_URL: ${GOOGLE_FEEDBACK_FORM_URL:-}
       ADMIN_SECRET: ${ADMIN_SECRET:-}
+      SENTRY_DSN: ${SENTRY_DSN_WEB:-}
+      PUBLIC_SENTRY_DSN: ${SENTRY_DSN_WEB:-}
     ports:
       - "3000:3000"
     depends_on:

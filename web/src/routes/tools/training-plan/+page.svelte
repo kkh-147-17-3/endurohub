@@ -5,6 +5,12 @@
     import { phaseLabels, phaseColors } from '$lib/tools/types';
     import { generateTrainingPlan, FULL_MARATHON_TARGETS, HALF_MARATHON_TARGETS } from '$lib/tools/training-plans';
     import { formatPace } from '$lib/tools/pace-calculator';
+    import { onMount } from 'svelte';
+    import { track } from '$lib/analytics';
+
+    onMount(() => {
+        track('tool_use', { tool: 'training-plan' });
+    });
 
     let targetDistance = $state<TrainingDistance>('full');
     let selectedTargetIndex = $state(2);

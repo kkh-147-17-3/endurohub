@@ -1,9 +1,41 @@
 import hashlib
+import logging
 import time
 
 from django.conf import settings
 
 from core.notifications import notify_server_error
+
+request_logger = logging.getLogger('api.request')
+
+IGNORED_PATHS = frozenset({'/health', '/favicon.ico'})
+
+
+class RequestLoggingMiddleware:
+    """모든 API 요청을 JSON 구조화 로그로 기록한다."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.path in IGNORED_PATHS:
+            return self.get_response(request)
+
+        start = time.monotonic()
+        response = self.get_response(request)
+        duration_ms = round((time.monotonic() - start) * 1000)
+
+        request_logger.info('', extra={
+            'method': request.method,
+            'path': request.path,
+            'status': response.status_code,
+            'duration_ms': duration_ms,
+            'query': request.META.get('QUERY_STRING', '') or None,
+            'user_id': getattr(request.user, 'id', None),
+            'ip': request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
+                  or request.META.get('REMOTE_ADDR'),
+        })
+        return response
 
 
 class ErrorNotificationMiddleware:

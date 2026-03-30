@@ -12,6 +12,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from core.analytics import track
+
 from .models import EmailVerification, SocialAccount, UserProfile
 from .providers import OAuthError, get_provider
 from .serializers import NicknameSetupSerializer, UserMeSerializer
@@ -89,7 +91,7 @@ class OAuthCallbackView(APIView):
             # Get user info from provider
             user_info = oauth.get_user_info(access_token)
         except OAuthError as e:
-            logger.error('OAuth error for %s: %s', provider, str(e))
+            logger.error('OAuth error', extra={'provider': provider, 'error': str(e)})
             return Response(
                 {'error': '소셜 로그인에 실패했습니다. 다시 시도해주세요.'},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -159,8 +161,12 @@ class OAuthCallbackView(APIView):
             profile.profile_image = user_info['profile_image']
             profile.save(update_fields=['profile_image', 'updated_at'])
 
-        # Generate JWT
         jwt_token = create_access_token(user.id)
+
+        track('auth_login', request, {
+            'provider': provider,
+            'is_new_user': created,
+        }, user=user)
 
         return Response({
             'token': jwt_token,
@@ -252,7 +258,7 @@ class EmailSendView(APIView):
                 fail_silently=False,
             )
         except Exception:
-            logger.exception('Failed to send verification email to %s', email)
+            logger.exception('Failed to send verification email', extra={'email': email})
             return Response(
                 {'error': '이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -12,6 +12,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from core.analytics import track
 from core.pagination import LaravelStylePagination
 from core.utils import check_rate_limit, hash_ip
 from races.models import Race
@@ -143,6 +144,11 @@ class PostListCreateView(APIView):
         if race_ids:
             post.races.set(race_ids)
 
+        track('post_create', request, {
+            'post_id': post.pk,
+            'category': post.category,
+        })
+
         post.refresh_from_db()
         return Response({
             'success': True,
@@ -257,8 +263,12 @@ class PostDetailUpdateDeleteView(APIView):
         except Post.DoesNotExist:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Increment view count
         post.increment_view_count()
+
+        track('post_view', request, {
+            'post_id': post.pk,
+            'category': post.category,
+        })
 
         # Check like status
         ip_hash = hash_ip(request)

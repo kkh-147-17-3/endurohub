@@ -92,7 +92,7 @@ class GeminiImageService:
                     if 'inlineData' in part:
                         return part['inlineData']['data']
         except Exception as e:
-            logger.error(f'Gemini API error: {e}')
+            logger.error('Gemini API error', extra={'error': str(e)})
         return None
 
     def _save_image(self, base64_data, filename):
@@ -100,5 +100,5 @@ class GeminiImageService:
         output_dir.mkdir(parents=True, exist_ok=True)
         path = output_dir / filename
         path.write_bytes(base64.b64decode(base64_data))
-        logger.info(f'Image saved: {path}')
+        logger.info('Image saved', extra={'path': str(path), 'filename': filename})
         return str(path)

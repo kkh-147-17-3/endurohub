@@ -1,8 +1,14 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
+    import { onMount } from 'svelte';
     import type { Race, SportOption } from '$lib/types';
+    import { track } from '$lib/analytics';
 
     let { data } = $props();
+
+    onMount(() => {
+        track('calendar_view', { year: data.year as number, month: data.month as number });
+    });
 
     const year = $derived(data.year as number);
     const month = $derived(data.month as number);

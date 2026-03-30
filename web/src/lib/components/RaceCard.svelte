@@ -22,7 +22,7 @@
 
 {#if variant === 'minimal'}
     <div
-        class="bg-base-100 border border-base-200 rounded-xl p-3 hover:border-primary/50 hover:shadow-sm transition-all cursor-pointer group flex items-start gap-3"
+        class="bg-base-100 border border-base-200 rounded-xl p-3 hover:border-primary/50 hover:shadow-sm transition-all cursor-pointer group flex items-start gap-3 min-h-[48px]"
         onclick={handleClick}
         onkeypress={(e) => e.key === 'Enter' && handleClick()}
         role="button"
@@ -79,15 +79,26 @@
         {/if}
 
         <div class="p-4 flex flex-col flex-1">
-            <div class="flex flex-wrap items-center gap-1.5 mb-2 min-h-6">
+            <div class="flex flex-wrap items-center gap-1.5 mb-2 min-h-[44px]">
                 <span class="badge {style.badge} badge-sm shrink-0 min-w-14">{race.sportLabel}</span>
                 <span class="badge badge-ghost badge-sm shrink-0 min-w-10">{race.region}</span>
                 {#if race.status === 'registration_open'}
                     <span class="badge badge-success badge-sm font-semibold shrink-0 min-w-10">접수중</span>
                 {/if}
+                {#if race.officialUrl}
+                    <a
+                        href={race.officialUrl}
+                        target="_blank"
+                        rel="noopener"
+                        onclick={(e) => e.stopPropagation()}
+                        class="text-xs text-base-content/50 {style.hoverText} cursor-pointer inline-flex items-center gap-1 ml-auto"
+                    >
+                        🏠 공식
+                    </a>
+                {/if}
             </div>
 
-            <h2 class="font-semibold text-base leading-snug mb-2">
+            <h2 class="font-semibold text-base leading-snug mb-2 min-h-[44px] flex items-center">
                 <a href={race.url} class="group-hover:text-primary transition-colors line-clamp-2">
                     {race.title}
                 </a>
@@ -124,7 +135,7 @@
             </div>
 
             {#if race.distances && race.distances.length > 0}
-                <div class="flex flex-wrap gap-1.5 mt-3">
+                <div class="flex flex-wrap gap-1.5 mt-3 mb-2">
                     {#each race.distances.slice(0, 3) as distance}
                         <span class="text-xs px-2 py-0.5 bg-base-200 rounded">{distance}</span>
                     {/each}
@@ -134,20 +145,6 @@
                 </div>
             {/if}
 
-            <div class="flex items-center justify-between mt-auto pt-3 border-t border-base-200">
-                <a href={race.url} onclick={(e) => e.stopPropagation()} class="btn {style.btn} btn-sm cursor-pointer">상세보기</a>
-                {#if race.officialUrl}
-                    <a
-                        href={race.officialUrl}
-                        target="_blank"
-                        rel="noopener"
-                        onclick={(e) => e.stopPropagation()}
-                        class="text-sm text-base-content/60 {style.hoverText} cursor-pointer"
-                    >
-                        공식 사이트 →
-                    </a>
-                {/if}
-            </div>
         </div>
     </div>
 {/if}

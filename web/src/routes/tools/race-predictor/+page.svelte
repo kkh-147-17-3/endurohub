@@ -5,6 +5,12 @@
     import type { DistancePreset } from '$lib/tools/types';
     import { DISTANCES, timeToTotalSeconds } from '$lib/tools/pace-calculator';
     import { predictAllDistances, type PredictionResult } from '$lib/tools/race-predictor';
+    import { onMount } from 'svelte';
+    import { track } from '$lib/analytics';
+
+    onMount(() => {
+        track('tool_use', { tool: 'race-predictor' });
+    });
 
     let selectedDistance = $state<DistancePreset>('10k');
     let customDistanceKm = $state(10);
