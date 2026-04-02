@@ -12,6 +12,9 @@ class AnalyticsEvent(models.Model):
         blank=True,
         on_delete=models.SET_NULL,
     )
+    item_id = models.CharField(max_length=64, blank=True, default='')
+    item_type = models.CharField(max_length=30, blank=True, default='')
+    session_id = models.CharField(max_length=64, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -19,7 +22,13 @@ class AnalyticsEvent(models.Model):
         indexes = [
             models.Index(fields=['event_type', 'created_at']),
             models.Index(fields=['created_at']),
+            models.Index(fields=['user', 'event_type']),
+            models.Index(fields=['item_type', 'item_id']),
+            models.Index(fields=['session_id']),
         ]
 
     def __str__(self):
-        return f'{self.event_type} @ {self.created_at:%Y-%m-%d %H:%M}'
+        label = self.event_type
+        if self.item_type and self.item_id:
+            label += f' {self.item_type}:{self.item_id}'
+        return f'{label} @ {self.created_at:%Y-%m-%d %H:%M}'

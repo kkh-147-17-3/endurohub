@@ -1,3 +1,10 @@
+TRAIL_RUNNING_KEYWORDS = (
+    '트레일러닝', '트레일런', '트레일 러닝', '트레일 런',
+    'trail running', 'trail run', 'trailrunning', 'trailrun',
+    '스카이러닝', 'skyrunning', 'sky running',
+    'UTMB', 'ITRA',
+)
+
 SPORT_LABELS = {
     'running': '마라톤',
     'swimming': '수영',

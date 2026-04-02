@@ -5,7 +5,12 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
-from .constants import DISTANCE_CATEGORIES, SPORT_LABELS, STATUS_LABELS
+from .constants import (
+    DISTANCE_CATEGORIES,
+    SPORT_LABELS,
+    STATUS_LABELS,
+    TRAIL_RUNNING_KEYWORDS,
+)
 from .image_utils import get_thumb_path, get_webp_path
 
 
@@ -243,6 +248,15 @@ class Race(models.Model):
     class Meta:
         db_table = 'races'
         ordering = ['race_date']
+
+    def save(self, **kwargs):
+        if self.sport == 'running' and self._title_matches_trail_running():
+            self.sport = 'trail_running'
+        super().save(**kwargs)
+
+    def _title_matches_trail_running(self):
+        title_lower = self.title.lower()
+        return any(kw.lower() in title_lower for kw in TRAIL_RUNNING_KEYWORDS)
 
     def __str__(self):
         return self.title

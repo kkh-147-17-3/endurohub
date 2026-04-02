@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from celery.schedules import crontab
 import sentry_sdk
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -31,6 +32,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders',
+    'django_celery_beat',
     'core',
     'races',
     'posts',
@@ -56,7 +58,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -176,6 +178,12 @@ GEMINI_IMAGE_MODEL = os.environ.get('GEMINI_IMAGE_MODEL', 'gemini-2.0-flash-exp-
 # Storage URL for generating absolute image URLs
 STORAGE_URL = os.environ.get('STORAGE_URL', '/storage/')
 
+# Crawl reporting
+CRAWL_REPORT_EMAIL = os.environ.get('CRAWL_REPORT_EMAIL', 'kkh147.17.3@gmail.com')
+CRAWL_SEND_EMPTY_REPORT = os.environ.get('CRAWL_SEND_EMPTY_REPORT', 'false').lower() in (
+    'true', '1', 'yes'
+)
+
 # django-unfold
 UNFOLD = {
     'SITE_TITLE': 'EnduroHub Admin',
@@ -191,6 +199,26 @@ CACHES = {
         'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
         'LOCATION': os.path.join(BASE_DIR, '.cache'),
     }
+}
+
+REDIS_HOST = os.environ.get('REDIS_HOST', 'host.docker.internal')
+REDIS_PORT = os.environ.get('REDIS_PORT', '6379')
+REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD', '')
+_REDIS_AUTH = f':{REDIS_PASSWORD}@' if REDIS_PASSWORD else ''
+_DEFAULT_REDIS_URL = f'redis://{_REDIS_AUTH}{REDIS_HOST}:{REDIS_PORT}/0'
+
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', _DEFAULT_REDIS_URL)
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', CELERY_BROKER_URL)
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULE = {
+    'crawl-marathon-hourly': {
+        'task': 'races.tasks.crawl_marathon_task',
+        'schedule': crontab(minute=0),
+        'kwargs': {'with_details': True},
+    },
 }
 
 # Logging
