@@ -3,7 +3,7 @@ import logging
 import re
 from pathlib import Path
 
-import requests
+import httpx
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
@@ -84,7 +84,7 @@ class GeminiImageService:
         }
 
         try:
-            resp = requests.post(url, json=body, headers=headers, params=params, timeout=120)
+            resp = httpx.post(url, json=body, headers=headers, params=params, timeout=120)
             resp.raise_for_status()
             data = resp.json()
             for candidate in data.get('candidates', []):

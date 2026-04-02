@@ -43,6 +43,17 @@
 
     const ogImage = $derived(race.imageSrc || `/images/og-${race.sport.replace('_', '-')}.png`);
 
+    function isValidUrl(url: string | null | undefined): url is string {
+        if (!url) return false;
+        try {
+            const u = new URL(url);
+            return (u.protocol === 'http:' || u.protocol === 'https:') && u.hostname.includes('.');
+        } catch {
+            return false;
+        }
+    }
+    const validOfficialUrl = $derived(isValidUrl(race.officialUrl) ? race.officialUrl : null);
+
     type SportType = 'running' | 'swimming' | 'cycling' | 'triathlon' | 'trail_running';
     const gradients: Record<SportType, string> = {
         running: 'from-primary to-primary/70',
@@ -148,12 +159,12 @@
             } : undefined,
         },
         'image': race.imageSrc || defaultImage,
-        'sameAs': race.officialUrl || undefined,
+        'sameAs': validOfficialUrl || undefined,
         'offers': {
             '@type': 'Offer',
-            'url': race.officialUrl || pageUrl,
+            'url': validOfficialUrl || pageUrl,
             'availability': race.status === 'registration_open' ? 'https://schema.org/InStock' : 'https://schema.org/SoldOut',
-            'price': race.entryFee?.length ? String(Math.min(...race.entryFee.filter(e => e.fee).map(e => Number(e.fee))) || 0) : '0',
+            'price': race.entryFee?.length ? String(Math.min(...race.entryFee.filter(e => e.fee).map(e => Number(String(e.fee).replace(/[^0-9]/g, ''))).filter(n => !isNaN(n) && n > 0)) || 0) : '0',
             'priceCurrency': 'KRW',
             'validFrom': race.registrationStart || race.raceDate,
         },
@@ -164,7 +175,7 @@
         'organizer': {
             '@type': 'Organization',
             'name': race.organizer || 'EnduroHub',
-            'url': race.officialUrl || appUrl,
+            'url': validOfficialUrl || appUrl,
         },
     });
 
@@ -449,8 +460,8 @@
                     </div>
 
                     <div class="card-actions mt-6 hidden lg:flex flex-col gap-2">
-                        {#if race.officialUrl}
-                            <a href={race.officialUrl} target="_blank" rel="noopener" class="btn {race.status === 'registration_open' ? 'btn-primary btn-lg' : 'btn-primary'} btn-block cursor-pointer" onclick={() => trackOutboundClick(race.officialUrl!, race.title)}>
+                        {#if validOfficialUrl}
+                            <a href={validOfficialUrl} target="_blank" rel="noopener" class="btn {race.status === 'registration_open' ? 'btn-primary btn-lg' : 'btn-primary'} btn-block cursor-pointer" onclick={() => trackOutboundClick(validOfficialUrl, race.title)}>
                                 {race.status === 'registration_open' ? '공식 사이트에서 접수하기' : '공식사이트로 이동하기'}
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                             </a>
@@ -544,10 +555,10 @@
     {/if}
 </div>
 
-{#if race.officialUrl}
+{#if validOfficialUrl}
     <div class="h-20 lg:hidden"></div>
     <div class="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-base-100 border-t border-base-300 px-4 py-3" style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom))">
-        <a href={race.officialUrl} target="_blank" rel="noopener" class="btn btn-primary btn-block cursor-pointer" onclick={() => trackOutboundClick(race.officialUrl!, race.title)}>
+        <a href={validOfficialUrl} target="_blank" rel="noopener" class="btn btn-primary btn-block cursor-pointer" onclick={() => trackOutboundClick(validOfficialUrl, race.title)}>
             {race.status === 'registration_open' ? '공식 사이트에서 접수하기' : '공식사이트로 이동하기'}
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
         </a>

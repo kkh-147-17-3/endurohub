@@ -15,9 +15,64 @@ services:
       SLACK_BOT_USER_OAUTH_TOKEN: ${SLACK_BOT_USER_OAUTH_TOKEN:-}
       ADMIN_SECRET: ${ADMIN_SECRET:-}
       SENTRY_DSN: ${SENTRY_DSN_API:-}
+      REDIS_HOST: ${REDIS_HOST:-host.docker.internal}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-tkfkdgo486}
+      CRAWL_REPORT_EMAIL: ${CRAWL_REPORT_EMAIL:-kkh147.17.3@gmail.com}
+      CRAWL_SEND_EMPTY_REPORT: ${CRAWL_SEND_EMPTY_REPORT:-false}
     volumes:
       - api_static:/app/staticfiles
       - api_media:/app/storage
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  celery-worker:
+    build: ./api
+    command: celery -A config worker -l info
+    environment:
+      DATABASE_HOST: ${DATABASE_HOST:-localhost}
+      DATABASE_PORT: ${DATABASE_PORT:-5432}
+      DATABASE_NAME: ${DATABASE_NAME:-endurohub}
+      DATABASE_USER: ${DATABASE_USER:-postgres}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:?DATABASE_PASSWORD is required}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY is required}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,api}
+      CRAWLER_API_KEY: ${CRAWLER_API_KEY:-}
+      SLACK_BOT_USER_OAUTH_TOKEN: ${SLACK_BOT_USER_OAUTH_TOKEN:-}
+      ADMIN_SECRET: ${ADMIN_SECRET:-}
+      SENTRY_DSN: ${SENTRY_DSN_API:-}
+      REDIS_HOST: ${REDIS_HOST:-host.docker.internal}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-tkfkdgo486}
+      CRAWL_REPORT_EMAIL: ${CRAWL_REPORT_EMAIL:-kkh147.17.3@gmail.com}
+      CRAWL_SEND_EMPTY_REPORT: ${CRAWL_SEND_EMPTY_REPORT:-false}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  celery-beat:
+    build: ./api
+    command: celery -A config beat -l info
+    environment:
+      DATABASE_HOST: ${DATABASE_HOST:-localhost}
+      DATABASE_PORT: ${DATABASE_PORT:-5432}
+      DATABASE_NAME: ${DATABASE_NAME:-endurohub}
+      DATABASE_USER: ${DATABASE_USER:-postgres}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:?DATABASE_PASSWORD is required}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY is required}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,api}
+      CRAWLER_API_KEY: ${CRAWLER_API_KEY:-}
+      SLACK_BOT_USER_OAUTH_TOKEN: ${SLACK_BOT_USER_OAUTH_TOKEN:-}
+      ADMIN_SECRET: ${ADMIN_SECRET:-}
+      SENTRY_DSN: ${SENTRY_DSN_API:-}
+      REDIS_HOST: ${REDIS_HOST:-host.docker.internal}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-tkfkdgo486}
+      CRAWL_REPORT_EMAIL: ${CRAWL_REPORT_EMAIL:-kkh147.17.3@gmail.com}
+      CRAWL_SEND_EMPTY_REPORT: ${CRAWL_SEND_EMPTY_REPORT:-false}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped

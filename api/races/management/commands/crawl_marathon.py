@@ -1,8 +1,10 @@
 from django.core.management.base import BaseCommand
 
+from races.services import MarathonCrawlerService
+
 
 class Command(BaseCommand):
-    help = '마라톤온라인(marathon.pe.kr)에서 마라톤 대회 정보를 크롤링합니다'
+    help = 'Roadrun 마라톤 대회 정보를 크롤링합니다'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -29,6 +31,7 @@ class Command(BaseCommand):
         month = options['month']
         with_details = options['with_details']
         dry_run = options['dry_run']
+        service = MarathonCrawlerService()
 
         self.stdout.write('마라톤 대회 정보 크롤링을 시작합니다...')
         month_str = f'{month}월' if month else '전체'
@@ -42,7 +45,23 @@ class Command(BaseCommand):
                 '--dry-run 모드: 데이터베이스에 저장하지 않습니다.'
             ))
 
-        # TODO: Implement crawler service
-        self.stdout.write(self.style.ERROR(
-            'Not yet implemented. Migrate MarathonCrawlerService from Laravel.'
-        ))
+        crawl_func = service.crawl_with_details if with_details else service.crawl
+        result = crawl_func(year=year, month=month, dry_run=dry_run)
+
+        self.stdout.write('')
+        self.stdout.write(self.style.SUCCESS('크롤링이 완료되었습니다.'))
+        self.stdout.write(f"전체: {result.get('total', 0)}")
+        self.stdout.write(f"신규: {result.get('created', 0)}")
+        self.stdout.write(f"업데이트: {result.get('updated', 0)}")
+        self.stdout.write(f"스킵: {result.get('skipped', 0)}")
+
+        if dry_run:
+            races = result.get('races', [])
+            preview_count = min(len(races), 10)
+            if preview_count:
+                self.stdout.write('')
+                self.stdout.write(f'미리보기 ({preview_count}건):')
+                for race in races[:preview_count]:
+                    self.stdout.write(
+                        f"- {race.get('race_date')} | {race.get('region')} | {race.get('title')}"
+                    )

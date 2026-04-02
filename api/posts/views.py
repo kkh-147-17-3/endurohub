@@ -145,9 +145,8 @@ class PostListCreateView(APIView):
             post.races.set(race_ids)
 
         track('post_create', request, {
-            'post_id': post.pk,
             'category': post.category,
-        })
+        }, item_id=post.pk, item_type='post')
 
         post.refresh_from_db()
         return Response({
@@ -266,9 +265,8 @@ class PostDetailUpdateDeleteView(APIView):
         post.increment_view_count()
 
         track('post_view', request, {
-            'post_id': post.pk,
             'category': post.category,
-        })
+        }, item_id=post.pk, item_type='post')
 
         # Check like status
         ip_hash = hash_ip(request)

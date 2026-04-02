@@ -2,5 +2,5 @@ import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
-	redirect(302, '/races?sport=trail_running');
+	redirect(301, '/races?sport=trail_running');
 };

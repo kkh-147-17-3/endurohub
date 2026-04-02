@@ -37,7 +37,10 @@ class EventTrackView(APIView):
             if not isinstance(properties, dict) or len(properties) > MAX_PROPERTIES_SIZE:
                 continue
 
-            track(event_type, request, properties)
+            item_id = properties.pop('item_id', '') or ''
+            item_type = properties.pop('item_type', '') or ''
+            track(event_type, request, properties,
+                  item_id=item_id, item_type=item_type)
             saved += 1
 
         return Response({'saved': saved}, status=status.HTTP_202_ACCEPTED)

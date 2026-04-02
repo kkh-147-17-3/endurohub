@@ -255,12 +255,12 @@ class RaceAdmin(ModelAdmin):
 
     list_display = [
         'race_date', 'title_short', 'sport_badge', 'region',
-        'status_badge', 'source_badge', 'verified_icon',
+        'status_badge', 'view_count', 'source_badge', 'verified_icon',
         'pending_changes_badge',
     ]
     list_filter = ['sport', 'region', StatusFilter, 'source']
     search_fields = ['title', 'region']
-    ordering = ['race_date']
+    ordering = ['-created_at']
     readonly_fields = [
         'view_count', 'verified_at', 'verified_by', 'created_at', 'updated_at',
         'image_preview', 'course_images_preview', 'giveaway_images_preview',

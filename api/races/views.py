@@ -196,11 +196,10 @@ class RaceDetailView(APIView):
         Race.objects.filter(pk=race.pk).update(view_count=F('view_count') + 1)
 
         track('race_view', request, {
-            'race_id': race.id,
             'slug': race.slug,
             'sport': race.sport,
             'region': race.region,
-        })
+        }, item_id=race.id, item_type='race')
 
         # Related races (slot-based, cached 10min)
         cache_key = f'related_races_{race.id}'
@@ -445,10 +444,9 @@ class ReviewCreateView(APIView):
         )
 
         track('review_submit', request, {
-            'race_id': race.id,
             'sport': race.sport,
             'rating': review.rating,
-        })
+        }, item_id=race.id, item_type='race')
 
         return Response({
             'success': True,

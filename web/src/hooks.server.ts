@@ -1,4 +1,5 @@
 import type { Handle } from '@sveltejs/kit';
+import crypto from 'node:crypto';
 import * as Sentry from '@sentry/sveltekit';
 import { env } from '$env/dynamic/private';
 import { sequence } from '@sveltejs/kit/hooks';
@@ -11,6 +12,9 @@ if (env.SENTRY_DSN) {
 	});
 }
 
+const SESSION_COOKIE = 'ehub_sid';
+const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 365; // 1 year
+
 const appHandle: Handle = async ({ event, resolve }) => {
 	// Extract client IP from request headers for forwarding to Django API
 	const forwardedFor = event.request.headers.get('x-forwarded-for');
@@ -19,6 +23,17 @@ const appHandle: Handle = async ({ event, resolve }) => {
 
 	// Extract auth token from cookie
 	event.locals.authToken = event.cookies.get('auth_token') || '';
+
+	// Ensure anonymous session ID exists for analytics
+	if (!event.cookies.get(SESSION_COOKIE)) {
+		event.cookies.set(SESSION_COOKIE, crypto.randomUUID(), {
+			path: '/',
+			httpOnly: false,
+			secure: false,
+			sameSite: 'lax',
+			maxAge: SESSION_MAX_AGE_SECONDS,
+		});
+	}
 
 	return resolve(event);
 };
