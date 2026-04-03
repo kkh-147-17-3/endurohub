@@ -1,8 +1,12 @@
+import logging
+
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 
 from races.models import RacePendingChange
+
+logger = logging.getLogger(__name__)
 
 
 def send_crawl_report_email(result, crawl_type='detailed'):
@@ -10,6 +14,10 @@ def send_crawl_report_email(result, crawl_type='detailed'):
     updated = result.get('updated', 0)
     has_changes = created > 0 or updated > 0
     if not has_changes and not settings.CRAWL_SEND_EMPTY_REPORT:
+        return False
+
+    if not getattr(settings, 'EMAIL_HOST_USER', ''):
+        logger.warning('EMAIL_HOST_USER not configured, skipping crawl report email')
         return False
 
     context = {
@@ -28,7 +36,11 @@ def send_crawl_report_email(result, crawl_type='detailed'):
         to=[settings.CRAWL_REPORT_EMAIL],
     )
     message.attach_alternative(html_body, 'text/html')
-    message.send(fail_silently=False)
+    try:
+        message.send(fail_silently=False)
+    except Exception:
+        logger.exception('Failed to send crawl report email')
+        return False
     return True
 
 

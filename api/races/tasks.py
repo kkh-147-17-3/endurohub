@@ -23,9 +23,9 @@ def crawl_marathon_task(year=None, month=None, with_details=True):
             'year': year,
             'month': month,
             'with_details': with_details,
-            'created': result.get('created', 0),
-            'updated': result.get('updated', 0),
-            'skipped': result.get('skipped', 0),
+            'created_count': result.get('created', 0),
+            'updated_count': result.get('updated', 0),
+            'skipped_count': result.get('skipped', 0),
             'email_sent': email_sent,
         },
     )
