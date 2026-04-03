@@ -18,6 +18,9 @@ services:
       REDIS_HOST: ${REDIS_HOST:-host.docker.internal}
       REDIS_PORT: ${REDIS_PORT:-6379}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-***REMOVED***}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@endurohub.kr}
       CRAWL_REPORT_EMAIL: ${CRAWL_REPORT_EMAIL:-kkh147.17.3@gmail.com}
       CRAWL_SEND_EMPTY_REPORT: ${CRAWL_SEND_EMPTY_REPORT:-false}
     volumes:
@@ -46,6 +49,9 @@ services:
       REDIS_HOST: ${REDIS_HOST:-host.docker.internal}
       REDIS_PORT: ${REDIS_PORT:-6379}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-***REMOVED***}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@endurohub.kr}
       CRAWL_REPORT_EMAIL: ${CRAWL_REPORT_EMAIL:-kkh147.17.3@gmail.com}
       CRAWL_SEND_EMPTY_REPORT: ${CRAWL_SEND_EMPTY_REPORT:-false}
     extra_hosts:
@@ -71,6 +77,9 @@ services:
       REDIS_HOST: ${REDIS_HOST:-host.docker.internal}
       REDIS_PORT: ${REDIS_PORT:-6379}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-***REMOVED***}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@endurohub.kr}
       CRAWL_REPORT_EMAIL: ${CRAWL_REPORT_EMAIL:-kkh147.17.3@gmail.com}
       CRAWL_SEND_EMPTY_REPORT: ${CRAWL_SEND_EMPTY_REPORT:-false}
     extra_hosts:
