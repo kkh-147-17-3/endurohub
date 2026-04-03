@@ -103,7 +103,11 @@ class MarathonCrawlerService:
         for race in races:
             race_no = int(race['race_no'])
             detail = self.crawl_detail(race_no)
-            detailed_races.append({**race, **detail} if detail else race)
+            if detail:
+                detailed_races.append({**race, **detail})
+            else:
+                race['_detail_failed'] = True
+                detailed_races.append(race)
             time.sleep(0.2)
 
         if dry_run:
@@ -128,7 +132,7 @@ class MarathonCrawlerService:
             timeout=30,
             verify=False,
         )
-        if response.status_code >= 400:
+        if response.status_code != 200:
             logger.warning('Race detail crawl failed', extra={'race_no': race_no, 'status': response.status_code})
             return None
         html = self._decode_body(response.content)
@@ -394,6 +398,9 @@ class MarathonCrawlerService:
         if not existing and data.get('source_url'):
             existing = Race.objects.filter(source_url=data['source_url']).first()
 
+        if data.get('_detail_failed') and existing:
+            return {'status': 'skipped', 'race': existing, 'reason': 'detail_crawl_failed'}
+
         race_data = {
             'title': data.get('title', ''),
             'sport': 'running',
@@ -616,7 +623,7 @@ class MarathonCrawlerService:
         if isinstance(value, dt_time):
             return value.isoformat()
         if isinstance(value, Decimal):
-            return str(value)
+            return str(value.normalize())
         return value
 
     def _serialize_pending_value(self, value):
