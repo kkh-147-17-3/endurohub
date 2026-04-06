@@ -1,7 +1,7 @@
 <script lang="ts">
     import RaceCard from '$lib/components/RaceCard.svelte';
     import PostCard from '$lib/components/PostCard.svelte';
-    import type { Race, Post } from '$lib/types';
+    import type { Race, Post, RecommendationsResponse } from '$lib/types';
 
     let { data } = $props();
 
@@ -11,6 +11,7 @@
     let recentPosts = $derived(data.recentPosts as Post[]);
     let sportCounts = $derived(data.sportCounts);
     let totalUpcoming = $derived(data.totalUpcoming as number);
+    let recommendations = $derived(data.recommendations as RecommendationsResponse | null);
 
 
     let appUrl = $derived(data.appUrl || 'https://www.endurohub.kr');
@@ -117,6 +118,35 @@
         {/if}
     </div>
 </section>
+
+<!-- Recommendations Section -->
+{#if recommendations && recommendations.races.length > 0}
+    <section class="py-8">
+        <div class="container mx-auto px-4">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    {#if recommendations.type === 'personalized'}
+                        <h2 class="text-xl md:text-2xl font-bold">맞춤 추천 대회</h2>
+                        <p class="text-base-content/50 text-base">회원님의 관심사를 기반으로 추천해드려요</p>
+                    {:else}
+                        <h2 class="text-xl md:text-2xl font-bold">인기 대회</h2>
+                        <p class="text-base-content/50 text-base">많은 분들이 관심있는 대회</p>
+                    {/if}
+                </div>
+            </div>
+
+            <div class="flex items-stretch gap-3 overflow-x-auto snap-x snap-mandatory pb-2 scrollbar-hide">
+                {#each recommendations.races as race, i (race.id)}
+                    <div class="w-[280px] snap-start shrink-0 flex">
+                        <div class="flex-1">
+                            <RaceCard {race} />
+                        </div>
+                    </div>
+                {/each}
+            </div>
+        </div>
+    </section>
+{/if}
 
 <!-- Sports Categories Section -->
 <section class="py-10 bg-base-200/50">

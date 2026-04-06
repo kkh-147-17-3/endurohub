@@ -1,3 +1,5 @@
+from urllib.parse import urlencode
+
 import httpx
 from django.conf import settings
 
@@ -17,10 +19,8 @@ class KakaoOAuth:
             'client_id': settings.KAKAO_CLIENT_ID,
             'redirect_uri': redirect_uri,
             'response_type': 'code',
-            'scope': 'account_email profile_nickname profile_image',
         }
-        qs = '&'.join(f'{k}={v}' for k, v in params.items())
-        return f'{cls.AUTHORIZE_URL}?{qs}'
+        return f'{cls.AUTHORIZE_URL}?{urlencode(params)}'
 
     @classmethod
     def exchange_code(cls, code: str, redirect_uri: str) -> dict:
@@ -44,7 +44,7 @@ class KakaoOAuth:
             raise OAuthError(f'Kakao user info failed: {resp.text}')
         data = resp.json()
         account = data.get('kakao_account', {})
-        profile = account.get('profile', {})
+        profile = account.get('profile', {}) or data.get('properties', {})
         return {
             'provider': 'kakao',
             'provider_uid': str(data['id']),
@@ -67,8 +67,7 @@ class NaverOAuth:
             'response_type': 'code',
             'state': state,
         }
-        qs = '&'.join(f'{k}={v}' for k, v in params.items())
-        return f'{cls.AUTHORIZE_URL}?{qs}'
+        return f'{cls.AUTHORIZE_URL}?{urlencode(params)}'
 
     @classmethod
     def exchange_code(cls, code: str, redirect_uri: str, state: str = '') -> dict:
@@ -116,8 +115,7 @@ class GoogleOAuth:
             'access_type': 'offline',
             'prompt': 'consent',
         }
-        qs = '&'.join(f'{k}={v}' for k, v in params.items())
-        return f'{cls.AUTHORIZE_URL}?{qs}'
+        return f'{cls.AUTHORIZE_URL}?{urlencode(params)}'
 
     @classmethod
     def exchange_code(cls, code: str, redirect_uri: str) -> dict:

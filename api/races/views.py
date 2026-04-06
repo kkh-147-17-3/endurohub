@@ -1,7 +1,8 @@
 import os
+import random
 import uuid
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.core.cache import cache
@@ -10,10 +11,13 @@ from core.utils import post_count_subqueries
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.authentication import JWTAuthentication
 from core.analytics import track
+from core.models import AnalyticsEvent
 from core.pagination import LaravelStylePagination
 from core.utils import check_rate_limit, hash_ip
 from posts.models import Post
@@ -79,6 +83,173 @@ class HomeView(APIView):
         }
         cache.set(self.CACHE_KEY, data, self.CACHE_TTL)
         return Response(data)
+
+
+class RecommendationsView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [AllowAny]
+    CACHE_TTL = 300  # 5 minutes
+    EVENT_WEIGHTS = {
+        'review_submit': 3,
+        'race_view': 2,
+        'race_search': 1,
+    }
+    MIN_EVENTS = 5
+    MIN_UNIQUE_RACES = 3
+    LOOKBACK_DAYS = 30
+    TOP_COUNT = 4
+    RANDOM_COUNT = 2
+
+    def get(self, request):
+        user = request.user if request.user and request.user.is_authenticated else None
+        session_id = request.META.get('HTTP_X_SESSION_ID', '') or request.COOKIES.get('ehub_sid', '')
+
+        # Cache key: per-user or per-session
+        if user:
+            cache_key = f'recommendations_user_{user.pk}'
+        elif session_id:
+            cache_key = f'recommendations_session_{session_id}'
+        else:
+            cache_key = 'recommendations_anonymous'
+
+        cached = cache.get(cache_key)
+        if cached:
+            return Response(cached)
+
+        cutoff = timezone.now() - timedelta(days=self.LOOKBACK_DAYS)
+
+        # Build event filter
+        event_filter = Q(
+            event_type__in=['race_view', 'race_search', 'review_submit'],
+            created_at__gte=cutoff,
+        )
+        if user:
+            event_filter &= Q(user=user)
+        elif session_id:
+            event_filter &= Q(session_id=session_id)
+        else:
+            data = self._popular_fallback()
+            cache.set(cache_key, data, self.CACHE_TTL)
+            return Response(data)
+
+        events = AnalyticsEvent.objects.filter(event_filter)
+
+        # Check data sufficiency
+        stats = events.filter(event_type='race_view').aggregate(
+            total=Count('id'),
+            unique_races=Count('item_id', distinct=True),
+        )
+
+        if stats['total'] >= self.MIN_EVENTS and stats['unique_races'] >= self.MIN_UNIQUE_RACES:
+            data = self._personalized(events)
+        else:
+            data = self._popular_fallback()
+
+        cache.set(cache_key, data, self.CACHE_TTL)
+        return Response(data)
+
+    def _personalized(self, events):
+        """Generate personalized recommendations based on user event history."""
+        sport_scores = defaultdict(float)
+        region_scores = defaultdict(float)
+        viewed_race_ids = set()
+
+        for event in events.filter(
+            event_type__in=['race_view', 'review_submit'],
+            item_type='race',
+        ).values('event_type', 'item_id', 'properties'):
+            weight = self.EVENT_WEIGHTS.get(event['event_type'], 1)
+            props = event['properties'] or {}
+            if props.get('sport'):
+                sport_scores[props['sport']] += weight
+            if props.get('region'):
+                region_scores[props['region']] += weight
+            if event['item_id']:
+                viewed_race_ids.add(event['item_id'])
+
+        # Also aggregate race_search events
+        for event in events.filter(event_type='race_search').values('properties'):
+            props = event['properties'] or {}
+            for sport in (props.get('sport') or []):
+                sport_scores[sport] += self.EVENT_WEIGHTS['race_search']
+            for region in (props.get('region') or []):
+                region_scores[region] += self.EVENT_WEIGHTS['race_search']
+
+        # Sort by score descending
+        top_sports = [s for s, _ in sorted(sport_scores.items(), key=lambda x: -x[1])][:3]
+        top_regions = [r for r, _ in sorted(region_scores.items(), key=lambda x: -x[1])][:3]
+
+        # Build query: upcoming races matching preferred sports/regions, exclude already viewed
+        qs = Race.objects.upcoming().exclude(
+            title__contains='(취소)'
+        )
+
+        # Exclude viewed race IDs (item_id is stored as string of race.id)
+        viewed_int_ids = set()
+        for rid in viewed_race_ids:
+            try:
+                viewed_int_ids.add(int(rid))
+            except (ValueError, TypeError):
+                pass
+        if viewed_int_ids:
+            qs = qs.exclude(id__in=viewed_int_ids)
+
+        # Filter by preferred sports or regions
+        sport_region_q = Q()
+        if top_sports:
+            sport_region_q |= Q(sport__in=top_sports)
+        if top_regions:
+            sport_region_q |= Q(region__in=top_regions)
+
+        if sport_region_q:
+            matched_qs = qs.filter(sport_region_q)
+        else:
+            matched_qs = qs
+
+        # Top 4 by view_count
+        top_races = list(matched_qs.order_by('-view_count')[:self.TOP_COUNT])
+        top_ids = {r.id for r in top_races}
+
+        # Random 2 from remaining matched races
+        remaining = list(
+            matched_qs.exclude(id__in=top_ids).order_by('?')[:self.RANDOM_COUNT]
+        )
+
+        # If not enough, fill from general upcoming
+        total = top_races + remaining
+        if len(total) < self.TOP_COUNT + self.RANDOM_COUNT:
+            fill_count = (self.TOP_COUNT + self.RANDOM_COUNT) - len(total)
+            fill_ids = {r.id for r in total}
+            fill = list(
+                qs.exclude(id__in=fill_ids).order_by('-view_count')[:fill_count]
+            )
+            total += fill
+
+        return {
+            'type': 'personalized',
+            'races': RaceSerializer(total, many=True).data,
+            'reason': {
+                'topSports': top_sports,
+                'topRegions': top_regions,
+            },
+        }
+
+    def _popular_fallback(self):
+        """Return popular races based on view_count."""
+        qs = Race.objects.upcoming().exclude(title__contains='(취소)')
+
+        top_races = list(qs.order_by('-view_count')[:self.TOP_COUNT])
+        top_ids = {r.id for r in top_races}
+
+        remaining = list(
+            qs.exclude(id__in=top_ids).order_by('?')[:self.RANDOM_COUNT]
+        )
+
+        return {
+            'type': 'popular',
+            'races': RaceSerializer(top_races + remaining, many=True).data,
+            'reason': None,
+        }
 
 
 class RaceListView(APIView):

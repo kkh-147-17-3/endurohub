@@ -8,6 +8,9 @@ urlpatterns = [
     path('auth/nickname/', views.NicknameSetupView.as_view()),
     path('auth/email/send/', views.EmailSendView.as_view()),
     path('auth/email/verify/', views.EmailVerifyView.as_view()),
+    path('auth/pending/email/send/', views.PendingSocialEmailSendView.as_view()),
+    path('auth/pending/email/verify/', views.PendingSocialEmailVerifyView.as_view()),
     path('auth/me/', views.MeView.as_view()),
+    path('auth/preferences/', views.ProfilePreferencesView.as_view()),
     path('auth/logout/', views.LogoutView.as_view()),
 ]

@@ -32,6 +32,7 @@ export interface FetchOptions {
 	headers?: Record<string, string>;
 	clientIp?: string;
 	authToken?: string;
+	sessionId?: string;
 }
 
 /**
@@ -59,6 +60,10 @@ export async function apiFetch<T>(
 
 	if (options.authToken) {
 		headers['Authorization'] = `Bearer ${options.authToken}`;
+	}
+
+	if (options.sessionId) {
+		headers['X-Session-Id'] = options.sessionId;
 	}
 
 	const fetchOptions: RequestInit = {

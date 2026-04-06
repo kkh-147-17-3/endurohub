@@ -94,6 +94,7 @@ export interface AuthUser {
 	nickname: string;
 	profileImage: string;
 	emailVerified: boolean;
+	emailUpdatesOptIn: boolean;
 	needsNickname: boolean;
 	needsEmailVerification: boolean;
 }
@@ -106,6 +107,10 @@ export interface OAuthLoginResponse {
 export interface OAuthCallbackResponse {
 	token: string;
 	user: AuthUser;
+}
+
+export interface OAuthPendingResponse {
+	pendingToken: string;
 }
 
 export interface NicknameSetupResponse {
@@ -124,8 +129,19 @@ export interface EmailVerifyResponse {
 	user: AuthUser;
 }
 
+export interface PendingEmailVerifyResponse {
+	token: string;
+	user: AuthUser;
+}
+
 export interface MeResponse {
 	user: AuthUser | null;
+}
+
+export interface ProfileUpdateResponse {
+	success: boolean;
+	message: string;
+	user: AuthUser;
 }
 
 // === Post ===
@@ -204,6 +220,13 @@ export interface HomeResponse {
 	recentPosts: Post[];
 	sportCounts: Record<string, number>;
 	totalUpcoming: number;
+	recommendations?: RecommendationsResponse;
+}
+
+export interface RecommendationsResponse {
+	type: 'personalized' | 'popular';
+	races: Race[];
+	reason: { topSports: string[]; topRegions: string[] } | null;
 }
 
 export interface RaceListResponse extends PaginatedResponse<Race> {

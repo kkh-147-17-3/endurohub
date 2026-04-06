@@ -2,7 +2,7 @@ import type { PageServerLoad } from './$types';
 import { apiFetch } from '$lib/api';
 import type { RaceListResponse } from '$lib/types';
 
-export const load: PageServerLoad = async ({ url }) => {
+export const load: PageServerLoad = async ({ url, locals }) => {
 	const params: Record<string, string | string[]> = {};
 
 	const sport = url.searchParams.getAll('sport');
@@ -32,6 +32,9 @@ export const load: PageServerLoad = async ({ url }) => {
 	const page = url.searchParams.get('page');
 	if (page) params.page = page;
 
-	const data = await apiFetch<RaceListResponse>('/races/', {}, params);
+	const data = await apiFetch<RaceListResponse>('/races/', {
+		sessionId: locals.sessionId || undefined,
+		authToken: locals.authToken || undefined,
+	}, params);
 	return { ...data };
 };

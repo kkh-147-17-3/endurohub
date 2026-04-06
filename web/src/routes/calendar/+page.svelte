@@ -85,7 +85,9 @@
     let dayModalRaces = $state<Race[]>([]);
 
     function openDayModal(title: string, races: Race[]) {
-        if (window.innerWidth >= 768) return;
+        // 모바일: 대회가 있는 날은 탭으로 목록 모달. PC: 3개 이상(+N)일 때만 모달(나머지 대회).
+        const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
+        if (isDesktop && races.length <= 2) return;
         dayModalTitle = title;
         dayModalRaces = races;
         dayModalOpen = true;
@@ -148,7 +150,7 @@
 
                             <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                             <div
-                                class="h-[100px] md:h-[110px] flex flex-col rounded border transition-colors cursor-pointer md:cursor-default overflow-hidden {isToday ? 'bg-primary/5 border-primary' : hasRaces ? 'bg-base-100 border-base-300 hover:border-base-400' : 'bg-base-100 border-base-200'}"
+                                class="h-[100px] md:h-[110px] flex flex-col rounded border transition-colors overflow-hidden {dayRaces.length > 2 ? 'cursor-pointer' : 'cursor-pointer md:cursor-default'} {isToday ? 'bg-primary/5 border-primary' : hasRaces ? 'bg-base-100 border-base-300 hover:border-base-400' : 'bg-base-100 border-base-200'}"
                                 onclick={() => hasRaces && openDayModal(`${month}월 ${day}일`, dayRaces)}
                                 onkeydown={(e) => { if (hasRaces && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openDayModal(`${month}월 ${day}일`, dayRaces); } }}
                                 tabindex={hasRaces ? 0 : undefined}
@@ -294,8 +296,8 @@
 </div>
 
 {#if dayModalOpen}
-    <div class="modal modal-open md:hidden">
-        <div class="modal-box max-w-sm">
+    <div class="modal modal-open">
+        <div class="modal-box max-w-sm md:max-w-md">
             <h3 class="font-bold text-lg mb-4">{dayModalTitle}</h3>
             <div class="space-y-2">
                 {#each dayModalRaces as race}

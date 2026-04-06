@@ -15,6 +15,7 @@ declare global {
 		interface Locals {
 			clientIp: string;
 			authToken: string;
+			sessionId: string;
 		}
 		interface PageData {
 			appName: string;
