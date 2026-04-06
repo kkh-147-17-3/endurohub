@@ -24,6 +24,9 @@ const appHandle: Handle = async ({ event, resolve }) => {
 	// Extract auth token from cookie
 	event.locals.authToken = event.cookies.get('auth_token') || '';
 
+	// Extract session ID for forwarding to Django API
+	event.locals.sessionId = event.cookies.get(SESSION_COOKIE) || '';
+
 	// Ensure anonymous session ID exists for analytics
 	if (!event.cookies.get(SESSION_COOKIE)) {
 		event.cookies.set(SESSION_COOKIE, crypto.randomUUID(), {

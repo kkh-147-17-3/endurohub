@@ -11,6 +11,7 @@ urlpatterns = [
     path('races/calendar/', views.RaceCalendarView.as_view(), name='race-calendar'),
     path('races/sports/', views.RaceSportsView.as_view(), name='race-sports'),
     path('races/regions/', views.RaceRegionsView.as_view(), name='race-regions'),
+    path('races/recommendations/', views.RecommendationsView.as_view(), name='race-recommendations'),
     path('races/year/<int:year>/', views.RaceYearlyView.as_view(), name='race-yearly'),
     path('races/<str:slug>/', views.RaceDetailView.as_view(), name='race-detail'),
     path('races/<str:slug>/reviews/', views.ReviewCreateView.as_view(), name='review-create'),

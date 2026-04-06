@@ -12,7 +12,12 @@
     let feedbackFormUrl = $derived(data.feedbackFormUrl);
     let googleAnalyticsId = $derived(data.googleAnalyticsId);
     let kakaoJsKey = $derived(data.kakaoJsKey);
+    let user = $derived(data.user);
     let currentPath = $derived($page.url.pathname);
+
+    let userLabel = $derived(
+        user ? (user.nickname?.trim() || user.email.split('@')[0] || '계정') : ''
+    );
 
     let theme = $state<Theme>('light');
 
@@ -100,6 +105,18 @@
                     <li><a href="/running-terms" class:active={currentPath === '/running-terms'}>러닝 용어</a></li>
                     <div class="divider my-1"></div>
                     <li><a href="/posts" class:active={currentPath === '/posts'}>자유게시판</a></li>
+                    <div class="divider my-1"></div>
+                    {#if user}
+                        <li class="px-3 py-1 text-xs text-base-content/60">{userLabel}</li>
+                        <li><a href="/mypage" class:active={currentPath === '/mypage'}>마이페이지</a></li>
+                        <li>
+                            <form method="POST" action="/auth/logout" class="w-full">
+                                <button type="submit" class="w-full text-left">로그아웃</button>
+                            </form>
+                        </li>
+                    {:else}
+                        <li><a href="/auth/login" class:active={currentPath === '/auth/login'}>로그인</a></li>
+                    {/if}
                 </ul>
             </div>
             <!-- Logo -->
@@ -182,7 +199,8 @@
         </div>
 
         <!-- CTA -->
-        <div class="navbar-end gap-2">
+        <div class="navbar-end gap-1">
+            <!-- 테마 토글 -->
             <button
                 onclick={handleToggleTheme}
                 class="btn btn-ghost btn-sm btn-square cursor-pointer"
@@ -198,9 +216,47 @@
                     </svg>
                 {/if}
             </button>
-            <a href="/races" class="btn btn-primary cursor-pointer">
-                대회 찾기
-            </a>
+
+            {#if user}
+                <!-- 아바타 드롭다운 -->
+                <div class="dropdown dropdown-end">
+                    <button tabindex="0" class="btn btn-ghost btn-sm btn-circle cursor-pointer" aria-label="계정 메뉴">
+                        {#if user.profileImage}
+                            <img src={user.profileImage} alt={userLabel} class="w-8 h-8 rounded-full object-cover" />
+                        {:else}
+                            <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
+                                {userLabel.charAt(0).toUpperCase()}
+                            </div>
+                        {/if}
+                    </button>
+                    <ul tabindex="0" class="dropdown-content menu menu-sm z-[1] mt-2 w-52 rounded-xl bg-base-100 p-2 shadow-lg border border-base-200">
+                        <li class="px-3 py-2 text-xs text-base-content/50 select-none" title={user.email}>
+                            {userLabel}
+                        </li>
+                        <div class="divider my-0.5"></div>
+                        <li>
+                            <a href="/mypage" class:active={currentPath === '/mypage'}>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                                마이페이지
+                            </a>
+                        </li>
+                        <li>
+                            <form method="POST" action="/auth/logout" class="w-full">
+                                <button type="submit" class="w-full flex items-center gap-2 text-left">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                    </svg>
+                                    로그아웃
+                                </button>
+                            </form>
+                        </li>
+                    </ul>
+                </div>
+            {:else}
+                <a href="/auth/login" class="btn btn-ghost btn-sm cursor-pointer">로그인</a>
+            {/if}
         </div>
     </div>
 </header>

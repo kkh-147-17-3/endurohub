@@ -12,7 +12,11 @@ SESSION_COOKIE = 'ehub_sid'
 def _get_session_id(request):
     if request is None:
         return ''
-    return request.COOKIES.get(SESSION_COOKIE, '')
+    # Try cookie first, then X-Session-Id header (from SvelteKit SSR)
+    return (
+        request.COOKIES.get(SESSION_COOKIE, '')
+        or request.META.get('HTTP_X_SESSION_ID', '')
+    )
 
 
 def track(event_type, request=None, properties=None, user=None,

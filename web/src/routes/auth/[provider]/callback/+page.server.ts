@@ -1,7 +1,8 @@
 import type { PageServerLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 import { apiFetch } from '$lib/api';
-import type { OAuthCallbackResponse } from '$lib/types';
+import { APP_URL } from '$lib/env';
+import type { OAuthCallbackResponse, OAuthPendingResponse } from '$lib/types';
 
 export const load: PageServerLoad = async ({ params, url, cookies }) => {
 	const { provider } = params;
@@ -17,7 +18,7 @@ export const load: PageServerLoad = async ({ params, url, cookies }) => {
 		return { error: '인증 코드가 없습니다.' };
 	}
 
-	const appUrl = url.origin;
+	const appUrl = APP_URL.replace(/\/$/, '') || url.origin;
 	const redirectUri = `${appUrl}/auth/${provider}/callback`;
 
 	try {
@@ -26,13 +27,24 @@ export const load: PageServerLoad = async ({ params, url, cookies }) => {
 			body.state = state;
 		}
 
-		const result = await apiFetch<OAuthCallbackResponse | { error: string }>(
+		const result = await apiFetch<OAuthCallbackResponse | OAuthPendingResponse | { error: string }>(
 			`/auth/${provider}/callback/`,
 			{ method: 'POST', body }
 		);
 
 		if ('error' in result) {
 			return { error: (result as { error: string }).error };
+		}
+
+		if ('pendingToken' in result) {
+			cookies.set('pending_social_token', result.pendingToken, {
+				path: '/',
+				httpOnly: true,
+				secure: url.protocol === 'https:',
+				sameSite: 'lax',
+				maxAge: 60 * 30, // 30 minutes
+			});
+			redirect(303, '/auth/verify-email');
 		}
 
 		const data = result as OAuthCallbackResponse;
@@ -45,6 +57,7 @@ export const load: PageServerLoad = async ({ params, url, cookies }) => {
 			sameSite: 'lax',
 			maxAge: 60 * 60 * 24 * 7, // 7 days
 		});
+		cookies.delete('pending_social_token', { path: '/' });
 
 		// Redirect based on user state
 		if (data.user.needsNickname) {
