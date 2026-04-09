@@ -3,6 +3,7 @@
     import type { Race, Sport } from '$lib/types';
     import { sportStyles, sportEmojis } from '$lib/race';
     import { formatDate, formatDateShort, formatDateSlash } from '$lib/date';
+    import { track } from '$lib/analytics';
 
     let { race, variant = 'default', eager = false }: { race: Race; variant?: 'default' | 'minimal'; eager?: boolean } = $props();
 
@@ -16,6 +17,13 @@
     );
 
     function handleClick() {
+        track('race_click', {
+            race_slug: race.slug,
+            race_title: race.title,
+            race_sport: race.sport,
+            race_status: race.status,
+            variant,
+        });
         goto(race.url);
     }
 </script>

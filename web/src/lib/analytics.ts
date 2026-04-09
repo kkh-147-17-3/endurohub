@@ -2,12 +2,24 @@
  * 프론트엔드 이벤트 트래킹 — GA4 커스텀 이벤트 + 자체 API 동시 전송
  */
 
+import { capturePostHogEvent } from '$lib/posthog';
+
 type EventProperties = Record<string, string | number | boolean | null | undefined>;
 
 function sendToGA(eventType: string, properties: EventProperties) {
 	if (typeof gtag === 'function') {
 		gtag('event', eventType, properties);
 	}
+}
+
+function getCommonProperties(): EventProperties {
+	if (typeof window === 'undefined') {
+		return {};
+	}
+
+	return {
+		page_path: window.location.pathname
+	};
 }
 
 interface QueueItem {
@@ -67,8 +79,14 @@ function flushQueue() {
 }
 
 export function track(eventType: string, properties: EventProperties = {}) {
-	sendToGA(eventType, properties);
-	sendToAPI(eventType, properties);
+	const enrichedProperties = {
+		...getCommonProperties(),
+		...properties
+	};
+
+	sendToGA(eventType, enrichedProperties);
+	sendToAPI(eventType, enrichedProperties);
+	capturePostHogEvent(eventType, enrichedProperties);
 }
 
 /**

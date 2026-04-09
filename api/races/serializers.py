@@ -1,6 +1,49 @@
+import json
+import re
+
 from rest_framework import serializers
 
 from .models import DeviceToken, Race, Review
+
+
+def _fee_to_numeric_string(value) -> str:
+    """Normalize fee for clients that use Number(fee); strip currency text."""
+    if value is None:
+        return ''
+    if isinstance(value, bool):
+        return '1' if value else '0'
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return str(int(value)) if value == int(value) else str(value)
+    s = str(value).strip()
+    digits = re.sub(r'[^\d]', '', s)
+    return digits if digits else s
+
+
+def normalize_entry_fee_for_api(raw):
+    """Coerce DB JSONField quirks into list[{distance, fee}]|null for the API."""
+    if raw is None:
+        return None
+    if isinstance(raw, list):
+        return raw
+    if isinstance(raw, dict):
+        return [
+            {'distance': str(k), 'fee': _fee_to_numeric_string(v)}
+            for k, v in raw.items()
+        ]
+    if isinstance(raw, str):
+        s = raw.strip()
+        if not s:
+            return None
+        if s.startswith('{') or s.startswith('['):
+            try:
+                parsed = json.loads(s)
+                return normalize_entry_fee_for_api(parsed)
+            except json.JSONDecodeError:
+                pass
+        return [{'distance': '', 'fee': _fee_to_numeric_string(s)}]
+    return None
 
 
 class RaceSerializer(serializers.ModelSerializer):
@@ -18,6 +61,7 @@ class RaceSerializer(serializers.ModelSerializer):
     verified_at = serializers.DateTimeField(read_only=True)
     verified_by = serializers.CharField(read_only=True)
     url = serializers.SerializerMethodField()
+    entry_fee = serializers.SerializerMethodField()
 
     class Meta:
         model = Race
@@ -72,6 +116,9 @@ class RaceSerializer(serializers.ModelSerializer):
 
     def get_url(self, obj):
         return obj.url
+
+    def get_entry_fee(self, obj):
+        return normalize_entry_fee_for_api(obj.entry_fee)
 
 
 class TaggedRaceSerializer(serializers.ModelSerializer):

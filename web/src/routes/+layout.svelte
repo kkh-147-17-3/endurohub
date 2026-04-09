@@ -1,9 +1,14 @@
+<script lang="ts" module>
+    declare const Kakao: any;
+</script>
+
 <script lang="ts">
     import '../app.css';
     import { page } from '$app/stores';
     import { navigating } from '$app/stores';
     import { afterNavigate } from '$app/navigation';
     import { onMount } from 'svelte';
+    import { capturePostHogPageView, initPostHog, syncPostHogUser } from '$lib/posthog';
     import { getTheme, toggleTheme, type Theme } from '$lib/theme';
 
     let { data, children } = $props();
@@ -20,9 +25,17 @@
     );
 
     let theme = $state<Theme>('light');
+    let lastTrackedPath = $state('');
 
     onMount(() => {
         theme = getTheme();
+        initPostHog();
+        syncPostHogUser(user);
+
+        // 첫 페이지 로드 시 pageview (afterNavigate는 첫 SSR 로드에서 발동 안 함)
+        const initialPath = $page.url.pathname + $page.url.search;
+        capturePostHogPageView($page.url.pathname, $page.url.search, document.referrer);
+        lastTrackedPath = initialPath;
 
         // Load Google Analytics deferred
         if (googleAnalyticsId && !document.querySelector('script[src*="googletagmanager"]')) {
@@ -52,11 +65,20 @@
         }
     });
 
+    $effect(() => {
+        syncPostHogUser(user);
+    });
+
     function handleToggleTheme() {
         theme = toggleTheme();
     }
 
     afterNavigate(() => {
+        const pathWithSearch = `${$page.url.pathname}${$page.url.search}`;
+        if (lastTrackedPath !== pathWithSearch) {
+            capturePostHogPageView($page.url.pathname, $page.url.search, document.referrer);
+            lastTrackedPath = pathWithSearch;
+        }
         if (googleAnalyticsId && typeof gtag === 'function') {
             gtag('config', googleAnalyticsId, { page_path: $page.url.pathname });
         }
@@ -229,7 +251,7 @@
                             </div>
                         {/if}
                     </button>
-                    <ul tabindex="0" class="dropdown-content menu menu-sm z-[1] mt-2 w-52 rounded-xl bg-base-100 p-2 shadow-lg border border-base-200">
+                    <ul class="dropdown-content menu menu-sm z-[1] mt-2 w-52 rounded-xl bg-base-100 p-2 shadow-lg border border-base-200">
                         <li class="px-3 py-2 text-xs text-base-content/50 select-none" title={user.email}>
                             {userLabel}
                         </li>

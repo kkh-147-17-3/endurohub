@@ -96,6 +96,20 @@
         }
     }
 
+    function handleRegisterClick(position: 'desktop' | 'mobile') {
+        if (race.status === 'registration_open') {
+            track('register_click', {
+                race_slug: race.slug,
+                race_title: race.title,
+                race_sport: race.sport,
+                position,
+            });
+        }
+        if (validOfficialUrl) {
+            trackOutboundClick(validOfficialUrl, race.title);
+        }
+    }
+
     function copyLink() {
         navigator.clipboard.writeText(window.location.href).then(() => {
             showToast('링크가 복사되었습니다.');
@@ -461,7 +475,7 @@
 
                     <div class="card-actions mt-6 hidden lg:flex flex-col gap-2">
                         {#if validOfficialUrl}
-                            <a href={validOfficialUrl} target="_blank" rel="noopener" class="btn {race.status === 'registration_open' ? 'btn-primary btn-lg' : 'btn-primary'} btn-block cursor-pointer" onclick={() => trackOutboundClick(validOfficialUrl, race.title)}>
+                            <a href={validOfficialUrl} target="_blank" rel="noopener" class="btn {race.status === 'registration_open' ? 'btn-primary btn-lg' : 'btn-primary'} btn-block cursor-pointer" onclick={() => handleRegisterClick('desktop')}>
                                 {race.status === 'registration_open' ? '공식 사이트에서 접수하기' : '공식사이트로 이동하기'}
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                             </a>
@@ -558,7 +572,7 @@
 {#if validOfficialUrl}
     <div class="h-20 lg:hidden"></div>
     <div class="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-base-100 border-t border-base-300 px-4 py-3" style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom))">
-        <a href={validOfficialUrl} target="_blank" rel="noopener" class="btn btn-primary btn-block cursor-pointer" onclick={() => trackOutboundClick(validOfficialUrl, race.title)}>
+        <a href={validOfficialUrl} target="_blank" rel="noopener" class="btn btn-primary btn-block cursor-pointer" onclick={() => handleRegisterClick('mobile')}>
             {race.status === 'registration_open' ? '공식 사이트에서 접수하기' : '공식사이트로 이동하기'}
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
         </a>
