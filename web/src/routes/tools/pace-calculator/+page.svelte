@@ -1,22 +1,15 @@
 <script lang="ts">
-    import { page } from '$app/stores';
     import DistanceSelector from '$lib/components/Tools/DistanceSelector.svelte';
     import TimeInput from '$lib/components/Tools/TimeInput.svelte';
     import PaceInput from '$lib/components/Tools/PaceInput.svelte';
     import SplitTable from '$lib/components/Tools/SplitTable.svelte';
     import ToolsSidebar from '$lib/components/Tools/ToolsSidebar.svelte';
     import type { CalculationMode, DistancePreset, SplitStrategy } from '$lib/tools/types';
-    import { onMount } from 'svelte';
     import {
         DISTANCES, timeToPaceSeconds, paceToTotalSeconds, paceToSpeed,
         formatTime, formatPace, generateSplits,
         FULL_MARATHON_PRESETS, HALF_MARATHON_PRESETS
     } from '$lib/tools/pace-calculator';
-    import { track } from '$lib/analytics';
-
-    onMount(() => {
-        track('tool_use', { tool: 'pace-calculator' });
-    });
 
     let activeTab = $state<CalculationMode>('time-to-pace');
 

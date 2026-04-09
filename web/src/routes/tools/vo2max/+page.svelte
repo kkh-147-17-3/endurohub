@@ -6,12 +6,6 @@
     import type { Gender } from '$lib/tools/vo2max';
     import { DISTANCES } from '$lib/tools/pace-calculator';
     import { calculateVO2max, getVO2maxRating, estimatePercentile, getTrainingPaces } from '$lib/tools/vo2max';
-    import { onMount } from 'svelte';
-    import { track } from '$lib/analytics';
-
-    onMount(() => {
-        track('tool_use', { tool: 'vo2max' });
-    });
 
     let selectedDistance = $state<DistancePreset>('10k');
     let customDistanceKm = $state(10);

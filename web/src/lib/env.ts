@@ -16,6 +16,12 @@ export const NAVER_MAP_CLIENT_ID = publicEnv.PUBLIC_NAVER_MAP_CLIENT_ID || '';
 /** Google Analytics ID */
 export const GOOGLE_ANALYTICS_ID = publicEnv.PUBLIC_GOOGLE_ANALYTICS_ID || '';
 
+/** PostHog project key */
+export const POSTHOG_KEY = publicEnv.PUBLIC_POSTHOG_KEY || '';
+
+/** PostHog API host */
+export const POSTHOG_HOST = publicEnv.PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com';
+
 /** Google Feedback Form URL */
 export const FEEDBACK_FORM_URL = publicEnv.PUBLIC_FEEDBACK_FORM_URL || '';
 
