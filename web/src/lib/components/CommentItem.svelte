@@ -102,7 +102,7 @@
     <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-2">
             <span class="text-sm font-semibold">{comment.nickname}</span>
-            <span class="text-[10px] sm:text-xs text-base-content/40">{comment.createdAtFormatted}</span>
+            <span class="text-[10px] sm:text-xs text-base-content/50">{comment.createdAtFormatted}</span>
         </div>
         <div class="flex items-center gap-1 opacity-60 sm:opacity-0 group-hover/comment:opacity-100 transition-opacity">
             <button
@@ -176,7 +176,7 @@
     {#if showReplyForm}
         <div class="mt-4 ml-10 p-4 bg-base-200/30 rounded-xl border border-base-300/50">
             <div class="flex items-center gap-2 mb-3">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-base-content/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-base-content/50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
                 <span class="text-xs font-medium text-base-content/60">답글 작성</span>
             </div>
             <CommentForm

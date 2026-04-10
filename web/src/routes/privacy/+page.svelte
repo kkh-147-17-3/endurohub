@@ -13,10 +13,9 @@
 
 <div class="container mx-auto px-4 py-8">
     <div class="max-w-3xl mx-auto">
-        <h1 class="text-3xl font-bold mb-8 text-center">개인정보처리방침</h1>
+        <h1 class="text-3xl font-bold mb-8">개인정보처리방침</h1>
 
-        <div class="card bg-base-100 shadow-xl">
-            <div class="card-body prose max-w-none">
+        <div class="prose max-w-none">
                 <p class="text-sm text-base-content/70">시행일: {dateStr}</p>
 
                 <h2>1. 개인정보의 처리 목적</h2>
@@ -76,7 +75,6 @@
                 <p>
                     이 개인정보처리방침은 시행일로부터 적용되며, 법령 및 방침에 따른 변경내용의 추가, 삭제 및 정정이 있는 경우에는 변경사항의 시행 7일 전부터 공지사항을 통하여 고지할 것입니다.
                 </p>
-            </div>
         </div>
     </div>
 </div>

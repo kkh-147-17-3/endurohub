@@ -65,7 +65,7 @@
             </p>
         </div>
 
-        <div class="card bg-base-100 shadow-xl">
+        <div class="card bg-base-100 border border-base-300">
             <div class="card-body space-y-4">
                 <form
                     method="POST"

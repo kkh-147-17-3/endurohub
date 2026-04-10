@@ -224,17 +224,14 @@
         {#if sidebar}
             <aside class="hidden lg:block space-y-6">
                 {#if sidebar.popularPosts && sidebar.popularPosts.length > 0}
-                    <div class="card bg-base-100 shadow-lg">
+                    <div class="card bg-base-100 border border-base-300">
                         <div class="card-body">
-                            <h3 class="card-title text-base">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" /></svg>
-                                이번 주 인기 글
-                            </h3>
+                            <h3 class="card-title text-base">인기 글</h3>
                             <ul class="space-y-3 mt-2">
                                 {#each sidebar.popularPosts as post, i}
                                     <li>
                                         <a href="/posts/{post.id}" class="flex items-start gap-2 group">
-                                            <span class="text-sm lg:text-base font-bold text-base-content/40 mt-0.5">{i + 1}</span>
+                                            <span class="text-sm lg:text-base font-bold text-base-content/50 mt-0.5">{i + 1}</span>
                                             <div class="min-w-0">
                                                 <p class="text-sm lg:text-base font-medium line-clamp-1 group-hover:text-primary transition-colors">{post.title}</p>
                                                 <p class="text-xs lg:text-sm text-base-content/50">조회 {post.viewCount} · 추천 {post.likeCount}</p>
@@ -248,12 +245,9 @@
                 {/if}
 
                 {#if sidebar.upcomingRaces && sidebar.upcomingRaces.length > 0}
-                    <div class="card bg-base-100 shadow-lg">
+                    <div class="card bg-base-100 border border-base-300">
                         <div class="card-body">
-                            <h3 class="card-title text-base">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                다가오는 대회
-                            </h3>
+                            <h3 class="card-title text-base">다가오는 대회</h3>
                             <ul class="space-y-3 mt-2">
                                 {#each sidebar.upcomingRaces as race}
                                     <li>

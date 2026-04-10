@@ -116,7 +116,6 @@
 
     <div class="mb-8">
         <h1 class="text-2xl md:text-3xl font-bold">페이스 계산기</h1>
-        <p class="text-base-content/60 mt-1">목표 시간과 페이스를 계산하고 구간별 스플릿을 확인하세요</p>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -149,12 +148,12 @@
                                 <div class="bg-primary/10 border-2 border-primary/30 rounded-xl p-5 text-center">
                                     <p class="text-sm text-base-content/50 mb-2">km당 페이스</p>
                                     <p class="text-3xl md:text-4xl font-extrabold text-primary tabular-nums">{mode1PaceFormatted}</p>
-                                    <p class="text-sm text-base-content/40 mt-1">/km</p>
+                                    <p class="text-sm text-base-content/50 mt-1">/km</p>
                                 </div>
                                 <div class="bg-base-200/60 border border-base-300 rounded-xl p-5 text-center">
                                     <p class="text-sm text-base-content/50 mb-2">평균 속도</p>
                                     <p class="text-3xl md:text-4xl font-extrabold tabular-nums">{mode1SpeedKmH}</p>
-                                    <p class="text-sm text-base-content/40 mt-1">km/h</p>
+                                    <p class="text-sm text-base-content/50 mt-1">km/h</p>
                                 </div>
                             </div>
                         {/if}
@@ -170,7 +169,7 @@
                                 <div class="bg-base-200/60 border border-base-300 rounded-xl p-5 text-center">
                                     <p class="text-sm text-base-content/50 mb-2">평균 속도</p>
                                     <p class="text-3xl md:text-4xl font-extrabold tabular-nums">{mode2SpeedKmH}</p>
-                                    <p class="text-sm text-base-content/40 mt-1">km/h</p>
+                                    <p class="text-sm text-base-content/50 mt-1">km/h</p>
                                 </div>
                             </div>
                         {/if}

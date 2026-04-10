@@ -188,7 +188,7 @@
                             </svg>
                             추가 정보 입력 (선택)
                             {#if completionTime || courseDifficulty || operationSatisfaction > 0 || selectedTags.length > 0}
-                                <span class="badge badge-primary badge-xs">입력됨</span>
+                                <span class="badge badge-primary badge-sm text-xs">입력됨</span>
                             {/if}
                         </button>
 
@@ -282,7 +282,7 @@
                                 {/if}
                             </button>
                             {#if rating === 0 || commentLength < 5}
-                                <p class="text-center text-xs text-base-content/40 mt-2">
+                                <p class="text-center text-xs text-base-content/50 mt-2">
                                     {#if rating === 0}별점을 선택해주세요{:else}한줄평을 5자 이상 입력해주세요{/if}
                                 </p>
                             {/if}

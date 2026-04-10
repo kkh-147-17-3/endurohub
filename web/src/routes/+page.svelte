@@ -76,7 +76,7 @@
         </div>
     </div>
     <div class="absolute left-1/2 -translate-x-1/2 top-[120%] z-10 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border border-base-300 text-base-content/50 text-xs">
-        <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+        <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
         {totalUpcoming}개 접수중
     </div>
 </section>
@@ -85,9 +85,9 @@
 <section class="py-8">
     <div class="container mx-auto px-4">
         <div class="flex items-center justify-between mb-6">
-            <div>
+            <div class="flex items-center gap-2">
                 <h2 class="text-xl md:text-2xl font-bold">마감 임박</h2>
-                <p class="text-base-content/50 text-base">접수 마감 7일 이내</p>
+                <span class="text-xs text-base-content/50 font-normal">7일 이내</span>
             </div>
         </div>
 
@@ -127,10 +127,9 @@
                 <div>
                     {#if recommendations.type === 'personalized'}
                         <h2 class="text-xl md:text-2xl font-bold">맞춤 추천 대회</h2>
-                        <p class="text-base-content/50 text-base">회원님의 관심사를 기반으로 추천해드려요</p>
+                        <p class="text-sm text-base-content/50">관심사 기반</p>
                     {:else}
                         <h2 class="text-xl md:text-2xl font-bold">인기 대회</h2>
-                        <p class="text-base-content/50 text-base">많은 분들이 관심있는 대회</p>
                     {/if}
                 </div>
             </div>
@@ -153,7 +152,6 @@
     <div class="container mx-auto px-4">
         <div class="mb-6">
             <h2 class="text-xl md:text-2xl font-bold">종목별 대회</h2>
-            <p class="text-base-content/50 text-base">관심있는 종목을 선택하세요</p>
         </div>
 
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -231,7 +229,6 @@
         <div class="flex items-center justify-between mb-6">
             <div>
                 <h2 class="text-xl md:text-2xl font-bold">방금 추가된 대회</h2>
-                <p class="text-base-content/50 text-base">새로 등록된 대회를 확인하세요</p>
             </div>
         </div>
 
@@ -256,36 +253,14 @@
     </div>
 </section>
 
-<!-- CTA Banner -->
-<section class="bg-neutral">
-    <div class="container mx-auto px-4 py-12 text-center">
-        <h2 class="text-xl md:text-2xl font-bold text-neutral-content mb-2">다음 도전을 시작하세요</h2>
-        <p class="text-neutral-content/50 text-base mb-6">
-            캘린더에서 대회 일정을 확인하고 계획을 세워보세요
-        </p>
-        <div class="flex flex-wrap gap-3 justify-center">
-            <a href="/calendar" class="btn btn-primary btn-sm gap-2 cursor-pointer">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                캘린더 보기
-            </a>
-            <a href="/races?reset=1" class="btn btn-ghost btn-sm text-neutral-content hover:bg-neutral-content/10 gap-2 cursor-pointer">
-                전체 대회 목록
-            </a>
-        </div>
-    </div>
-</section>
-
 <!-- Upcoming Races Section -->
 <section class="py-8">
     <div class="container mx-auto px-4">
         <div class="flex items-center justify-between mb-6">
             <div>
                 <h2 class="text-xl md:text-2xl font-bold">다가오는 대회</h2>
-                <p class="text-base-content/50 text-base">곧 열리는 대회를 확인하세요</p>
             </div>
-            <a href="/races?reset=1" class="text-base text-base-content/60 hover:text-primary cursor-pointer">
+            <a href="/races?reset=1" class="text-sm text-base-content/50 hover:text-primary cursor-pointer">
                 전체보기 →
             </a>
         </div>
@@ -317,10 +292,9 @@
         <div class="flex items-center justify-between mb-6">
             <div>
                 <h2 class="text-xl md:text-2xl font-bold">자유게시판</h2>
-                <p class="text-base-content/50 text-base">대회 후기와 정보를 나눠보세요</p>
             </div>
             {#if recentPosts.length > 0}
-                <a href="/posts" class="text-base text-base-content/60 hover:text-primary cursor-pointer">
+                <a href="/posts" class="text-sm text-base-content/50 hover:text-primary cursor-pointer">
                     전체보기 →
                 </a>
             {/if}

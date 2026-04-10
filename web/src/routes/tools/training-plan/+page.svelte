@@ -98,7 +98,6 @@
 
     <div class="mb-8">
         <h1 class="text-2xl md:text-3xl font-bold">훈련 플랜</h1>
-        <p class="text-base-content/60 mt-1">목표 대회에 맞는 맞춤 훈련 계획을 만들어 보세요</p>
     </div>
 
     <div class="card bg-base-100 border border-base-300 mb-8">
@@ -127,7 +126,7 @@
                     </div>
                 </div>
                 <div class="form-control">
-                    <label class="label" for="race-date"><span class="label-text font-medium">대회일 <span class="text-base-content/40 font-normal">(선택)</span></span></label>
+                    <label class="label" for="race-date"><span class="label-text font-medium">대회일 <span class="text-base-content/50 font-normal">(선택)</span></span></label>
                     <input id="race-date" type="date" class="input input-bordered cursor-pointer" bind:value={raceDate} />
                 </div>
             </div>
@@ -144,27 +143,27 @@
                 <div class="text-center p-3 rounded-lg bg-success/10 border border-success/20">
                     <p class="text-xs text-base-content/50">이지런</p>
                     <p class="font-bold tabular-nums text-success">{paceZones.easy}</p>
-                    <p class="text-xs text-base-content/40">/km</p>
+                    <p class="text-xs text-base-content/50">/km</p>
                 </div>
                 <div class="text-center p-3 rounded-lg bg-primary/10 border border-primary/20">
                     <p class="text-xs text-base-content/50">롱런</p>
                     <p class="font-bold tabular-nums text-primary">{paceZones.longRun}</p>
-                    <p class="text-xs text-base-content/40">/km</p>
+                    <p class="text-xs text-base-content/50">/km</p>
                 </div>
                 <div class="text-center p-3 rounded-lg bg-warning/10 border border-warning/20">
                     <p class="text-xs text-base-content/50">템포런</p>
                     <p class="font-bold tabular-nums text-warning">{paceZones.tempo}</p>
-                    <p class="text-xs text-base-content/40">/km</p>
+                    <p class="text-xs text-base-content/50">/km</p>
                 </div>
                 <div class="text-center p-3 rounded-lg bg-secondary/10 border border-secondary/20">
                     <p class="text-xs text-base-content/50">레이스페이스</p>
                     <p class="font-bold tabular-nums text-secondary">{paceZones.racePace}</p>
-                    <p class="text-xs text-base-content/40">/km</p>
+                    <p class="text-xs text-base-content/50">/km</p>
                 </div>
                 <div class="text-center p-3 rounded-lg bg-error/10 border border-error/20">
                     <p class="text-xs text-base-content/50">인터벌</p>
                     <p class="font-bold tabular-nums text-error">{paceZones.interval}</p>
-                    <p class="text-xs text-base-content/40">/km</p>
+                    <p class="text-xs text-base-content/50">/km</p>
                 </div>
             </div>
         </div>
@@ -194,7 +193,7 @@
     </div>
     <div class="flex justify-between mb-6">
         {#each phaseSummary as ps}
-            <span class="text-sm font-medium text-base-content/60">{phaseLabels[ps.phase as keyof typeof phaseLabels]} <span class="text-base-content/40">{ps.count}주</span></span>
+            <span class="text-sm font-medium text-base-content/60">{phaseLabels[ps.phase as keyof typeof phaseLabels]} <span class="text-base-content/50">{ps.count}주</span></span>
         {/each}
     </div>
 

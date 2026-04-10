@@ -107,7 +107,6 @@
     <div class="flex items-center justify-between gap-2 mb-1 md:mb-2">
         <div>
             <h1 class="text-xl md:text-2xl font-bold">대회 캘린더</h1>
-            <p class="text-base-content/50 text-xs md:text-sm hidden md:block">월별 대회 일정을 확인하세요</p>
         </div>
         <div class="text-xs md:text-sm text-base-content/50">
             <span class="font-semibold text-base-content">{totalRacesThisMonth}</span>개
@@ -124,7 +123,7 @@
                         </a>
                         <div class="flex items-center gap-1 md:gap-2">
                             <h2 class="text-lg md:text-xl font-bold">{year}.{month}</h2>
-                            <a href="/calendar{sport ? `?sport=${sport}` : ''}" class="text-xs text-base-content/40 hover:text-primary cursor-pointer" title="오늘">오늘</a>
+                            <a href="/calendar{sport ? `?sport=${sport}` : ''}" class="text-xs text-base-content/50 hover:text-primary cursor-pointer" title="오늘">오늘</a>
                         </div>
                         <a href="/calendar?year={nextMonth.year}&month={nextMonth.month}{sport ? `&sport=${sport}` : ''}" class="text-sm md:text-base text-base-content/60 hover:text-primary cursor-pointer">
                             <span class="hidden md:inline">{nextMonth.month}월</span> →
@@ -269,23 +268,23 @@
                         </div>
                         <div class="w-1 h-8 rounded-full {colors.bg} shrink-0"></div>
                         <div class="flex-1 min-w-0">
-                            <div class="font-medium text-sm truncate">{race.title}</div>
+                            <div class="font-medium text-sm sm:text-base truncate">{race.title}</div>
                             <div class="flex items-center gap-2 mt-0.5">
-                                <span class="inline-flex items-center shrink-0 px-1.5 py-px rounded text-[11px] font-medium leading-none whitespace-nowrap {colors['bg-light']} {colors.text}">{race.sportLabel}</span>
+                                <span class="inline-flex items-center shrink-0 px-1.5 py-0.5 rounded text-xs font-medium leading-none whitespace-nowrap {colors['bg-light']} {colors.text}">{race.sportLabel}</span>
                                 {#if race.distances && race.distances.length > 0}
-                                    <span class="text-xs text-base-content/50 truncate">{race.distances.join(', ')}</span>
+                                    <span class="text-xs text-base-content/60 truncate">{race.distances.join(', ')}</span>
                                 {/if}
                             </div>
                         </div>
                         <div class="shrink-0">
                             {#if race.status === 'registration_open'}
-                                <span class="badge badge-success badge-sm">접수중</span>
+                                <span class="badge badge-success">접수중</span>
                             {:else if race.status === 'upcoming'}
-                                <span class="badge badge-info badge-sm">예정</span>
+                                <span class="badge badge-info">예정</span>
                             {:else if race.status === 'registration_closed'}
-                                <span class="badge badge-warning badge-sm">접수마감</span>
+                                <span class="badge badge-warning">접수마감</span>
                             {:else}
-                                <span class="badge badge-ghost badge-sm">종료</span>
+                                <span class="badge badge-ghost">종료</span>
                             {/if}
                         </div>
                     </a>

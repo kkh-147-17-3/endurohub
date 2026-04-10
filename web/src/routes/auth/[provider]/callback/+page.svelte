@@ -10,7 +10,7 @@
 <div class="container mx-auto px-4 py-16">
     <div class="max-w-sm mx-auto text-center">
         {#if data.error}
-            <div class="card bg-base-100 shadow-xl">
+            <div class="card bg-base-100 border border-base-300">
                 <div class="card-body">
                     <h2 class="card-title justify-center text-error">로그인 실패</h2>
                     <p class="text-base-content/70">{data.error}</p>

@@ -328,7 +328,7 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div class="lg:col-span-2">
-            <div class="card bg-base-100 shadow-xl">
+            <div class="card bg-base-100 border border-base-300">
                 <div class="card-body">
                     <p class="text-sm text-base-content/60 mb-4">조회수 {race.viewCount.toLocaleString()}</p>
 
@@ -355,7 +355,7 @@
                             <div class="grid grid-cols-1 {race.courseImageSrcs.length > 1 ? 'md:grid-cols-2' : ''} gap-4">
                                 {#each race.courseImageSrcs as src, index}
                                     <button onclick={() => openImageModal(src, `${race.title} 코스 안내 ${index + 1}`)} class="cursor-pointer group">
-                                        <img src={src} alt="{race.title} 코스 안내 {index + 1}" class="w-full rounded-lg group-hover:opacity-90 group-hover:shadow-lg transition-all" loading="lazy" />
+                                        <img src={src} alt="{race.title} 코스 안내 {index + 1}" class="w-full rounded-lg group-hover:opacity-90 transition-opacity" loading="lazy" />
                                     </button>
                                 {/each}
                             </div>
@@ -386,7 +386,7 @@
                                 <div class="grid grid-cols-1 {race.giveawayImageSrcs.length > 1 ? 'md:grid-cols-2' : ''} gap-4">
                                     {#each race.giveawayImageSrcs as src, index}
                                         <button onclick={() => openImageModal(src, `${race.title} 참가 사은품 ${index + 1}`)} class="cursor-pointer group">
-                                            <img src={src} alt="{race.title} 참가 사은품 {index + 1}" class="w-full rounded-lg group-hover:opacity-90 group-hover:shadow-lg transition-all" loading="lazy" />
+                                            <img src={src} alt="{race.title} 참가 사은품 {index + 1}" class="w-full rounded-lg group-hover:opacity-90 transition-opacity" loading="lazy" />
                                         </button>
                                     {/each}
                                 </div>
@@ -398,11 +398,11 @@
         </div>
 
         <div class="space-y-6 lg:sticky lg:top-20 lg:self-start">
-            <div class="card bg-base-100 shadow-xl {race.status === 'registration_open' ? 'ring-2 ring-primary/30' : ''}">
+            <div class="card bg-base-100 border border-base-300 {race.status === 'registration_open' ? 'ring-2 ring-primary/30' : ''}">
                 <div class="card-body">
                     {#if race.status === 'registration_open'}
                         <div class="flex items-center gap-2 mb-2">
-                            <span class="w-2 h-2 rounded-full bg-success animate-pulse"></span>
+                            <span class="w-2 h-2 rounded-full bg-success"></span>
                             <span class="text-sm font-semibold text-success">접수중</span>
                         </div>
                     {/if}
@@ -542,7 +542,7 @@
     {#if race.recapUrl}
         <section class="mt-12">
             <h2 class="text-xl font-bold mb-6">대회 후기</h2>
-            <div class="card bg-base-100 shadow-lg">
+            <div class="card bg-base-100 border border-base-300">
                 <div class="card-body flex-row items-center justify-between">
                     <p class="text-base-content/70">블로그에서 대회 후기를 확인해보세요.</p>
                     <a href={race.recapUrl} target="_blank" rel="noopener" class="btn btn-primary btn-sm">

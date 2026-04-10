@@ -153,7 +153,7 @@
         <div class="flex flex-col sm:flex-row gap-3">
             <div class="form-control flex-1">
                 <div class="relative">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 absolute left-3 top-1/2 -translate-y-1/2 text-base-content/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                     <input type="text" bind:value={searchQuery} placeholder="용어 검색..." class="input input-bordered w-full pl-10 pr-10" aria-label="용어 검색" />
                     {#if searchQuery}
                         <button type="button" class="absolute right-2 top-1/2 -translate-y-1/2 btn btn-ghost btn-xs btn-circle cursor-pointer" onclick={clearSearch} aria-label="검색어 지우기">
@@ -192,7 +192,7 @@
             <div class="flex items-center gap-3 mb-3">
                 <span class="text-lg font-bold text-primary">{group.initial}</span>
                 <div class="flex-1 border-t border-base-300"></div>
-                <span class="text-xs text-base-content/40">{group.terms.length}개</span>
+                <span class="text-xs text-base-content/50">{group.terms.length}개</span>
             </div>
 
             <div class="space-y-2">
@@ -206,7 +206,7 @@
                                 </div>
                                 <p class="text-sm text-base-content/50">{term.shortDesc}</p>
                             </div>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-base-content/40 transition-transform duration-200 shrink-0 ml-3 mt-1 {expandedId === term.id ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-base-content/50 transition-transform duration-200 shrink-0 ml-3 mt-1 {expandedId === term.id ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
                             </svg>
                         </button>
@@ -216,7 +216,7 @@
                                 <p class="text-sm text-base-content/80 leading-relaxed">{term.fullDesc}</p>
                                 {#if term.related && term.related.length > 0}
                                     <div class="mt-4">
-                                        <p class="text-xs text-base-content/40 mb-2">관련 용어</p>
+                                        <p class="text-xs text-base-content/50 mb-2">관련 용어</p>
                                         <div class="flex flex-wrap gap-2">
                                             {#each getRelatedTerms(term.related) as related}
                                                 {#if related}
@@ -235,11 +235,9 @@
     {/each}
 
     {#if filteredTerms.length === 0}
-        <div class="text-center py-16">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-base-content/20 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-            <p class="text-base-content/50 font-medium mb-1">검색 결과가 없습니다</p>
-            <p class="text-sm text-base-content/40 mb-4">다른 검색어를 입력하거나 필터를 변경해 보세요</p>
-            <button type="button" class="btn btn-outline btn-sm cursor-pointer" onclick={resetAll}>전체 보기</button>
+        <div class="text-center py-12">
+            <p class="text-sm text-base-content/50 mb-3">검색 결과 없음</p>
+            <button type="button" class="btn btn-ghost btn-sm cursor-pointer" onclick={resetAll}>필터 초기화</button>
         </div>
     {/if}
 

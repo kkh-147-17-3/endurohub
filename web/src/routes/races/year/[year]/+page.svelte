@@ -311,7 +311,7 @@
                                 <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-base-200/50 mb-4">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                 </div>
-                                <p class="text-base-content/40 text-base">등록된 대회가 없습니다</p>
+                                <p class="text-base-content/50 text-base">등록된 대회가 없습니다</p>
                             </div>
                         {/if}
                     </section>
