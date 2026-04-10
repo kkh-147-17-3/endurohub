@@ -125,7 +125,7 @@
                         />
                     </label>
 
-                    <p class="text-xs text-base-content/40">
+                    <p class="text-xs text-base-content/50">
                         계정 보안, 인증 등 필수 안내는 동의 여부와 관계없이 발송됩니다.
                     </p>
 

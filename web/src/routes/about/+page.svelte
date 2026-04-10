@@ -7,10 +7,9 @@
 
 <div class="container mx-auto px-4 py-8">
     <div class="max-w-3xl mx-auto">
-        <h1 class="text-3xl font-bold mb-8 text-center">엔듀로허브 소개</h1>
+        <h1 class="text-3xl font-bold mb-8">엔듀로허브 소개</h1>
 
-        <div class="card bg-base-100 shadow-xl">
-            <div class="card-body prose max-w-none">
+        <div class="prose max-w-none">
                 <h2>서비스 소개</h2>
                 <p>
                     엔듀로허브는 국내에서 개최되는 마라톤, 수영, 자전거, 철인3종, 트레일러닝 대회 정보를 한곳에서 확인할 수 있는 플랫폼입니다.
@@ -55,7 +54,6 @@
                 <p>
                     <a href="mailto:contact@endurohub.kr" class="link link-primary">contact@endurohub.kr</a>
                 </p>
-            </div>
         </div>
     </div>
 </div>

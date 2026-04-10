@@ -61,7 +61,7 @@
             <p class="mt-4 text-base-content/60">소셜 계정으로 간편 로그인</p>
         </div>
 
-        <div class="card bg-base-100 shadow-xl">
+        <div class="card bg-base-100 border border-base-300">
             <div class="card-body space-y-3">
                 <!-- Kakao -->
                 <button

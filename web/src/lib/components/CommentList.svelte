@@ -18,7 +18,7 @@
 
     <!-- 댓글 작성 폼 (상단) -->
     <div class="bg-base-200/30 rounded-2xl p-4 sm:p-6 border border-base-300/50 mb-8">
-        <CommentForm {postId} placeholder="따뜻한 댓글은 작성자에게 큰 힘이 됩니다." />
+        <CommentForm {postId} placeholder="댓글을 작성하세요" />
     </div>
 
     <!-- 댓글 목록 -->
@@ -29,9 +29,8 @@
             {/each}
         </div>
     {:else}
-        <div class="flex flex-col items-center justify-center py-16 px-4 bg-base-200/10 rounded-2xl border border-dashed border-base-300">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-base-content/20 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-            <p class="text-sm text-base-content/40">아직 댓글이 없습니다. 첫 번째 댓글을 작성해보세요!</p>
+        <div class="py-8 text-center">
+            <p class="text-sm text-base-content/50">아직 댓글이 없습니다</p>
         </div>
     {/if}
 </div>

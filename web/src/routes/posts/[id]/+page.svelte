@@ -251,7 +251,7 @@
 
         <!-- Main Content -->
         <main class="lg:col-span-8 flex flex-col gap-8">
-            <article class="card bg-base-100 shadow-xl border border-base-200 overflow-hidden">
+            <article class="card bg-base-100 border border-base-200 overflow-hidden">
                 <div class="card-body p-6 sm:p-10">
                     <!-- Category & Tags -->
                     <div class="flex items-center gap-2 mb-4">
@@ -270,7 +270,7 @@
                         <div class="flex items-center gap-3">
                             <div class="flex flex-col">
                                 <span class="font-bold text-sm lg:text-base text-base-content">{post.nickname}</span>
-                                <div class="flex items-center gap-2 text-xs lg:text-sm text-base-content/40">
+                                <div class="flex items-center gap-2 text-xs lg:text-sm text-base-content/50">
                                     <time datetime={post.createdAt}>{formatDistanceToNow(post.createdAt)}</time>
                                     <span class="w-1 h-1 rounded-full bg-base-content/20"></span>
                                     <div class="flex items-center gap-1">
@@ -388,7 +388,7 @@
             </div>
 
             <!-- Comment Area -->
-            <div id="comments" class="bg-base-100 rounded-2xl shadow-lg border border-base-200 p-6 sm:p-10">
+            <div id="comments" class="bg-base-100 rounded-2xl border border-base-200 p-6 sm:p-10">
                 <CommentList comments={post.comments || []} postId={post.id} commentCount={post.commentCount} />
             </div>
         </main>

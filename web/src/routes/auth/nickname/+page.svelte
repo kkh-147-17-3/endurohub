@@ -30,7 +30,7 @@
             <p class="mt-2 text-base-content/60">커뮤니티에서 사용할 닉네임을 설정해주세요.</p>
         </div>
 
-        <div class="card bg-base-100 shadow-xl">
+        <div class="card bg-base-100 border border-base-300">
             <div class="card-body">
                 <form
                     method="POST"

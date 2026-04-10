@@ -64,7 +64,6 @@
 
     <div class="mb-8">
         <h1 class="text-2xl md:text-3xl font-bold">VO2max 계산기</h1>
-        <p class="text-base-content/60 mt-1">대회 기록으로 최대산소섭취량을 추정하고 훈련 페이스를 확인하세요</p>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -93,7 +92,7 @@
                             <div class="bg-primary/5 border border-primary/20 rounded-xl p-5 text-center">
                                 <p class="text-xs text-base-content/50 mb-1">VO2max</p>
                                 <p class="text-3xl font-bold text-primary tabular-nums">{vo2max.toFixed(1)}</p>
-                                <p class="text-xs text-base-content/40 mt-1">ml/kg/min</p>
+                                <p class="text-xs text-base-content/50 mt-1">ml/kg/min</p>
                             </div>
                             <div class="bg-base-200/60 rounded-xl p-5 text-center">
                                 <p class="text-xs text-base-content/50 mb-1">등급</p>
@@ -105,12 +104,12 @@
                             <div class="bg-base-200/60 rounded-xl p-5 text-center">
                                 <p class="text-xs text-base-content/50 mb-1">상위</p>
                                 <p class="text-3xl font-bold tabular-nums">{100 - percentile}<span class="text-lg">%</span></p>
-                                <p class="text-xs text-base-content/40 mt-1">동성 일반인 기준</p>
+                                <p class="text-xs text-base-content/50 mt-1">동성 일반인 기준</p>
                             </div>
                         </div>
 
                         <div class="mb-6">
-                            <div class="flex justify-between text-xs text-base-content/40 mb-1">
+                            <div class="flex justify-between text-xs text-base-content/50 mb-1">
                                 <span>20</span><span>30</span><span>40</span><span>50</span><span>60</span><span>70+</span>
                             </div>
                             <div class="w-full h-3 rounded-full bg-base-200 relative overflow-hidden">
@@ -127,27 +126,27 @@
                                 <div class="text-center p-3 rounded-lg bg-success/10 border border-success/20">
                                     <p class="text-xs text-base-content/50">이지런</p>
                                     <p class="font-bold tabular-nums text-success">{paces.easy}</p>
-                                    <p class="text-xs text-base-content/40">/km</p>
+                                    <p class="text-xs text-base-content/50">/km</p>
                                 </div>
                                 <div class="text-center p-3 rounded-lg bg-primary/10 border border-primary/20">
                                     <p class="text-xs text-base-content/50">마라톤</p>
                                     <p class="font-bold tabular-nums text-primary">{paces.marathon}</p>
-                                    <p class="text-xs text-base-content/40">/km</p>
+                                    <p class="text-xs text-base-content/50">/km</p>
                                 </div>
                                 <div class="text-center p-3 rounded-lg bg-warning/10 border border-warning/20">
                                     <p class="text-xs text-base-content/50">템포</p>
                                     <p class="font-bold tabular-nums text-warning">{paces.tempo}</p>
-                                    <p class="text-xs text-base-content/40">/km</p>
+                                    <p class="text-xs text-base-content/50">/km</p>
                                 </div>
                                 <div class="text-center p-3 rounded-lg bg-error/10 border border-error/20">
                                     <p class="text-xs text-base-content/50">인터벌</p>
                                     <p class="font-bold tabular-nums text-error">{paces.interval}</p>
-                                    <p class="text-xs text-base-content/40">/km</p>
+                                    <p class="text-xs text-base-content/50">/km</p>
                                 </div>
                                 <div class="text-center p-3 rounded-lg bg-secondary/10 border border-secondary/20">
                                     <p class="text-xs text-base-content/50">반복</p>
                                     <p class="font-bold tabular-nums text-secondary">{paces.repetition}</p>
-                                    <p class="text-xs text-base-content/40">/km</p>
+                                    <p class="text-xs text-base-content/50">/km</p>
                                 </div>
                             </div>
                         {/if}

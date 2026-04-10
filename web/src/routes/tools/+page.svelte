@@ -2,7 +2,7 @@
     const tools = [
         {
             name: '페이스 계산기',
-            description: '목표 시간에 맞는 km당 페이스를 계산하고 구간별 스플릿 테이블을 확인하세요.',
+            description: '목표 시간 → km당 페이스, 평균 속도, 구간별 스플릿',
             href: '/tools/pace-calculator',
             iconBg: 'bg-primary/10 group-hover:bg-primary/20',
             iconColor: 'text-primary',
@@ -13,7 +13,7 @@
         },
         {
             name: '훈련 플랜',
-            description: '목표 대회에 맞는 12주/16주 맞춤 훈련 계획을 무료로 만들어 보세요.',
+            description: '풀/하프마라톤 12주·16주 맞춤 훈련 계획',
             href: '/tools/training-plan',
             iconBg: 'bg-secondary/10 group-hover:bg-secondary/20',
             iconColor: 'text-secondary',
@@ -24,7 +24,7 @@
         },
         {
             name: 'VO2max 계산기',
-            description: '대회 기록으로 최대산소섭취량을 추정하고 체력 등급을 확인하세요.',
+            description: '대회 기록 → 최대산소섭취량 추정, 체력 등급',
             href: '/tools/vo2max',
             iconBg: 'bg-error/10 group-hover:bg-error/20',
             iconColor: 'text-error',
@@ -35,7 +35,7 @@
         },
         {
             name: '대회 기록 예측기',
-            description: '현재 기록으로 다른 거리의 예상 완주 시간을 예측하세요.',
+            description: '10K 기록으로 하프·풀마라톤 완주 시간 예측',
             href: '/tools/race-predictor',
             iconBg: 'bg-info/10 group-hover:bg-info/20',
             iconColor: 'text-info',
@@ -46,7 +46,7 @@
         },
         {
             name: '러닝 용어 사전',
-            description: '마라톤과 러닝에서 자주 사용되는 용어를 쉽게 알아보세요.',
+            description: '페이스, LSD, 인터벌 등 러닝 용어 120개+',
             href: '/running-terms',
             iconBg: 'bg-warning/10 group-hover:bg-warning/20',
             iconColor: 'text-warning',
@@ -80,15 +80,14 @@
     </div>
 
     <div class="mb-10">
-        <h1 class="text-2xl md:text-3xl font-bold">러닝 도구 모음</h1>
-        <p class="text-base-content/60 mt-2 max-w-2xl">훈련과 대회 준비에 도움이 되는 무료 도구들을 활용해 보세요.</p>
+        <h1 class="text-2xl md:text-3xl font-bold">러닝 도구</h1>
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {#each tools as tool (tool.href)}
             <a
                 href={tool.href}
-                class="card bg-base-100 border border-base-300 {tool.hoverBorder} hover:shadow-lg transition-all duration-200 cursor-pointer group"
+                class="card bg-base-100 border border-base-300 {tool.hoverBorder} transition-colors duration-200 cursor-pointer group"
             >
                 <div class="card-body">
                     <div class="flex items-start gap-4">
@@ -109,12 +108,6 @@
                             <h2 class="font-semibold text-base {tool.hoverText} transition-colors duration-200">{tool.name}</h2>
                             <p class="text-sm text-base-content/60 mt-1 leading-relaxed">{tool.description}</p>
                         </div>
-                    </div>
-                    <div class="flex justify-end mt-3">
-                        <span class="{tool.ctaColor} text-sm font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                            사용하기
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
-                        </span>
                     </div>
                 </div>
             </a>

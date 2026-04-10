@@ -45,7 +45,7 @@
                 주간 {trainingWeek.totalDistanceKm}km
             </span>
             {#if weekDateLabel}
-                <span class="text-xs text-base-content/40">{weekDateLabel}~</span>
+                <span class="text-xs text-base-content/50">{weekDateLabel}~</span>
             {/if}
             {#if !isOpen}
                 <div class="hidden sm:block w-20 h-2 bg-base-200 rounded-full overflow-hidden" title="주간 {trainingWeek.totalDistanceKm}km">
@@ -56,14 +56,14 @@
                 </div>
                 <div class="flex flex-wrap gap-1">
                     {#each workoutSummary as type}
-                        <span class="badge badge-xs {workoutColors[type as keyof typeof workoutColors]}">{workoutLabels[type as keyof typeof workoutLabels]}</span>
+                        <span class="badge badge-sm text-xs {workoutColors[type as keyof typeof workoutColors]}">{workoutLabels[type as keyof typeof workoutLabels]}</span>
                     {/each}
                 </div>
             {/if}
         </div>
         <svg
             xmlns="http://www.w3.org/2000/svg"
-            class="h-5 w-5 text-base-content/40 transition-transform duration-200 {isOpen ? 'rotate-180' : ''}"
+            class="h-5 w-5 text-base-content/50 transition-transform duration-200 {isOpen ? 'rotate-180' : ''}"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -80,7 +80,7 @@
                     <div class="text-center p-3 rounded-lg bg-base-200/50 space-y-1.5">
                         <div class="text-xs font-medium text-base-content/50">{dayNames[i]}</div>
                         <div>
-                            <span class="badge badge-xs {workoutColors[day.type]}">
+                            <span class="badge badge-sm text-xs {workoutColors[day.type]}">
                                 {workoutLabels[day.type]}
                             </span>
                         </div>
@@ -98,7 +98,7 @@
                         <span class="text-xs font-medium text-base-content/50 w-4 pt-0.5">{dayNames[i]}</span>
                         <div class="flex-1 min-w-0">
                             <div class="flex items-center gap-2">
-                                <span class="badge badge-xs {workoutColors[day.type]}">
+                                <span class="badge badge-sm text-xs {workoutColors[day.type]}">
                                     {workoutLabels[day.type]}
                                 </span>
                                 <span class="text-sm">{day.description}</span>

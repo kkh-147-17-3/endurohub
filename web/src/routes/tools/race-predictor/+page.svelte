@@ -61,7 +61,6 @@
 
     <div class="mb-8">
         <h1 class="text-2xl md:text-3xl font-bold">대회 기록 예측기</h1>
-        <p class="text-base-content/60 mt-1">현재 기록으로 다른 거리의 예상 완주 시간을 확인하세요</p>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -94,9 +93,9 @@
                                             <td>
                                                 {pred.distance}
                                                 {#if pred.distanceKm === 42.195}
-                                                    <span class="badge badge-xs badge-primary ml-1">풀코스</span>
+                                                    <span class="badge badge-sm badge-primary ml-1">풀코스</span>
                                                 {:else if pred.distanceKm === 21.0975}
-                                                    <span class="badge badge-xs badge-secondary ml-1">하프</span>
+                                                    <span class="badge badge-sm badge-secondary ml-1">하프</span>
                                                 {/if}
                                             </td>
                                             <td class="text-center tabular-nums">{pred.predictedTime}</td>
@@ -107,7 +106,7 @@
                             </table>
                         </div>
 
-                        <p class="text-xs text-base-content/40 mt-4">
+                        <p class="text-xs text-base-content/50 mt-4">
                             * Pete Riegel 공식 (T2 = T1 × (D2/D1)^1.06) 기반 예측. 실제 기록은 코스 난이도, 기상 조건, 훈련 상태에 따라 달라질 수 있습니다.
                         </p>
                     </div>

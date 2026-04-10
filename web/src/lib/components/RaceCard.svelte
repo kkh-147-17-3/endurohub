@@ -30,7 +30,7 @@
 
 {#if variant === 'minimal'}
     <div
-        class="bg-base-100 border border-base-200 rounded-xl p-3 hover:border-primary/50 hover:shadow-sm transition-all cursor-pointer group flex items-start gap-3 min-h-[48px]"
+        class="bg-base-100 border border-base-200 rounded-xl p-3 hover:border-primary/50 transition-colors cursor-pointer group flex items-start gap-3 min-h-[48px]"
         onclick={handleClick}
         onkeypress={(e) => e.key === 'Enter' && handleClick()}
         role="button"
@@ -44,9 +44,9 @@
                 {race.title}
             </h4>
             <div class="flex items-center gap-2 mt-1">
-                <span class="text-[10px] lg:text-xs text-base-content/40">{race.raceDate ?? ''}</span>
+                <span class="text-[10px] lg:text-xs text-base-content/50">{race.raceDate ?? ''}</span>
                 {#if race.daysUntilRegistrationEnd != null}
-                    <span class="text-[10px] lg:text-xs text-base-content/40">·</span>
+                    <span class="text-[10px] lg:text-xs text-base-content/50">·</span>
                     <span class="text-[10px] lg:text-xs font-bold {race.daysUntilRegistrationEnd <= 3 ? 'text-error' : 'text-success'}">
                         {race.daysUntilRegistrationEnd === 0 ? 'D-Day' : `D-${race.daysUntilRegistrationEnd}`}
                     </span>
@@ -56,7 +56,7 @@
     </div>
 {:else}
     <div
-        class="bg-base-100 border border-base-300 rounded-lg {style.hoverBorder} transition-all duration-200 hover:shadow-md cursor-pointer group relative overflow-hidden flex flex-col"
+        class="bg-base-100 border border-base-300 rounded-lg {style.hoverBorder} transition-colors duration-200 cursor-pointer group relative overflow-hidden flex flex-col"
         onclick={handleClick}
         onkeypress={(e) => e.key === 'Enter' && handleClick()}
         role="button"
@@ -67,11 +67,10 @@
         {#if race.imageSrc}
             <figure class="relative">
                 <img src={race.imageSrcThumb || race.imageSrc} alt={race.title} class="w-full aspect-[5/3] object-cover rounded-t-lg" loading={eager ? 'eager' : 'lazy'} fetchpriority={eager ? 'high' : 'auto'} />
-                <div class="absolute inset-0 bg-gradient-to-t from-black/15 to-transparent rounded-t-lg pointer-events-none"></div>
                 <div class="absolute inset-0 rounded-t-lg ring-1 ring-inset ring-black/5 pointer-events-none"></div>
                 {#if race.daysUntilRegistrationEnd !== null && race.daysUntilRegistrationEnd <= 7 && race.daysUntilRegistrationEnd >= 0}
                     <div class="absolute top-2 right-2">
-                        <span class="text-xs font-bold px-2.5 py-1 rounded-full shadow-md {dDayBadgeClass}">{race.daysUntilRegistrationEnd === 0 ? 'D-Day' : `D-${race.daysUntilRegistrationEnd}`}</span>
+                        <span class="text-xs font-bold px-2.5 py-1 rounded-full {dDayBadgeClass}">{race.daysUntilRegistrationEnd === 0 ? 'D-Day' : `D-${race.daysUntilRegistrationEnd}`}</span>
                     </div>
                 {/if}
             </figure>
@@ -80,7 +79,7 @@
                 <div class="text-4xl">{emoji}</div>
                 {#if race.daysUntilRegistrationEnd !== null && race.daysUntilRegistrationEnd <= 7 && race.daysUntilRegistrationEnd >= 0}
                     <div class="absolute top-2 right-2">
-                        <span class="text-xs font-bold px-2.5 py-1 rounded-full shadow-md {dDayBadgeClass}">{race.daysUntilRegistrationEnd === 0 ? 'D-Day' : `D-${race.daysUntilRegistrationEnd}`}</span>
+                        <span class="text-xs font-bold px-2.5 py-1 rounded-full {dDayBadgeClass}">{race.daysUntilRegistrationEnd === 0 ? 'D-Day' : `D-${race.daysUntilRegistrationEnd}`}</span>
                     </div>
                 {/if}
             </figure>
@@ -101,7 +100,8 @@
                         onclick={(e) => e.stopPropagation()}
                         class="text-xs text-base-content/50 {style.hoverText} cursor-pointer inline-flex items-center gap-1 ml-auto"
                     >
-                        🏠 공식
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                        공식
                     </a>
                 {/if}
             </div>
@@ -112,7 +112,7 @@
                 </a>
             </h2>
 
-            <div class="text-sm text-base-content/60 space-y-1.5">
+            <div class="text-sm text-base-content/50 space-y-1.5">
                 <p class="flex items-center gap-1.5">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
