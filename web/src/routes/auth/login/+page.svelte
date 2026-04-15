@@ -23,8 +23,14 @@
                 }
             );
 
-            if ('error' in result) {
-                error = (result as any).error;
+            if ('error' in result || 'detail' in result) {
+                error = (result as any).error || (result as any).detail || '로그인 요청에 실패했습니다.';
+                isLoading = null;
+                return;
+            }
+
+            if (!result.authorizeUrl) {
+                error = '로그인 요청에 실패했습니다. 다시 시도해주세요.';
                 isLoading = null;
                 return;
             }
