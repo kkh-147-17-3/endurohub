@@ -66,6 +66,9 @@ export const load: PageServerLoad = async ({ params, url, cookies }) => {
 		if (data.user.needsEmailVerification) {
 			redirect(303, '/auth/verify-email');
 		}
+		if (data.user.needsOnboarding) {
+			redirect(303, '/auth/onboarding');
+		}
 
 		redirect(303, '/');
 	} catch (err) {

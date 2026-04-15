@@ -19,6 +19,7 @@ from .providers import OAuthError, get_provider
 from .serializers import (
     EmailSendSerializer,
     NicknameSetupSerializer,
+    OnboardingSerializer,
     ProfilePreferencesSerializer,
     UserMeSerializer,
 )
@@ -623,6 +624,55 @@ class ProfilePreferencesView(APIView):
         return Response({
             'success': True,
             'message': '알림 설정이 저장되었습니다.',
+            'user': UserMeSerializer(profile).data,
+        })
+
+
+class OnboardingView(APIView):
+    """POST /api/v1/auth/onboarding/ — save preferences and trigger welcome email."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = OnboardingSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {'errors': serializer.errors},
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+
+        try:
+            profile = request.user.profile
+        except UserProfile.DoesNotExist:
+            return Response(
+                {'errors': {'profile': ['프로필 정보를 찾을 수 없습니다.']}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        preferred_sports = serializer.validated_data.get('preferred_sports') or []
+        preferred_regions = serializer.validated_data.get('preferred_regions') or []
+
+        updated_fields = ['onboarding_completed', 'updated_at']
+        profile.onboarding_completed = True
+        if preferred_sports:
+            profile.preferred_sports = preferred_sports
+            updated_fields.append('preferred_sports')
+        if preferred_regions:
+            profile.preferred_regions = preferred_regions
+            updated_fields.append('preferred_regions')
+
+        profile.save(update_fields=updated_fields)
+
+        # Trigger welcome email asynchronously
+        if profile.email_verified and not profile.welcome_email_sent:
+            try:
+                from accounts.tasks import send_welcome_email_task
+                send_welcome_email_task.delay(request.user.id)
+            except Exception:
+                logger.exception('Failed to queue welcome email for user %s', request.user.id)
+
+        return Response({
+            'success': True,
+            'message': '관심사가 저장되었습니다.',
             'user': UserMeSerializer(profile).data,
         })
 

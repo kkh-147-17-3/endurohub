@@ -95,8 +95,12 @@ export interface AuthUser {
 	profileImage: string;
 	emailVerified: boolean;
 	emailUpdatesOptIn: boolean;
+	preferredSports: string[] | null;
+	preferredRegions: string[] | null;
+	onboardingCompleted: boolean;
 	needsNickname: boolean;
 	needsEmailVerification: boolean;
+	needsOnboarding: boolean;
 }
 
 export interface OAuthLoginResponse {
@@ -139,6 +143,12 @@ export interface MeResponse {
 }
 
 export interface ProfileUpdateResponse {
+	success: boolean;
+	message: string;
+	user: AuthUser;
+}
+
+export interface OnboardingResponse {
 	success: boolean;
 	message: string;
 	user: AuthUser;

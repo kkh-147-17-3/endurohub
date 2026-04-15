@@ -15,8 +15,12 @@ class UserMeSerializer(serializers.Serializer):
     profile_image = serializers.URLField(allow_blank=True)
     email_verified = serializers.BooleanField()
     email_updates_opt_in = serializers.BooleanField()
+    preferred_sports = serializers.JSONField(default=None)
+    preferred_regions = serializers.JSONField(default=None)
+    onboarding_completed = serializers.BooleanField()
     needs_nickname = serializers.SerializerMethodField()
     needs_email_verification = serializers.SerializerMethodField()
+    needs_onboarding = serializers.BooleanField()
 
     def get_needs_nickname(self, obj):
         return not obj.nickname
@@ -69,3 +73,33 @@ class EmailSendSerializer(serializers.Serializer):
 
 class ProfilePreferencesSerializer(serializers.Serializer):
     email_updates_opt_in = serializers.BooleanField()
+
+
+class OnboardingSerializer(serializers.Serializer):
+    preferred_sports = serializers.ListField(
+        child=serializers.CharField(max_length=20),
+        required=False,
+        allow_empty=True,
+        default=list,
+    )
+    preferred_regions = serializers.ListField(
+        child=serializers.CharField(max_length=20),
+        required=False,
+        allow_empty=True,
+        default=list,
+    )
+
+    def validate_preferred_sports(self, value):
+        from races.constants import SPORT_LABELS
+        valid = set(SPORT_LABELS.keys())
+        for sport in value:
+            if sport not in valid:
+                raise serializers.ValidationError(f'유효하지 않은 종목입니다: {sport}')
+        return value
+
+    def validate_preferred_regions(self, value):
+        from races.constants import REGIONS
+        for region in value:
+            if region not in REGIONS:
+                raise serializers.ValidationError(f'유효하지 않은 지역입니다: {region}')
+        return value

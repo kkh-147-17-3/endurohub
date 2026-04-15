@@ -108,6 +108,14 @@ export const actions: Actions = {
 			if (result.user.needsNickname) {
 				redirect(303, '/auth/nickname');
 			}
+			if (result.user.needsOnboarding) {
+				redirect(303, '/auth/onboarding');
+			}
+		}
+
+		// Check onboarding for authenticated user flow (non-pending)
+		if ('user' in result && result.user.needsOnboarding) {
+			redirect(303, '/auth/onboarding');
 		}
 
 		redirect(303, '/');
