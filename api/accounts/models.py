@@ -12,6 +12,10 @@ class UserProfile(models.Model):
     profile_image = models.URLField(blank=True, default='')
     email_verified = models.BooleanField(default=False)
     email_updates_opt_in = models.BooleanField(default=False)
+    preferred_sports = models.JSONField(null=True, blank=True)
+    preferred_regions = models.JSONField(null=True, blank=True)
+    onboarding_completed = models.BooleanField(default=False)
+    welcome_email_sent = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -20,6 +24,14 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return self.nickname
+
+    @property
+    def needs_onboarding(self):
+        return (
+            bool(self.nickname)
+            and self.email_verified
+            and not self.onboarding_completed
+        )
 
 
 class SocialAccount(models.Model):

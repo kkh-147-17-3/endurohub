@@ -1,7 +1,7 @@
 import type { PageServerLoad, Actions } from './$types';
 import { apiFetch, isApiError } from '$lib/api';
 import { fail, redirect } from '@sveltejs/kit';
-import type { NicknameSetupResponse, ApiErrors } from '$lib/types';
+import type { OnboardingResponse, ApiErrors } from '$lib/types';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!locals.authToken) {
@@ -17,27 +17,26 @@ export const actions: Actions = {
 		}
 
 		const formData = await request.formData();
-		const nickname = formData.get('nickname') as string;
+		const sportsRaw = formData.get('preferred_sports') as string;
+		const regionsRaw = formData.get('preferred_regions') as string;
 
-		const result = await apiFetch<NicknameSetupResponse | ApiErrors>(
-			'/auth/nickname/',
+		const preferredSports = sportsRaw ? sportsRaw.split(',').filter(Boolean) : [];
+		const preferredRegions = regionsRaw ? regionsRaw.split(',').filter(Boolean) : [];
+
+		const result = await apiFetch<OnboardingResponse | ApiErrors>(
+			'/auth/onboarding/',
 			{
 				method: 'POST',
-				body: { nickname },
+				body: {
+					preferred_sports: preferredSports,
+					preferred_regions: preferredRegions,
+				},
 				authToken: locals.authToken,
 			}
 		);
 
 		if (isApiError(result)) {
 			return fail(400, { errors: result.errors });
-		}
-
-		const data = result as NicknameSetupResponse;
-		if (data.user.needsEmailVerification) {
-			redirect(303, '/auth/verify-email');
-		}
-		if (data.user.needsOnboarding) {
-			redirect(303, '/auth/onboarding');
 		}
 
 		redirect(303, '/');

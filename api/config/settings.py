@@ -178,6 +178,9 @@ GEMINI_IMAGE_MODEL = os.environ.get('GEMINI_IMAGE_MODEL', 'gemini-2.0-flash-exp-
 # Storage URL for generating absolute image URLs
 STORAGE_URL = os.environ.get('STORAGE_URL', '/storage/')
 
+# App URL (for email links)
+APP_URL = os.environ.get('APP_URL', 'https://www.endurohub.kr').rstrip('/')
+
 # Crawl reporting
 CRAWL_REPORT_EMAIL = os.environ.get('CRAWL_REPORT_EMAIL', 'kkh147.17.3@gmail.com')
 CRAWL_SEND_EMPTY_REPORT = os.environ.get('CRAWL_SEND_EMPTY_REPORT', 'false').lower() in (
@@ -218,6 +221,14 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'races.tasks.crawl_marathon_task',
         'schedule': crontab(minute=0),
         'kwargs': {'with_details': True},
+    },
+    'weekly-digest-monday': {
+        'task': 'accounts.tasks.send_weekly_digest_task',
+        'schedule': crontab(hour=9, minute=0, day_of_week=1),  # Monday 9AM KST
+    },
+    'new-races-alert-hourly': {
+        'task': 'accounts.tasks.send_new_races_alert_task',
+        'schedule': crontab(minute=5),  # Every hour at :05 (after crawl at :00)
     },
 }
 

@@ -12,5 +12,6 @@ urlpatterns = [
     path('auth/pending/email/verify/', views.PendingSocialEmailVerifyView.as_view()),
     path('auth/me/', views.MeView.as_view()),
     path('auth/preferences/', views.ProfilePreferencesView.as_view()),
+    path('auth/onboarding/', views.OnboardingView.as_view()),
     path('auth/logout/', views.LogoutView.as_view()),
 ]
