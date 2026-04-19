@@ -20,7 +20,6 @@ class MarathonCrawlerService:
         'race_date',
         'race_end_date',
         'location',
-        'entry_fee',
         'registration_start',
         'registration_end',
     ]
@@ -327,6 +326,7 @@ class MarathonCrawlerService:
             return []
 
         distances = []
+        seen_names = set()
         for part in re.split(r'[,\s]+', distance_string):
             part = part.strip()
             if not part:
@@ -348,8 +348,13 @@ class MarathonCrawlerService:
                     short_k_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:k|K)$', part)
                     if short_k_match:
                         normalized = f'{short_k_match.group(1)}km'
-            if normalized not in distances:
-                distances.append(normalized)
+            if normalized not in seen_names:
+                seen_names.add(normalized)
+                km = Race.parse_distance_km(normalized)
+                item = {'name': normalized}
+                if km is not None:
+                    item['distance_meter'] = round(km * 1000)
+                distances.append(item)
         return distances
 
     def detect_region(self, location):
@@ -510,16 +515,10 @@ class MarathonCrawlerService:
             if old_value != new_value:
                 changes[field] = {'old': old_value, 'new': new_value}
 
-        old_distances = sorted(existing.distances or [])
-        new_distances = sorted(new_data.get('distances') or [])
-        if old_distances != new_distances:
-            changes['distances'] = {'old': old_distances, 'new': new_distances}
-
-        if 'entry_fee' in new_data:
-            old_entry_fee = existing.entry_fee or []
-            new_entry_fee = new_data.get('entry_fee') or []
-            if old_entry_fee != new_entry_fee:
-                changes['entry_fee'] = {'old': old_entry_fee, 'new': new_entry_fee}
+        old_names = sorted(Race.distance_names(existing.distances or []))
+        new_names = sorted(Race.distance_names(new_data.get('distances') or []))
+        if old_names != new_names:
+            changes['distances'] = {'old': existing.distances, 'new': new_data.get('distances')}
 
         return changes
 

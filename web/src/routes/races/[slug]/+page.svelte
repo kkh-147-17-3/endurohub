@@ -9,7 +9,7 @@
     import PostCard from '$lib/components/PostCard.svelte';
     import ReviewForm from '$lib/components/ReviewForm.svelte';
     import ReviewList from '$lib/components/ReviewList.svelte';
-    import type { Race, Review, ReviewStats, Post } from '$lib/types';
+    import type { Race, Review, ReviewStats, Post, Distance } from '$lib/types';
     import type { Sport } from '$lib/types';
     import { sportStyles } from '$lib/race';
     import { formatDateFull, formatDateDay, formatDateShort, formatDateSlash } from '$lib/date';
@@ -32,10 +32,10 @@
     const isAdmin: boolean = $derived(data.isAdmin ?? false);
     const pageUrl = $derived(`${appUrl}${$page.url.pathname}`);
 
-    const distances = $derived(race.distances ? race.distances.slice(0, 3).join(', ') : '');
+    const distanceNames = $derived(race.distances ? race.distances.slice(0, 3).map(d => typeof d === 'string' ? d : d.name).join(', ') : '');
     const metaDesc = $derived(() => {
         let desc = `${race.title} - ${race.raceDate ? formatDateFull(race.raceDate) : ''} ${race.location}에서 개최되는 ${race.sportLabel} 대회입니다.`;
-        if (distances) desc += ` 참가 종목: ${distances}.`;
+        if (distanceNames) desc += ` 참가 종목: ${distanceNames}.`;
         if (race.status === 'registration_open') desc += ' 지금 접수 중!';
         desc += ' 엔듀로허브에서 대회 정보를 확인하세요.';
         return desc.substring(0, 160);
@@ -178,7 +178,7 @@
             '@type': 'Offer',
             'url': validOfficialUrl || pageUrl,
             'availability': race.status === 'registration_open' ? 'https://schema.org/InStock' : 'https://schema.org/SoldOut',
-            'price': race.entryFee?.length ? String(Math.min(...race.entryFee.filter(e => e.fee).map(e => Number(String(e.fee).replace(/[^0-9]/g, ''))).filter(n => !isNaN(n) && n > 0)) || 0) : '0',
+            'price': race.distances?.length ? String(Math.min(...race.distances.filter(d => typeof d !== 'string' && d.fee).map(d => Number((d as Distance).fee)).filter(n => !isNaN(n) && n > 0)) || 0) : '0',
             'priceCurrency': 'KRW',
             'validFrom': race.registrationStart || race.raceDate,
         },
@@ -341,10 +341,33 @@
                     {#if race.distances && race.distances.length > 0}
                         <div class="mb-6">
                             <h3 class="text-lg font-semibold mb-3">참가 종목</h3>
-                            <div class="flex flex-wrap gap-2">
-                                {#each race.distances as distance}
-                                    <span class="badge badge-lg badge-outline">{distance}</span>
-                                {/each}
+                            <div class="overflow-x-auto">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>코스</th>
+                                            {#if race.distances.some(d => typeof d !== 'string' && d.fee)}
+                                                <th>참가비</th>
+                                            {/if}
+                                            {#if race.distances.some(d => typeof d !== 'string' && d.cutoff)}
+                                                <th>제한시간</th>
+                                            {/if}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {#each race.distances as d}
+                                            <tr>
+                                                <td><span class="badge badge-outline">{typeof d === 'string' ? d : d.name}</span></td>
+                                                {#if race.distances.some(dd => typeof dd !== 'string' && dd.fee)}
+                                                    <td>{typeof d !== 'string' && d.fee ? `${Number(d.fee).toLocaleString()}원` : '-'}</td>
+                                                {/if}
+                                                {#if race.distances.some(dd => typeof dd !== 'string' && dd.cutoff)}
+                                                    <td>{typeof d !== 'string' && d.cutoff ? d.cutoff : '-'}</td>
+                                                {/if}
+                                            </tr>
+                                        {/each}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     {/if}
@@ -435,42 +458,40 @@
                             </div>
                         </div>
 
-                        {#if race.registrationStart || race.registrationEnd}
+                        {#if race.registrationStart || race.registrationEnd || (race.registrationPhases && race.registrationPhases.length > 0)}
                             <div class="flex items-start gap-3">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                 <div>
                                     <p class="text-sm text-base-content/70">접수 기간</p>
-                                    <p class="font-semibold">
-                                        {#if race.registrationStart}{formatDateSlash(race.registrationStart)}{/if}
-                                        ~
-                                        {#if race.registrationEnd}
-                                            {formatDateSlash(race.registrationEnd)}
-                                            {#if race.daysUntilRegistrationEnd !== null && race.daysUntilRegistrationEnd >= 0}
-                                                <span class="text-error">({race.daysUntilRegistrationEnd === 0 ? 'D-Day' : `D-${race.daysUntilRegistrationEnd}`})</span>
+                                    {#if race.registrationStart || race.registrationEnd}
+                                        <p class="font-semibold">
+                                            {#if race.registrationStart}{formatDateSlash(race.registrationStart)}{/if}
+                                            ~
+                                            {#if race.registrationEnd}
+                                                {formatDateSlash(race.registrationEnd)}
+                                                {#if race.daysUntilRegistrationEnd !== null && race.daysUntilRegistrationEnd >= 0}
+                                                    <span class="text-error">({race.daysUntilRegistrationEnd === 0 ? 'D-Day' : `D-${race.daysUntilRegistrationEnd}`})</span>
+                                                {/if}
                                             {/if}
-                                        {/if}
-                                    </p>
+                                        </p>
+                                    {/if}
+                                    {#if race.registrationPhases && race.registrationPhases.length > 0}
+                                        <div class="{race.registrationStart || race.registrationEnd ? 'mt-2' : ''} space-y-1">
+                                            {#each race.registrationPhases as phase}
+                                                <p class="text-sm text-base-content/60">
+                                                    <span class="font-medium text-base-content/80">{phase.label}</span>
+                                                    {#if phase.start}
+                                                        {formatDateSlash(phase.start)}
+                                                        {#if phase.end} ~ {formatDateSlash(phase.end)}{/if}
+                                                    {/if}
+                                                </p>
+                                            {/each}
+                                        </div>
+                                    {/if}
                                 </div>
                             </div>
                         {/if}
 
-                        {#if race.entryFee && race.entryFee.length > 0}
-                            <div class="flex items-start gap-3">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                <div>
-                                    <p class="text-sm text-base-content/70">참가비</p>
-                                    <div class="space-y-1">
-                                        {#each race.entryFee as item}
-                                            <p class="font-semibold">
-                                                {#if item.distance}<span class="text-base-content/70">{item.distance}</span>{/if}
-                                                {#if item.fee}{item.distance ? ' ' : ''}{Number(item.fee).toLocaleString()}원{/if}
-                                                {#if !item.distance && !item.fee}-{/if}
-                                            </p>
-                                        {/each}
-                                    </div>
-                                </div>
-                            </div>
-                        {/if}
                     </div>
 
                     <div class="card-actions mt-6 hidden lg:flex flex-col gap-2">

@@ -416,7 +416,7 @@
                                         {% if race.distances %}
                                         <div class="race-distances">
                                             {% for d in race.distances|slice:":4" %}
-                                            <span class="distance-tag">{{ d }}</span>
+                                            <span class="distance-tag">{{ d.name }}</span>
                                             {% endfor %}
                                         </div>
                                         {% endif %}

@@ -1,49 +1,6 @@
-import json
-import re
-
 from rest_framework import serializers
 
 from .models import DeviceToken, Race, Review
-
-
-def _fee_to_numeric_string(value) -> str:
-    """Normalize fee for clients that use Number(fee); strip currency text."""
-    if value is None:
-        return ''
-    if isinstance(value, bool):
-        return '1' if value else '0'
-    if isinstance(value, int):
-        return str(value)
-    if isinstance(value, float):
-        return str(int(value)) if value == int(value) else str(value)
-    s = str(value).strip()
-    digits = re.sub(r'[^\d]', '', s)
-    return digits if digits else s
-
-
-def normalize_entry_fee_for_api(raw):
-    """Coerce DB JSONField quirks into list[{distance, fee}]|null for the API."""
-    if raw is None:
-        return None
-    if isinstance(raw, list):
-        return raw
-    if isinstance(raw, dict):
-        return [
-            {'distance': str(k), 'fee': _fee_to_numeric_string(v)}
-            for k, v in raw.items()
-        ]
-    if isinstance(raw, str):
-        s = raw.strip()
-        if not s:
-            return None
-        if s.startswith('{') or s.startswith('['):
-            try:
-                parsed = json.loads(s)
-                return normalize_entry_fee_for_api(parsed)
-            except json.JSONDecodeError:
-                pass
-        return [{'distance': '', 'fee': _fee_to_numeric_string(s)}]
-    return None
 
 
 class RaceSerializer(serializers.ModelSerializer):
@@ -70,7 +27,8 @@ class RaceSerializer(serializers.ModelSerializer):
             'race_date', 'race_end_date', 'start_time',
             'location', 'address', 'latitude', 'longitude', 'region',
             'distances',
-            'registration_start', 'registration_end', 'entry_fee',
+            'registration_start', 'registration_end', 'registration_phases',
+            'entry_fee',
             'official_url', 'source', 'source_url',
             'status', 'status_label',
             'description', 'organizer', 'organizer_contact', 'organizer_email',
@@ -118,7 +76,17 @@ class RaceSerializer(serializers.ModelSerializer):
         return obj.url
 
     def get_entry_fee(self, obj):
-        return normalize_entry_fee_for_api(obj.entry_fee)
+        """Derive entry_fee from distances for backward compatibility."""
+        if not obj.distances or not isinstance(obj.distances, list):
+            return None
+        result = []
+        for d in obj.distances:
+            if isinstance(d, dict) and d.get('fee') is not None:
+                result.append({
+                    'distance': d.get('name', ''),
+                    'fee': str(d['fee']),
+                })
+        return result or None
 
 
 class TaggedRaceSerializer(serializers.ModelSerializer):
