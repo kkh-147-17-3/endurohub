@@ -144,8 +144,8 @@
 
             {#if race.distances && race.distances.length > 0}
                 <div class="flex flex-wrap gap-1.5 mt-3 mb-2">
-                    {#each race.distances.slice(0, 3) as distance}
-                        <span class="text-xs px-2 py-0.5 bg-base-200 rounded">{distance}</span>
+                    {#each race.distances.slice(0, 3) as d}
+                        <span class="text-xs px-2 py-0.5 bg-base-200 rounded">{typeof d === 'string' ? d : d.name}</span>
                     {/each}
                     {#if race.distances.length > 3}
                         <span class="text-xs px-2 py-0.5 bg-base-200 rounded">+{race.distances.length - 3}</span>

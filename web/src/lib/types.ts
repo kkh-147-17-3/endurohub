@@ -32,6 +32,20 @@ export interface EntryFee {
 	fee: string;
 }
 
+export interface Distance {
+	name: string;
+	distance_meter?: number | null;
+	fee?: number | null;
+	cutoff?: string | null;
+}
+
+export interface RegistrationPhase {
+	type: string;
+	label: string;
+	start: string | null;
+	end: string | null;
+}
+
 export interface Race {
 	id: number;
 	slug: string;
@@ -49,10 +63,11 @@ export interface Race {
 	longitude: number | null;
 	region: string | null;
 
-	distances: string[] | null;
+	distances: Distance[] | null;
 
 	registrationStart: string | null;
 	registrationEnd: string | null;
+	registrationPhases: RegistrationPhase[] | null;
 	entryFee: EntryFee[] | null;
 
 	officialUrl: string | null;

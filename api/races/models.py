@@ -141,11 +141,12 @@ class RaceQuerySet(models.QuerySet):
             dists = race.distances
             if not isinstance(dists, list) or not dists:
                 continue
+            names = Race.distance_names(dists)
             for cat in cats:
                 cat_type = cat['type']
                 if cat_type == 'range':
-                    for d in dists:
-                        km = Race.parse_distance_km(d)
+                    for name in names:
+                        km = Race.parse_distance_km(name)
                         if km is not None and cat['min'] <= km <= cat['max']:
                             matching_ids.append(race.id)
                             break
@@ -153,8 +154,8 @@ class RaceQuerySet(models.QuerySet):
                         continue
                     break
                 elif cat_type == 'range_m':
-                    for d in dists:
-                        km = Race.parse_distance_km(d)
+                    for name in names:
+                        km = Race.parse_distance_km(name)
                         if km is not None:
                             m = km * 1000.0
                             if cat['min'] <= m <= cat['max']:
@@ -165,16 +166,16 @@ class RaceQuerySet(models.QuerySet):
                     break
                 elif cat_type == 'keyword':
                     keyword = cat['keyword'].lower()
-                    for d in dists:
-                        if isinstance(d, str) and keyword in d.lower():
+                    for name in names:
+                        if keyword in name.lower():
                             matching_ids.append(race.id)
                             break
                     else:
                         continue
                     break
                 elif cat_type == 'non_numeric':
-                    for d in dists:
-                        if isinstance(d, str) and d.strip() and not re.match(r'^[\d]', d.strip()):
+                    for name in names:
+                        if name.strip() and not re.match(r'^[\d]', name.strip()):
                             matching_ids.append(race.id)
                             break
                     else:
@@ -216,7 +217,7 @@ class Race(models.Model):
     distances = models.JSONField(null=True, blank=True)
     registration_start = models.DateField(null=True, blank=True)
     registration_end = models.DateField(null=True, blank=True)
-    entry_fee = models.JSONField(null=True, blank=True)
+    registration_phases = models.JSONField(null=True, blank=True)
     official_url = models.CharField(max_length=500, null=True, blank=True)
     recap_url = models.CharField(max_length=500, null=True, blank=True)
     ai_summary = models.TextField(null=True, blank=True)
@@ -252,7 +253,18 @@ class Race(models.Model):
     def save(self, **kwargs):
         if self.sport == 'running' and self._title_matches_trail_running():
             self.sport = 'trail_running'
+        self._fill_distance_meters()
         super().save(**kwargs)
+
+    def _fill_distance_meters(self):
+        """Auto-calculate distance_meter from name when not set."""
+        if not self.distances or not isinstance(self.distances, list):
+            return
+        for d in self.distances:
+            if isinstance(d, dict) and 'name' in d and not d.get('distance_meter'):
+                km = Race.parse_distance_km(d['name'])
+                if km is not None:
+                    d['distance_meter'] = round(km * 1000)
 
     def _title_matches_trail_running(self):
         title_lower = self.title.lower()
@@ -394,6 +406,24 @@ class Race(models.Model):
         return None
 
     @staticmethod
+    def distance_names(distances):
+        """Extract name strings from distances (supports both old and new format).
+
+        Old format: ["50km", "30km"]
+        New format: [{"name": "50km", "distance_km": 50, ...}, ...]
+        Returns: ["50km", "30km"]
+        """
+        if not distances or not isinstance(distances, list):
+            return []
+        names = []
+        for d in distances:
+            if isinstance(d, str):
+                names.append(d)
+            elif isinstance(d, dict) and 'name' in d:
+                names.append(d['name'])
+        return names
+
+    @staticmethod
     def detect_distance_category(distances, sport):
         """Find matching distance category for given distances and sport.
 
@@ -406,10 +436,12 @@ class Race(models.Model):
         if not sport_categories:
             return None
 
+        names = Race.distance_names(distances)
+
         # Parse all distances to find max km
         km_values = []
-        for d in distances:
-            km = Race.parse_distance_km(d)
+        for name in names:
+            km = Race.parse_distance_km(name)
             if km is not None:
                 km_values.append(km)
         max_km = max(km_values) if km_values else None
@@ -430,8 +462,8 @@ class Race(models.Model):
         for cat in sport_categories:
             if cat.get('type') == 'keyword':
                 keyword = cat['keyword']
-                for d in distances:
-                    if isinstance(d, str) and keyword.lower() in d.lower():
+                for name in names:
+                    if keyword.lower() in name.lower():
                         return cat['value']
 
         return None
@@ -528,7 +560,7 @@ class RacePendingChange(models.Model):
         'distances': '종목',
         'registration_start': '접수시작일',
         'registration_end': '접수마감일',
-        'entry_fee': '참가비',
+        'registration_phases': '접수 단계',
         'official_url': '공식 URL',
         'description': '설명',
         'organizer': '주최',
@@ -545,7 +577,7 @@ class RacePendingChange(models.Model):
 
     JSON_FIELDS = [
         'distances', 'giveaways', 'course_images', 'giveaway_images',
-        'course_image_uploads', 'giveaway_image_uploads', 'entry_fee',
+        'course_image_uploads', 'giveaway_image_uploads', 'registration_phases',
     ]
 
     race = models.ForeignKey(Race, on_delete=models.CASCADE, related_name='pending_changes')

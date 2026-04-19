@@ -106,6 +106,112 @@ class TagInputWidget(forms.Widget):
         return data.get(name)
 
 
+class DistancesWidget(forms.Widget):
+    """Repeater-style input for distances as JSON array of objects.
+
+    Each row has: name (text), fee (number), cutoff (text).
+    distance_meter is auto-calculated on model save.
+    """
+
+    def render(self, name, value, attrs=None, renderer=None):
+        if value is None or value == '' or value == 'null':
+            value = '[]'
+
+        widget_id = f'distances-widget-{name}'
+
+        html = format_html(
+            '<input type="hidden" name="{}" id="id_{}" value="{}">'
+            '<div id="{}"></div>',
+            name, name, value, widget_id,
+        )
+
+        js = '''<script>
+(function() {
+    var hidden = document.getElementById("id_''' + name + '''");
+    var widget = document.getElementById("''' + widget_id + '''");
+    var items;
+    try { items = JSON.parse(hidden.value); } catch(e) { items = []; }
+    if (!Array.isArray(items)) items = [];
+    // Migrate old string format
+    items = items.map(function(d) {
+        if (typeof d === "string") return {name: d, fee: null, cutoff: null};
+        return d;
+    });
+    items.forEach(function(item) { if (item.fee != null) item.fee = parseInt(item.fee, 10) || null; });
+
+    function sync() { hidden.value = JSON.stringify(items); }
+
+    function render() {
+        widget.innerHTML = "";
+        var box = document.createElement("div");
+        box.style.cssText = "border:1px solid #d1d5db;border-radius:8px;overflow:hidden;background:white;";
+
+        if (items.length > 0) {
+            var hdr = document.createElement("div");
+            hdr.style.cssText = "display:grid;grid-template-columns:2fr 2fr 2fr 36px;gap:8px;padding:8px 12px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:12px;color:#6b7280;font-weight:600;";
+            hdr.innerHTML = "<span>\\ucf54\\uc2a4\\uba85</span><span>\\ucc38\\uac00\\ube44</span><span>\\ucef7\\uc624\\ud504</span><span></span>";
+            box.appendChild(hdr);
+        }
+
+        items.forEach(function(item, idx) {
+            var row = document.createElement("div");
+            row.style.cssText = "display:grid;grid-template-columns:2fr 2fr 2fr 36px;gap:8px;padding:8px 12px;align-items:center;" + (idx > 0 ? "border-top:1px solid #f3f4f6;" : "");
+
+            var ni = document.createElement("input");
+            ni.type = "text"; ni.value = item.name || "";
+            ni.placeholder = "\\uc608: 50km";
+            ni.style.cssText = "padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:100%;box-sizing:border-box;";
+            ni.oninput = function() { items[idx].name = this.value; sync(); };
+
+            var fi = document.createElement("input");
+            fi.type = "number"; fi.value = item.fee != null ? item.fee : "";
+            fi.placeholder = "\\uc608: 50000";
+            fi.min = "0";
+            fi.style.cssText = "padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:100%;box-sizing:border-box;";
+            fi.oninput = function() { items[idx].fee = this.value ? parseInt(this.value, 10) : null; sync(); };
+
+            var ci = document.createElement("input");
+            ci.type = "text"; ci.value = item.cutoff || "";
+            ci.placeholder = "\\uc608: 12:00:00";
+            ci.style.cssText = "padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:100%;box-sizing:border-box;";
+            ci.oninput = function() { items[idx].cutoff = this.value || null; sync(); };
+
+            var rb = document.createElement("button");
+            rb.type = "button"; rb.textContent = "\\u00d7";
+            rb.style.cssText = "width:28px;height:28px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;color:#ef4444;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;padding:0;";
+            rb.onclick = function() { items.splice(idx, 1); sync(); render(); };
+
+            row.appendChild(ni); row.appendChild(fi); row.appendChild(ci); row.appendChild(rb);
+            box.appendChild(row);
+        });
+
+        if (items.length === 0) {
+            var empty = document.createElement("div");
+            empty.style.cssText = "padding:16px;text-align:center;color:#9ca3af;font-size:13px;";
+            empty.textContent = "\\ud56d\\ubaa9\\uc774 \\uc5c6\\uc2b5\\ub2c8\\ub2e4. \\uc544\\ub798 \\ubc84\\ud2bc\\uc744 \\ub20c\\ub7ec \\ucd94\\uac00\\ud558\\uc138\\uc694.";
+            box.appendChild(empty);
+        }
+
+        widget.appendChild(box);
+
+        var addBtn = document.createElement("button");
+        addBtn.type = "button";
+        addBtn.textContent = "+ \\ud589 \\ucd94\\uac00";
+        addBtn.style.cssText = "margin-top:8px;padding:6px 16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;color:#15803d;cursor:pointer;font-size:13px;";
+        addBtn.onclick = function() { items.push({name:"",fee:null,cutoff:null}); sync(); render(); };
+        widget.appendChild(addBtn);
+    }
+
+    render();
+})();
+</script>'''
+
+        return mark_safe(str(html) + js)
+
+    def value_from_datadict(self, data, files, name):
+        return data.get(name)
+
+
 class RepeaterWidget(forms.Widget):
     """Repeater-style input for JSON array of {distance, fee} objects.
 
@@ -267,10 +373,9 @@ LOCKED_FIELD_CHOICES = [
     ('race_date', '대회일'),
     ('race_end_date', '대회종료일'),
     ('location', '장소'),
-    ('entry_fee', '참가비'),
     ('registration_start', '접수시작일'),
     ('registration_end', '접수마감일'),
-    ('distances', '종목'),
+    ('distances', '종목/참가비'),
     ('title', '대회명'),
     ('official_url', '공식 URL'),
 ]
@@ -312,13 +417,13 @@ class RaceAdminForm(forms.ModelForm):
             'start_time': '출발 시간',
             'registration_start': '접수 시작일',
             'registration_end': '접수 마감일',
-            'entry_fee': '참가비',
+            'registration_phases': '접수 단계',
             'location': '장소',
             'region': '지역',
             'address': '상세 주소',
             'latitude': '위도',
             'longitude': '경도',
-            'distances': '거리',
+            'distances': '종목/참가비',
             'organizer': '주최',
             'organizer_contact': '연락처',
             'organizer_email': '이메일',
@@ -340,11 +445,11 @@ class RaceAdminForm(forms.ModelForm):
             'updated_at': '수정일시',
         }
         help_texts = {
-            'distances': '거리를 입력하고 Enter를 눌러 추가하세요. 쉼표로 여러 개를 한번에 입력할 수도 있습니다.',
+            'distances': '코스명, 참가비, 컷오프(제한시간)를 입력하세요. 거리(m)는 코스명에서 자동 계산됩니다.',
             'status': '비워두면 날짜 기반으로 자동 계산됩니다. 수동으로 설정하면 날짜와 관계없이 선택한 상태가 적용됩니다.',
             'auto_update_enabled': '비활성화하면 크롤러가 이 대회 정보를 수정하지 않습니다.',
             'locked_fields': '선택한 필드는 크롤러가 수정할 수 없습니다.',
-            'entry_fee': '종목별 참가비를 입력하세요. 행 추가 버튼으로 항목을 추가합니다.',
+            'registration_phases': '우선접수, 본접수 등 다단계 접수 정보를 JSON으로 입력하세요.',
             'recap_url': '블로그 대회 후기 링크',
             'image_url': '외부 이미지 URL. 업로드 이미지가 없으면 이 URL이 사용됩니다.',
         }
@@ -355,7 +460,6 @@ class RaceAdminForm(forms.ModelForm):
             'source': forms.Select(choices=SOURCE_CHOICES),
             'description': forms.Textarea(attrs={'rows': 4}),
             'locked_fields': forms.CheckboxSelectMultiple(choices=LOCKED_FIELD_CHOICES),
-            'distances': TagInputWidget(placeholder='거리 입력 후 Enter (예: 5km)'),
-            'entry_fee': RepeaterWidget(),
+            'distances': DistancesWidget(),
             'giveaways': TagInputWidget(placeholder='사은품 입력 후 Enter (예: 완주메달)'),
         }

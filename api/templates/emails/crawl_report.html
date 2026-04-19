@@ -71,7 +71,7 @@
                 <span>{{ race.region }}</span>
                 <span>{{ race.location }}</span>
                 {% if race.distances %}
-                <span>{{ race.distances|join:", " }}</span>
+                <span>{% for d in race.distances %}{% if not forloop.first %}, {% endif %}{{ d.name }}{% endfor %}</span>
                 {% endif %}
             </div>
             {% if race.official_url %}

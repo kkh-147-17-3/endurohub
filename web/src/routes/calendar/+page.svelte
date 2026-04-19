@@ -272,7 +272,7 @@
                             <div class="flex items-center gap-2 mt-0.5">
                                 <span class="inline-flex items-center shrink-0 px-1.5 py-0.5 rounded text-xs font-medium leading-none whitespace-nowrap {colors['bg-light']} {colors.text}">{race.sportLabel}</span>
                                 {#if race.distances && race.distances.length > 0}
-                                    <span class="text-xs text-base-content/60 truncate">{race.distances.join(', ')}</span>
+                                    <span class="text-xs text-base-content/60 truncate">{race.distances.map(d => typeof d === 'string' ? d : d.name).join(', ')}</span>
                                 {/if}
                             </div>
                         </div>

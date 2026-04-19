@@ -274,13 +274,13 @@ class RaceAdmin(ModelAdmin):
         ('일정', {
             'fields': (
                 'race_date', 'race_end_date', 'start_time',
-                'registration_start', 'registration_end', 'entry_fee',
+                'registration_start', 'registration_end', 'registration_phases',
             ),
         }),
         ('장소', {
             'fields': ('location', 'region', 'address', 'latitude', 'longitude'),
         }),
-        ('종목/거리', {
+        ('종목/거리/참가비', {
             'fields': ('distances',),
         }),
         ('주최 정보', {
