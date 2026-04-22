@@ -682,3 +682,36 @@ class LogoutView(APIView):
 
     def post(self, request):
         return Response({'success': True, 'message': '로그아웃되었습니다.'})
+
+
+class MyFavoriteRacesView(APIView):
+    """GET /api/v1/me/favorites/races/ — paginated list of current user's favorite races."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from core.pagination import LaravelStylePagination
+        from races.models import Race, RaceFavorite
+        from races.serializers import RaceSerializer
+
+        favorite_race_ids_qs = RaceFavorite.objects.filter(
+            user=request.user,
+        ).order_by('-created_at').values_list('race_id', flat=True)
+
+        favorite_ids = list(favorite_race_ids_qs)
+        id_order = {race_id: idx for idx, race_id in enumerate(favorite_ids)}
+        races = list(Race.objects.filter(id__in=favorite_ids))
+        races.sort(key=lambda r: id_order.get(r.id, 0))
+
+        paginator = LaravelStylePagination()
+        per_page = request.query_params.get('per_page')
+        if per_page:
+            paginator.page_size = min(int(per_page), 100)
+
+        page = paginator.paginate_queryset(races, request)
+        favorite_set = set(favorite_ids)
+        serializer = RaceSerializer(
+            page, many=True,
+            context={'favorite_race_ids': favorite_set},
+        )
+        return paginator.get_paginated_response(serializer.data)

@@ -1,11 +1,18 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
-    import type { Race, Sport } from '$lib/types';
+    import { page } from '$app/stores';
+    import type { Race, Sport, FavoriteToggleResponse } from '$lib/types';
     import { sportStyles, sportEmojis } from '$lib/race';
     import { formatDate, formatDateShort, formatDateSlash } from '$lib/date';
     import { track } from '$lib/analytics';
+    import { clientApiFetch } from '$lib/api.client';
 
-    let { race, variant = 'default', eager = false }: { race: Race; variant?: 'default' | 'minimal'; eager?: boolean } = $props();
+    let { race, variant = 'default', eager = false, onFavoriteChange }: {
+        race: Race;
+        variant?: 'default' | 'minimal';
+        eager?: boolean;
+        onFavoriteChange?: (slug: string, favorited: boolean) => void;
+    } = $props();
 
     let style = $derived(sportStyles[race.sport as Sport] || sportStyles.running);
     let emoji = $derived(sportEmojis[race.sport as Sport] || '🏃');
@@ -16,6 +23,10 @@
             : 'bg-neutral text-neutral-content'
     );
 
+    let favoriteOverride = $state<boolean | null>(null);
+    let isFavorited = $derived(favoriteOverride ?? race.isFavorited);
+    let isToggling = $state(false);
+
     function handleClick() {
         track('race_click', {
             race_slug: race.slug,
@@ -25,6 +36,31 @@
             variant,
         });
         goto(race.url);
+    }
+
+    async function handleFavorite(e: Event) {
+        e.stopPropagation();
+        e.preventDefault();
+        if (isToggling) return;
+
+        if (!$page.data.user) {
+            goto(`/auth/login?next=${encodeURIComponent($page.url.pathname)}`);
+            return;
+        }
+
+        isToggling = true;
+        try {
+            const res = await clientApiFetch<FavoriteToggleResponse>(
+                `/races/${race.slug}/favorite/`,
+                { method: 'POST' }
+            );
+            if (res.success) {
+                isFavorited = res.favorited;
+                onFavoriteChange?.(race.slug, res.favorited);
+            }
+        } finally {
+            isToggling = false;
+        }
     }
 </script>
 
@@ -73,6 +109,20 @@
                         <span class="text-xs font-bold px-2.5 py-1 rounded-full {dDayBadgeClass}">{race.daysUntilRegistrationEnd === 0 ? 'D-Day' : `D-${race.daysUntilRegistrationEnd}`}</span>
                     </div>
                 {/if}
+                <button
+                    type="button"
+                    onclick={handleFavorite}
+                    disabled={isToggling}
+                    aria-label={isFavorited ? '관심 대회 해제' : '관심 대회 저장'}
+                    aria-pressed={isFavorited}
+                    class="absolute top-2 left-2 z-20 w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm hover:bg-white shadow-sm flex items-center justify-center transition-colors disabled:opacity-60"
+                >
+                    {#if isFavorited}
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-error" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.35-10-9.5C.5 7 3 3 7 3c2.1 0 3.6 1 5 2.5C13.4 4 14.9 3 17 3c4 0 6.5 4 5 8.5-2.5 5.15-10 9.5-10 9.5z"/></svg>
+                    {:else}
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-base-content/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-7.5-4.35-10-9.5C.5 7 3 3 7 3c2.1 0 3.6 1 5 2.5C13.4 4 14.9 3 17 3c4 0 6.5 4 5 8.5-2.5 5.15-10 9.5-10 9.5z"/></svg>
+                    {/if}
+                </button>
             </figure>
         {:else}
             <figure class="relative aspect-[5/3] {style.bgLight} flex items-center justify-center rounded-t-lg">
@@ -82,6 +132,20 @@
                         <span class="text-xs font-bold px-2.5 py-1 rounded-full {dDayBadgeClass}">{race.daysUntilRegistrationEnd === 0 ? 'D-Day' : `D-${race.daysUntilRegistrationEnd}`}</span>
                     </div>
                 {/if}
+                <button
+                    type="button"
+                    onclick={handleFavorite}
+                    disabled={isToggling}
+                    aria-label={isFavorited ? '관심 대회 해제' : '관심 대회 저장'}
+                    aria-pressed={isFavorited}
+                    class="absolute top-2 left-2 z-20 w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm hover:bg-white shadow-sm flex items-center justify-center transition-colors disabled:opacity-60"
+                >
+                    {#if isFavorited}
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-error" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.35-10-9.5C.5 7 3 3 7 3c2.1 0 3.6 1 5 2.5C13.4 4 14.9 3 17 3c4 0 6.5 4 5 8.5-2.5 5.15-10 9.5-10 9.5z"/></svg>
+                    {:else}
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-base-content/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-7.5-4.35-10-9.5C.5 7 3 3 7 3c2.1 0 3.6 1 5 2.5C13.4 4 14.9 3 17 3c4 0 6.5 4 5 8.5-2.5 5.15-10 9.5-10 9.5z"/></svg>
+                    {/if}
+                </button>
             </figure>
         {/if}
 

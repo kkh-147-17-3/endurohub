@@ -15,6 +15,7 @@ urlpatterns = [
     path('races/year/<int:year>/', views.RaceYearlyView.as_view(), name='race-yearly'),
     path('races/<str:slug>/', views.RaceDetailView.as_view(), name='race-detail'),
     path('races/<str:slug>/reviews/', views.ReviewCreateView.as_view(), name='review-create'),
+    path('races/<str:slug>/favorite/', views.RaceFavoriteToggleView.as_view(), name='race-favorite-toggle'),
     path('races/<str:slug>/images/', views.RaceImageUploadView.as_view(), name='race-image-upload'),
 
     # Sitemap

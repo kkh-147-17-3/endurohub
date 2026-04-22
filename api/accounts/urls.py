@@ -14,4 +14,5 @@ urlpatterns = [
     path('auth/preferences/', views.ProfilePreferencesView.as_view()),
     path('auth/onboarding/', views.OnboardingView.as_view()),
     path('auth/logout/', views.LogoutView.as_view()),
+    path('me/favorites/races/', views.MyFavoriteRacesView.as_view()),
 ]

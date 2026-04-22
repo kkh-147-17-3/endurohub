@@ -82,6 +82,19 @@
             </div>
         </section>
 
+        <!-- Quick Links -->
+        <section class="card bg-base-100 shadow">
+            <div class="card-body p-5 space-y-0 divide-y divide-base-200">
+                <a href="/mypage/favorites" class="flex items-center justify-between py-3 first:pt-0 hover:text-primary transition-colors">
+                    <div class="flex items-center gap-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-error" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.35-10-9.5C.5 7 3 3 7 3c2.1 0 3.6 1 5 2.5C13.4 4 14.9 3 17 3c4 0 6.5 4 5 8.5-2.5 5.15-10 9.5-10 9.5z"/></svg>
+                        <div class="text-sm font-medium">관심 대회</div>
+                    </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-base-content/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                </a>
+            </div>
+        </section>
+
         <!-- Email Verification CTA -->
         {#if !user.emailVerified}
             <div class="rounded-xl border border-warning/30 bg-warning/5 px-5 py-4">

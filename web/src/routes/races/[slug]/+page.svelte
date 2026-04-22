@@ -5,15 +5,17 @@
 
 <script lang="ts">
     import { page } from '$app/stores';
+    import { goto } from '$app/navigation';
     import RaceCard from '$lib/components/RaceCard.svelte';
     import PostCard from '$lib/components/PostCard.svelte';
     import ReviewForm from '$lib/components/ReviewForm.svelte';
     import ReviewList from '$lib/components/ReviewList.svelte';
-    import type { Race, Review, ReviewStats, Post, Distance } from '$lib/types';
+    import type { Race, Review, ReviewStats, Post, Distance, FavoriteToggleResponse } from '$lib/types';
     import type { Sport } from '$lib/types';
     import { sportStyles } from '$lib/race';
     import { formatDateFull, formatDateDay, formatDateShort, formatDateSlash } from '$lib/date';
     import { track, trackOutboundClick } from '$lib/analytics';
+    import { clientApiFetch } from '$lib/api.client';
 
     let { data } = $props();
 
@@ -70,13 +72,36 @@
     let modalImageAlt = $state('');
     let reviewModalOpen = $state(false);
 
+    let favoriteOverride = $state<boolean | null>(null);
+    const isFavorited = $derived(favoriteOverride ?? race.isFavorited);
+    let isTogglingFavorite = $state(false);
+
     // Reset modal state on navigation
     $effect(() => {
         race.slug;
         modalOpen = false;
         shareModalOpen = false;
         reviewModalOpen = false;
+        favoriteOverride = null;
     });
+
+    async function toggleFavorite() {
+        if (isTogglingFavorite) return;
+        if (!$page.data.user) {
+            goto(`/auth/login?next=${encodeURIComponent($page.url.pathname)}`);
+            return;
+        }
+        isTogglingFavorite = true;
+        try {
+            const res = await clientApiFetch<FavoriteToggleResponse>(
+                `/races/${race.slug}/favorite/`,
+                { method: 'POST' }
+            );
+            if (res.success) favoriteOverride = res.favorited;
+        } finally {
+            isTogglingFavorite = false;
+        }
+    }
 
     function openImageModal(src: string, alt: string = '') {
         modalImageSrc = src;
@@ -313,6 +338,19 @@
                     </svg>
                 </a>
             {/if}
+            <button
+                onclick={toggleFavorite}
+                disabled={isTogglingFavorite}
+                class="btn btn-circle btn-sm bg-black/40 hover:bg-black/60 text-white border-none shadow-lg disabled:opacity-70"
+                aria-label={isFavorited ? '관심 대회 해제' : '관심 대회 저장'}
+                aria-pressed={isFavorited}
+            >
+                {#if isFavorited}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-error" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.35-10-9.5C.5 7 3 3 7 3c2.1 0 3.6 1 5 2.5C13.4 4 14.9 3 17 3c4 0 6.5 4 5 8.5-2.5 5.15-10 9.5-10 9.5z"/></svg>
+                {:else}
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-7.5-4.35-10-9.5C.5 7 3 3 7 3c2.1 0 3.6 1 5 2.5C13.4 4 14.9 3 17 3c4 0 6.5 4 5 8.5-2.5 5.15-10 9.5-10 9.5z"/></svg>
+                {/if}
+            </button>
             <button onclick={openShareModal} class="btn btn-circle btn-sm bg-black/40 hover:bg-black/60 text-white border-none shadow-lg" aria-label="공유하기">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
             </button>

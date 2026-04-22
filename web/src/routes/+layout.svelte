@@ -130,6 +130,7 @@
                     <div class="divider my-1"></div>
                     {#if user}
                         <li class="px-3 py-1 text-xs text-base-content/60">{userLabel}</li>
+                        <li><a href="/mypage/favorites" class:active={currentPath === '/mypage/favorites'}>관심 대회</a></li>
                         <li><a href="/mypage" class:active={currentPath === '/mypage'}>마이페이지</a></li>
                         <li>
                             <form method="POST" action="/auth/logout" class="w-full">
@@ -240,6 +241,19 @@
             </button>
 
             {#if user}
+                <!-- 관심 대회 바로가기 -->
+                <a
+                    href="/mypage/favorites"
+                    class="btn btn-ghost btn-sm btn-circle cursor-pointer"
+                    class:text-primary={currentPath === '/mypage/favorites'}
+                    aria-label="관심 대회"
+                    title="관심 대회"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-7.5-4.35-10-9.5C.5 7 3 3 7 3c2.1 0 3.6 1 5 2.5C13.4 4 14.9 3 17 3c4 0 6.5 4 5 8.5-2.5 5.15-10 9.5-10 9.5z"/>
+                    </svg>
+                </a>
+
                 <!-- 아바타 드롭다운 -->
                 <div class="dropdown dropdown-end">
                     <button tabindex="0" class="btn btn-ghost btn-sm btn-circle cursor-pointer" aria-label="계정 메뉴">
