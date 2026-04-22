@@ -5,15 +5,22 @@
     interface Props {
         raceSlug: string;
         hasReviewed: boolean;
-        raceStatus: string;
+        raceDate: string | null;
+        raceEndDate?: string | null;
         open: boolean;
         onclose: () => void;
         errors?: Record<string, string[]>;
     }
 
-    let { raceSlug, hasReviewed, raceStatus, open = $bindable(false), onclose, errors = {} }: Props = $props();
+    let { raceSlug, hasReviewed, raceDate, raceEndDate, open = $bindable(false), onclose, errors = {} }: Props = $props();
 
-    const isFinished = $derived(raceStatus === 'finished');
+    const isFinished = $derived.by(() => {
+        const endDate = raceEndDate || raceDate;
+        if (!endDate) return false;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return new Date(endDate + 'T00:00:00') <= today;
+    });
     const canReview = $derived(isFinished && !hasReviewed);
 
     let rating = $state(0);

@@ -542,7 +542,8 @@
     <ReviewForm
         raceSlug={race.slug}
         {hasReviewed}
-        raceStatus={race.status}
+        raceDate={race.raceDate}
+        raceEndDate={race.raceEndDate}
         bind:open={reviewModalOpen}
         onclose={() => reviewModalOpen = false}
     />
