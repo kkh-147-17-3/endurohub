@@ -22,9 +22,40 @@ from core.pagination import LaravelStylePagination
 from core.utils import check_rate_limit, hash_ip
 from posts.models import Post
 from posts.serializers import PostListSerializer
+from rest_framework.permissions import IsAuthenticated
 
 from .constants import DISTANCE_CATEGORIES, REGIONS, SPORTS
-from .models import DeviceToken, Race, RacePendingChange, Review
+from .models import DeviceToken, Race, RaceFavorite, RacePendingChange, Review
+
+
+def _favorite_race_ids(request, race_ids=None):
+    """Return set of race IDs favorited by the authenticated user (empty if anonymous)."""
+    user = getattr(request, 'user', None)
+    if not user or not user.is_authenticated:
+        return set()
+    qs = RaceFavorite.objects.filter(user=user)
+    if race_ids is not None:
+        qs = qs.filter(race_id__in=race_ids)
+    return set(qs.values_list('race_id', flat=True))
+
+
+def _inject_is_favorited(request, race_dicts):
+    """Overwrite isFavorited on a list of already-serialized race dicts for the current user.
+
+    Used after cache retrieval since cached payloads are user-agnostic.
+    """
+    user = getattr(request, 'user', None)
+    if not user or not user.is_authenticated or not race_dicts:
+        return
+    ids = [r['id'] for r in race_dicts if isinstance(r, dict) and 'id' in r]
+    if not ids:
+        return
+    fav = set(RaceFavorite.objects.filter(
+        user=user, race_id__in=ids,
+    ).values_list('race_id', flat=True))
+    for r in race_dicts:
+        if isinstance(r, dict) and 'id' in r:
+            r['isFavorited'] = r['id'] in fav
 from .serializers import (
     DeviceTokenCreateSerializer,
     DeviceTokenSerializer,
@@ -37,13 +68,19 @@ from .serializers import (
 
 
 class HomeView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [AllowAny]
     CACHE_KEY = 'home_page_data'
     CACHE_TTL = 300  # 5 minutes
 
     def get(self, request):
         cached = cache.get(self.CACHE_KEY)
         if cached:
-            return Response(cached)
+            import copy
+            data = copy.deepcopy(cached)
+            for key in ('closingSoon', 'upcomingRaces', 'recentlyAdded'):
+                _inject_is_favorited(request, data.get(key) or [])
+            return Response(data)
 
         today = timezone.now().date()
 
@@ -82,7 +119,12 @@ class HomeView(APIView):
             'totalUpcoming': total_upcoming,
         }
         cache.set(self.CACHE_KEY, data, self.CACHE_TTL)
-        return Response(data)
+
+        import copy
+        response_data = copy.deepcopy(data)
+        for key in ('closingSoon', 'upcomingRaces', 'recentlyAdded'):
+            _inject_is_favorited(request, response_data.get(key) or [])
+        return Response(response_data)
 
 
 class RecommendationsView(APIView):
@@ -114,7 +156,10 @@ class RecommendationsView(APIView):
 
         cached = cache.get(cache_key)
         if cached:
-            return Response(cached)
+            import copy
+            data = copy.deepcopy(cached)
+            _inject_is_favorited(request, data.get('races') or [])
+            return Response(data)
 
         cutoff = timezone.now() - timedelta(days=self.LOOKBACK_DAYS)
 
@@ -130,7 +175,10 @@ class RecommendationsView(APIView):
         else:
             data = self._popular_fallback()
             cache.set(cache_key, data, self.CACHE_TTL)
-            return Response(data)
+            import copy
+            response_data = copy.deepcopy(data)
+            _inject_is_favorited(request, response_data.get('races') or [])
+            return Response(response_data)
 
         events = AnalyticsEvent.objects.filter(event_filter)
 
@@ -146,7 +194,11 @@ class RecommendationsView(APIView):
             data = self._popular_fallback()
 
         cache.set(cache_key, data, self.CACHE_TTL)
-        return Response(data)
+
+        import copy
+        response_data = copy.deepcopy(data)
+        _inject_is_favorited(request, response_data.get('races') or [])
+        return Response(response_data)
 
     def _personalized(self, events):
         """Generate personalized recommendations based on user event history."""
@@ -253,6 +305,9 @@ class RecommendationsView(APIView):
 
 
 class RaceListView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [AllowAny]
+
     def get(self, request):
         sport = request.query_params.getlist('sport', [])
         if not sport:
@@ -327,7 +382,9 @@ class RaceListView(APIView):
             paginator.page_size = min(int(per_page), 100)
 
         page = paginator.paginate_queryset(qs, request)
-        serializer = RaceSerializer(page, many=True)
+        page_ids = [r.id for r in page]
+        favorite_ids = _favorite_race_ids(request, page_ids)
+        serializer = RaceSerializer(page, many=True, context={'favorite_race_ids': favorite_ids})
 
         response_data = paginator.get_paginated_response(serializer.data).data
         response_data['filters'] = {
@@ -355,6 +412,9 @@ class RaceListView(APIView):
 
 
 class RaceDetailView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [AllowAny]
+
     def get(self, request, slug):
         try:
             if slug.isdigit():
@@ -405,12 +465,18 @@ class RaceDetailView(APIView):
         ip_hash = hash_ip(request)
         has_reviewed = Review.objects.filter(race=race, ip_hash=ip_hash).exists()
 
+        related_race_ids = [race.id]
+        for slot in related_race_slots:
+            related_race_ids.extend(r.id for r in slot['races'])
+        favorite_ids = _favorite_race_ids(request, related_race_ids)
+        ctx = {'favorite_race_ids': favorite_ids}
+
         return Response({
-            'race': RaceSerializer(race).data,
+            'race': RaceSerializer(race, context=ctx).data,
             'relatedRaces': [
                 {
                     'label': slot['label'],
-                    'races': RaceSerializer(slot['races'], many=True).data,
+                    'races': RaceSerializer(slot['races'], many=True, context=ctx).data,
                 }
                 for slot in related_race_slots
             ],
@@ -491,25 +557,34 @@ class RaceDetailView(APIView):
 
 
 class RaceYearlyView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [AllowAny]
+
     def get(self, request, year):
         year = int(year)
-        races = Race.objects.filter(
+        races = list(Race.objects.filter(
             race_date__year=year,
-        ).order_by('race_date')
+        ).order_by('race_date'))
+
+        favorite_ids = _favorite_race_ids(request, [r.id for r in races])
+        ctx = {'favorite_race_ids': favorite_ids}
 
         grouped = defaultdict(list)
         for race in races:
             month = str(race.race_date.month)
-            grouped[month].append(RaceSerializer(race).data)
+            grouped[month].append(RaceSerializer(race, context=ctx).data)
 
         return Response({
             'races': dict(grouped),
             'year': year,
-            'totalCount': races.count(),
+            'totalCount': len(races),
         })
 
 
 class RaceCalendarView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [AllowAny]
+
     def get(self, request):
         now = timezone.now()
         year = int(request.query_params.get('year', now.year))
@@ -529,10 +604,14 @@ class RaceCalendarView(APIView):
         if sport:
             qs = qs.by_sport(sport)
 
+        races = list(qs)
+        favorite_ids = _favorite_race_ids(request, [r.id for r in races])
+        ctx = {'favorite_race_ids': favorite_ids}
+
         grouped = defaultdict(list)
-        for race in qs:
+        for race in races:
             date_key = race.race_date.strftime('%Y-%m-%d')
-            grouped[date_key].append(RaceSerializer(race).data)
+            grouped[date_key].append(RaceSerializer(race, context=ctx).data)
 
         # Previous / next month
         if month == 1:
@@ -624,6 +703,30 @@ class ReviewCreateView(APIView):
             'message': '리뷰가 등록되었습니다.',
             'review': ReviewSerializer(review).data,
         }, status=status.HTTP_201_CREATED)
+
+
+class RaceFavoriteToggleView(APIView):
+    """POST /api/v1/races/<slug>/favorite/ — toggle favorite for authenticated user."""
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, slug):
+        try:
+            if slug.isdigit():
+                race = Race.objects.get(id=int(slug))
+            else:
+                race = Race.objects.get(slug=slug)
+        except Race.DoesNotExist:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        existing = RaceFavorite.objects.filter(user=request.user, race=race).first()
+        if existing:
+            existing.delete()
+            return Response({'success': True, 'favorited': False})
+
+        RaceFavorite.objects.create(user=request.user, race=race)
+        return Response({'success': True, 'favorited': True})
 
 
 class SitemapView(APIView):

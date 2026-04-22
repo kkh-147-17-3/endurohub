@@ -19,6 +19,7 @@ class RaceSerializer(serializers.ModelSerializer):
     verified_by = serializers.CharField(read_only=True)
     url = serializers.SerializerMethodField()
     entry_fee = serializers.SerializerMethodField()
+    is_favorited = serializers.SerializerMethodField()
 
     class Meta:
         model = Race
@@ -36,6 +37,7 @@ class RaceSerializer(serializers.ModelSerializer):
             'view_count', 'days_until_race', 'days_until_registration_end',
             'is_registration_open', 'is_verified', 'verified_at', 'verified_by',
             'recap_url', 'ai_summary', 'url',
+            'is_favorited',
             'created_at', 'updated_at',
         ]
 
@@ -87,6 +89,12 @@ class RaceSerializer(serializers.ModelSerializer):
                     'fee': str(d['fee']),
                 })
         return result or None
+
+    def get_is_favorited(self, obj):
+        favorite_ids = self.context.get('favorite_race_ids')
+        if favorite_ids is None:
+            return False
+        return obj.id in favorite_ids
 
 
 class TaggedRaceSerializer(serializers.ModelSerializer):

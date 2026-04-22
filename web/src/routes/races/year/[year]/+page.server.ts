@@ -5,15 +5,20 @@ import type { RaceYearlyResponse } from '$lib/types';
 const cache = new Map<number, { data: RaceYearlyResponse; at: number }>();
 const CACHE_TTL = 60_000; // 1 minute
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load: PageServerLoad = async ({ params, locals }) => {
 	const year = parseInt(params.year);
 	const now = Date.now();
+	const canUseSharedCache = !locals.authToken;
 	const cached = cache.get(year);
-	if (cached && now - cached.at < CACHE_TTL) {
+	if (canUseSharedCache && cached && now - cached.at < CACHE_TTL) {
 		return cached.data;
 	}
 
-	const data = await apiFetch<RaceYearlyResponse>(`/races/year/${year}/`);
-	cache.set(year, { data, at: now });
+	const data = await apiFetch<RaceYearlyResponse>(`/races/year/${year}/`, {
+		authToken: locals.authToken || undefined,
+	});
+	if (canUseSharedCache) {
+		cache.set(year, { data, at: now });
+	}
 	return data;
 };

@@ -97,8 +97,15 @@ export interface Race {
 	aiSummary: string | null;
 	url: string;
 
+	isFavorited: boolean;
+
 	createdAt: string;
 	updatedAt: string;
+}
+
+export interface FavoriteToggleResponse {
+	success: boolean;
+	favorited: boolean;
 }
 
 // === Auth ===

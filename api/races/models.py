@@ -646,3 +646,25 @@ class DeviceToken(models.Model):
 
     def __str__(self):
         return f'{self.platform}: {self.token[:20]}...'
+
+
+class RaceFavorite(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='race_favorites',
+    )
+    race = models.ForeignKey(
+        Race,
+        on_delete=models.CASCADE,
+        related_name='favorites',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'race_favorites'
+        unique_together = [('user', 'race')]
+        indexes = [models.Index(fields=['user', '-created_at'])]
+
+    def __str__(self):
+        return f'{self.user_id} -> Race#{self.race_id}'
