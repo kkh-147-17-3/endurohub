@@ -91,6 +91,9 @@
             goto(`/auth/login?next=${encodeURIComponent($page.url.pathname)}`);
             return;
         }
+        const prevOverride = favoriteOverride;
+        const nextValue = !isFavorited;
+        favoriteOverride = nextValue;
         isTogglingFavorite = true;
         try {
             const res = await clientApiFetch<FavoriteToggleResponse>(
@@ -98,6 +101,9 @@
                 { method: 'POST' }
             );
             if (res.success) favoriteOverride = res.favorited;
+            else favoriteOverride = prevOverride;
+        } catch {
+            favoriteOverride = prevOverride;
         } finally {
             isTogglingFavorite = false;
         }
@@ -340,8 +346,7 @@
             {/if}
             <button
                 onclick={toggleFavorite}
-                disabled={isTogglingFavorite}
-                class="btn btn-circle btn-sm bg-black/40 hover:bg-black/60 text-white border-none shadow-lg disabled:opacity-70"
+                class="btn btn-circle btn-sm bg-black/40 hover:bg-black/60 text-white border-none shadow-lg"
                 aria-label={isFavorited ? '관심 대회 해제' : '관심 대회 저장'}
                 aria-pressed={isFavorited}
             >
