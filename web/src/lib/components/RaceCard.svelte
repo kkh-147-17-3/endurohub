@@ -48,6 +48,9 @@
             return;
         }
 
+        const prevOverride = favoriteOverride;
+        const nextValue = !isFavorited;
+        favoriteOverride = nextValue;
         isToggling = true;
         try {
             const res = await clientApiFetch<FavoriteToggleResponse>(
@@ -55,9 +58,13 @@
                 { method: 'POST' }
             );
             if (res.success) {
-                isFavorited = res.favorited;
+                favoriteOverride = res.favorited;
                 onFavoriteChange?.(race.slug, res.favorited);
+            } else {
+                favoriteOverride = prevOverride;
             }
+        } catch {
+            favoriteOverride = prevOverride;
         } finally {
             isToggling = false;
         }
@@ -112,10 +119,9 @@
                 <button
                     type="button"
                     onclick={handleFavorite}
-                    disabled={isToggling}
                     aria-label={isFavorited ? '관심 대회 해제' : '관심 대회 저장'}
                     aria-pressed={isFavorited}
-                    class="absolute top-2 left-2 z-20 w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm hover:bg-white shadow-sm flex items-center justify-center transition-colors disabled:opacity-60"
+                    class="absolute top-2 left-2 z-20 w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm hover:bg-white shadow-sm flex items-center justify-center transition-colors"
                 >
                     {#if isFavorited}
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-error" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.35-10-9.5C.5 7 3 3 7 3c2.1 0 3.6 1 5 2.5C13.4 4 14.9 3 17 3c4 0 6.5 4 5 8.5-2.5 5.15-10 9.5-10 9.5z"/></svg>
@@ -135,10 +141,9 @@
                 <button
                     type="button"
                     onclick={handleFavorite}
-                    disabled={isToggling}
                     aria-label={isFavorited ? '관심 대회 해제' : '관심 대회 저장'}
                     aria-pressed={isFavorited}
-                    class="absolute top-2 left-2 z-20 w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm hover:bg-white shadow-sm flex items-center justify-center transition-colors disabled:opacity-60"
+                    class="absolute top-2 left-2 z-20 w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm hover:bg-white shadow-sm flex items-center justify-center transition-colors"
                 >
                     {#if isFavorited}
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-error" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.35-10-9.5C.5 7 3 3 7 3c2.1 0 3.6 1 5 2.5C13.4 4 14.9 3 17 3c4 0 6.5 4 5 8.5-2.5 5.15-10 9.5-10 9.5z"/></svg>
