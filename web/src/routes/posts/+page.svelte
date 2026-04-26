@@ -73,7 +73,7 @@
     <div class="filter-card">
         <form onsubmit={handleSearch}>
             <header class="filter-head">
-                <div class="kicker">COMMUNITY · 자유게시판</div>
+                <div class="kicker">자유게시판</div>
                 <h1 class="title">
                     커뮤니티
                     <span class="count">총 {data.meta.total.toLocaleString()}개</span>

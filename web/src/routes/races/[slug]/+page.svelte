@@ -564,48 +564,37 @@
                     <div class="sec-head">
                         <span class="sec-n">{secN('courses')} ·</span>
                         <h2 class="sec-title">종목 · 참가비</h2>
-                        {#if validOfficialUrl}
-                            <span class="sec-meta">
-                                <a href={validOfficialUrl} target="_blank" rel="noopener" class="link">원본 →</a>
-                            </span>
-                        {/if}
                     </div>
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>약식</th>
-                                <th>종목</th>
-                                <th>거리</th>
-                                {#if hasDistanceStart}<th>출발 시각</th>{/if}
-                                {#if hasCutoff}<th>제한 시간</th>{/if}
-                                {#if hasFee}<th class="right">참가비</th>{/if}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {#each distanceList as d, i (d.name + i)}
+                    <div class="table-scroll">
+                        <table class="data-table">
+                            <thead>
                                 <tr>
-                                    <td class="bold">
-                                        {#if d.distance_meter}
-                                            {(d.distance_meter / 1000).toFixed(d.distance_meter >= 100000 ? 0 : 1)}K
-                                        {:else}
-                                            {d.name.slice(0, 4).toUpperCase()}
-                                        {/if}
-                                    </td>
-                                    <td class="body-font">{d.name}</td>
-                                    <td>
-                                        {#if d.distance_meter}
-                                            {(d.distance_meter / 1000).toFixed(1)} km
-                                        {:else}
-                                            —
-                                        {/if}
-                                    </td>
-                                    {#if hasDistanceStart}<td>{d.start_time || (race.startTime ?? '—')}</td>{/if}
-                                    {#if hasCutoff}<td>{d.cutoff || '—'}</td>{/if}
-                                    {#if hasFee}<td class="right bold">{d.fee ? arenaFeeFull(Number(d.fee)) : '—'}</td>{/if}
+                                    <th>종목</th>
+                                    <th>거리</th>
+                                    {#if hasDistanceStart}<th>출발 시각</th>{/if}
+                                    {#if hasCutoff}<th>제한 시간</th>{/if}
+                                    {#if hasFee}<th class="right">참가비</th>{/if}
                                 </tr>
-                            {/each}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {#each distanceList as d, i (d.name + i)}
+                                    <tr>
+                                        <td class="body-font">{d.name}</td>
+                                        <td>
+                                            {#if d.distance_meter}
+                                                {(d.distance_meter / 1000).toFixed(1)} km
+                                            {:else}
+                                                —
+                                            {/if}
+                                        </td>
+                                        {#if hasDistanceStart}<td>{d.start_time || (race.startTime ?? '—')}</td>{/if}
+                                        {#if hasCutoff}<td>{d.cutoff || '—'}</td>{/if}
+                                        {#if hasFee}<td class="right bold">{d.fee ? arenaFeeFull(Number(d.fee)) : '—'}</td>{/if}
+                                    </tr>
+                                {/each}
+                            </tbody>
+                        </table>
+                    </div>
                 </section>
             {/if}
 
@@ -1201,7 +1190,7 @@
     }
     @media (min-width: 1024px) {
         .detail-main {
-            grid-template-columns: 200px 1fr 280px;
+            grid-template-columns: 200px minmax(0, 1fr) 280px;
             gap: 40px;
             padding: 40px 32px;
         }
@@ -1314,6 +1303,10 @@
     }
 
     /* ── Tables ────────────────── */
+    .table-scroll {
+        max-width: 100%;
+        overflow-x: auto;
+    }
     .meta-table,
     .data-table {
         width: 100%;
@@ -1730,6 +1723,7 @@
         display: flex;
         flex-direction: column;
         gap: 20px;
+        min-width: 0;
     }
     @media (min-width: 1024px) {
         .aside {
@@ -1743,6 +1737,8 @@
         color: var(--arena-paper);
         padding: 20px;
         font-family: var(--arena-f-mono);
+        min-width: 0;
+        overflow: hidden;
     }
     .cta-label {
         font-size: 10px;
@@ -1775,14 +1771,26 @@
     }
     .cs-row {
         display: flex;
-        justify-content: space-between;
+        align-items: baseline;
         gap: 12px;
+        min-width: 0;
     }
     .cs-key {
         opacity: 0.6;
+        flex: 0 0 56px;
+        white-space: nowrap;
+    }
+    .cs-row > :nth-child(2) {
+        flex: 1 1 0;
+        min-width: 0;
+        max-width: 100%;
+        text-align: right;
+        white-space: pre-wrap;
+        word-break: break-word;
     }
     .cs-status {
         color: var(--arena-accent);
+        justify-content: flex-end;
         display: inline-flex;
         align-items: center;
         gap: 6px;

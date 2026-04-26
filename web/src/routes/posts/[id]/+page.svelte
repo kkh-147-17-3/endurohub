@@ -753,7 +753,7 @@
 
     .adjacent {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         margin-top: 24px;
         border: 1px solid var(--arena-line);
     }
@@ -766,10 +766,13 @@
         text-decoration: none;
         color: var(--arena-ink);
         border-right: 1px solid var(--arena-line-soft);
+        min-width: 0;
     }
     .adj-link.next {
-        text-align: right;
         border-right: none;
+    }
+    .adj-link.next .adj-kicker {
+        text-align: right;
     }
     .adj-link:hover {
         background: var(--arena-paper-alt);
@@ -792,6 +795,8 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        min-width: 0;
+        max-width: 100%;
     }
 
     .comments {
