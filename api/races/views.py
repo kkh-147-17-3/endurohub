@@ -590,6 +590,7 @@ class RaceCalendarView(APIView):
         year = int(request.query_params.get('year', now.year))
         month = int(request.query_params.get('month', now.month))
         sport = request.query_params.get('sport')
+        region = request.query_params.get('region')
 
         import calendar
         _, last_day = calendar.monthrange(year, month)
@@ -603,6 +604,8 @@ class RaceCalendarView(APIView):
 
         if sport:
             qs = qs.by_sport(sport)
+        if region:
+            qs = qs.by_region(region)
 
         races = list(qs)
         favorite_ids = _favorite_race_ids(request, [r.id for r in races])
@@ -612,6 +615,14 @@ class RaceCalendarView(APIView):
         for race in races:
             date_key = race.race_date.strftime('%Y-%m-%d')
             grouped[date_key].append(RaceSerializer(race, context=ctx).data)
+
+        regions = list(
+            Race.objects.exclude(region__isnull=True)
+            .exclude(region__exact='')
+            .values_list('region', flat=True)
+            .distinct()
+            .order_by('region')
+        )
 
         # Previous / next month
         if month == 1:
@@ -632,7 +643,9 @@ class RaceCalendarView(APIView):
             'previousMonth': prev_month,
             'nextMonth': next_month,
             'sport': sport,
+            'region': region,
             'sports': SPORTS,
+            'regions': regions,
         })
 
 

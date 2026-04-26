@@ -15,11 +15,19 @@ if (env.SENTRY_DSN) {
 const SESSION_COOKIE = 'ehub_sid';
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 365; // 1 year
 
+function safeClientAddress(event: Parameters<Handle>[0]['event']): string {
+	try {
+		return event.getClientAddress();
+	} catch {
+		return '127.0.0.1';
+	}
+}
+
 const appHandle: Handle = async ({ event, resolve }) => {
 	// Extract client IP from request headers for forwarding to Django API
 	const forwardedFor = event.request.headers.get('x-forwarded-for');
 	const realIp = event.request.headers.get('x-real-ip');
-	event.locals.clientIp = forwardedFor?.split(',')[0]?.trim() || realIp || event.getClientAddress();
+	event.locals.clientIp = forwardedFor?.split(',')[0]?.trim() || realIp || safeClientAddress(event);
 
 	// Extract auth token from cookie
 	event.locals.authToken = event.cookies.get('auth_token') || '';

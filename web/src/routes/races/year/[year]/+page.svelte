@@ -1,8 +1,7 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
-    import type { Race } from '$lib/types';
-    import type { Sport } from '$lib/types';
-    import { formatDateSlash, formatDateDay } from '$lib/date';
+    import RaceRow from '$lib/components/arena/RaceRow.svelte';
+    import type { Race, Sport } from '$lib/types';
 
     let { data } = $props();
 
@@ -12,23 +11,36 @@
 
     type StatusType = 'registration_open' | 'registration_closed' | 'upcoming' | 'finished';
 
-    const statuses: { key: StatusType; label: string; color: string }[] = [
-        { key: 'registration_open', label: '접수중', color: 'bg-success' },
-        { key: 'upcoming', label: '예정', color: 'bg-info' },
-        { key: 'registration_closed', label: '접수마감', color: 'bg-warning' },
-        { key: 'finished', label: '종료', color: 'bg-base-300' },
+    const statuses: { key: StatusType; label: string }[] = [
+        { key: 'registration_open', label: '접수중' },
+        { key: 'upcoming', label: '예정' },
+        { key: 'registration_closed', label: '접수마감' },
+        { key: 'finished', label: '종료' },
     ];
 
     const regions = ['서울', '경기', '인천', '강원', '충북', '충남', '대전', '세종', '전북', '전남', '광주', '경북', '경남', '대구', '울산', '부산', '제주'];
 
+    const sports: { key: Sport; label: string }[] = [
+        { key: 'running', label: '러닝' },
+        { key: 'trail_running', label: '트레일' },
+        { key: 'cycling', label: '자전거' },
+        { key: 'swimming', label: '수영' },
+        { key: 'triathlon', label: '철인' },
+    ];
+
     const STORAGE_KEY = 'yearly-filter';
-    const ALL_SPORTS: Sport[] = ['running', 'swimming', 'cycling', 'triathlon', 'trail_running'];
-    const ALL_STATUSES: StatusType[] = ['registration_open', 'registration_closed', 'upcoming', 'finished'];
+    const ALL_SPORTS: Sport[] = sports.map((s) => s.key);
+    const ALL_STATUSES: StatusType[] = statuses.map((s) => s.key);
+
+    const MONTH_LABELS = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
 
     let selectedSports = $state<Set<Sport>>(new Set(ALL_SPORTS));
     let selectedRegions = $state<Set<string>>(new Set(regions));
     let selectedStatuses = $state<Set<StatusType>>(new Set(ALL_STATUSES));
     let mobileFilterOpen = $state(false);
+    let activeMonth = $state<number | null>(null);
+
+    let observer: IntersectionObserver | null = null;
 
     let hasActiveFilter = $derived(
         selectedSports.size < ALL_SPORTS.length ||
@@ -37,76 +49,60 @@
     );
 
     function saveFilter() {
-        const d = {
-            sports: [...selectedSports],
-            statuses: [...selectedStatuses],
-            regions: [...selectedRegions],
-        };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+        localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify({
+                sports: [...selectedSports],
+                statuses: [...selectedStatuses],
+                regions: [...selectedRegions],
+            })
+        );
     }
-
-    let activeMonth = $state<number | null>(null);
-    let observer: IntersectionObserver | null = null;
 
     onMount(() => {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
             try {
                 const saved = JSON.parse(stored);
-                if (saved.sports?.length > 0) selectedSports = new Set(saved.sports.filter((s: string) => ALL_SPORTS.includes(s as Sport)));
-                if (saved.statuses?.length > 0) selectedStatuses = new Set(saved.statuses.filter((s: string) => ALL_STATUSES.includes(s as StatusType)));
-                if (saved.regions?.length > 0) selectedRegions = new Set(saved.regions.filter((r: string) => regions.includes(r)));
+                if (saved.sports?.length > 0)
+                    selectedSports = new Set(saved.sports.filter((s: string) => ALL_SPORTS.includes(s as Sport)));
+                if (saved.statuses?.length > 0)
+                    selectedStatuses = new Set(saved.statuses.filter((s: string) => ALL_STATUSES.includes(s as StatusType)));
+                if (saved.regions?.length > 0)
+                    selectedRegions = new Set(saved.regions.filter((r: string) => regions.includes(r)));
             } catch { /* ignore */ }
         }
 
-        // Observe month sections for active month indicator
         const sections = document.querySelectorAll('section[id^="month-"]');
-        observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    const month = parseInt(entry.target.id.replace('month-', ''));
-                    activeMonth = month;
-                    document.getElementById(`month-nav-${month}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-                }
-            });
-        }, { root: null, rootMargin: '-20% 0px -60% 0px', threshold: 0 });
-        sections.forEach(section => observer?.observe(section));
-
+        observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        const month = parseInt(entry.target.id.replace('month-', ''));
+                        activeMonth = month;
+                        document.getElementById(`month-nav-${month}`)?.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'nearest',
+                            inline: 'center',
+                        });
+                    }
+                });
+            },
+            { root: null, rootMargin: '-20% 0px -60% 0px', threshold: 0 }
+        );
+        sections.forEach((section) => observer?.observe(section));
     });
 
-    onDestroy(() => { observer?.disconnect(); });
-
-    const sports = [
-        { key: 'running' as Sport, label: '마라톤', color: 'bg-blue-500' },
-        { key: 'trail_running' as Sport, label: '트레일러닝', color: 'bg-emerald-500' },
-        { key: 'cycling' as Sport, label: '자전거', color: 'bg-amber-500' },
-        { key: 'swimming' as Sport, label: '수영', color: 'bg-cyan-500' },
-        { key: 'triathlon' as Sport, label: '철인3종', color: 'bg-purple-500' },
-    ];
-
-    const sportColorsBg: Record<Sport, string> = {
-        running: 'bg-blue-500', swimming: 'bg-cyan-500', cycling: 'bg-amber-500',
-        triathlon: 'bg-purple-500', trail_running: 'bg-emerald-500',
-    };
-
-    const sportBgColors: Record<Sport, string> = {
-        running: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400',
-        swimming: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-400',
-        cycling: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400',
-        triathlon: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400',
-        trail_running: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400',
-    };
-
-    const sportBorderColors: Record<Sport, string> = {
-        running: 'border-l-blue-500', swimming: 'border-l-cyan-500', cycling: 'border-l-amber-500',
-        triathlon: 'border-l-purple-500', trail_running: 'border-l-emerald-500',
-    };
+    onDestroy(() => observer?.disconnect());
 
     function getMonthRaces(month: number): Race[] {
         const monthRaces = races[String(month)] || [];
-        return monthRaces.filter(race => {
+        return monthRaces.filter((race) => {
             const sportMatch = selectedSports.has(race.sport as Sport);
-            const regionMatch = !race.region || selectedRegions.size === 0 || Array.from(selectedRegions).some(r => race.region?.includes(r));
+            const regionMatch =
+                !race.region ||
+                selectedRegions.size === 0 ||
+                Array.from(selectedRegions).some((r) => race.region?.includes(r));
             const statusMatch = selectedStatuses.has(race.status as StatusType);
             return sportMatch && regionMatch && statusMatch;
         });
@@ -118,21 +114,18 @@
         selectedSports = new Set(selectedSports);
         saveFilter();
     }
-
     function toggleRegion(region: string) {
         if (selectedRegions.has(region)) selectedRegions.delete(region);
         else selectedRegions.add(region);
         selectedRegions = new Set(selectedRegions);
         saveFilter();
     }
-
     function toggleStatus(status: StatusType) {
         if (selectedStatuses.has(status)) selectedStatuses.delete(status);
         else selectedStatuses.add(status);
         selectedStatuses = new Set(selectedStatuses);
         saveFilter();
     }
-
     function resetFilters() {
         selectedSports = new Set(ALL_SPORTS);
         selectedRegions = new Set(regions);
@@ -140,300 +133,649 @@
         localStorage.removeItem(STORAGE_KEY);
     }
 
-    function openMobileFilter() { mobileFilterOpen = true; document.body.style.overflow = 'hidden'; }
-    function closeMobileFilter() { mobileFilterOpen = false; document.body.style.overflow = ''; }
+    function openMobileFilter() {
+        mobileFilterOpen = true;
+        document.body.style.overflow = 'hidden';
+    }
+    function closeMobileFilter() {
+        mobileFilterOpen = false;
+        document.body.style.overflow = '';
+    }
 </script>
 
 <svelte:head>
     <title>{year}년 대회 일정 - 엔듀로허브</title>
-    <meta name="description" content="{year}년 국내 마라톤, 수영, 자전거, 철인3종, 트레일러닝 대회 일정을 월별로 확인하세요. 총 {totalCount}개 대회" />
+    <meta
+        name="description"
+        content="{year}년 국내 마라톤, 수영, 자전거, 철인3종, 트레일러닝 대회 일정을 월별로 확인하세요. 총 {totalCount}개 대회"
+    />
     <meta property="og:title" content="{year}년 대회 일정 - 엔듀로허브" />
-    <meta property="og:description" content="{year}년 국내 마라톤, 수영, 자전거, 철인3종, 트레일러닝 대회 일정을 월별로 확인하세요. 총 {totalCount}개 대회" />
+    <meta
+        property="og:description"
+        content="{year}년 국내 마라톤, 수영, 자전거, 철인3종, 트레일러닝 대회 일정을 월별로 확인하세요. 총 {totalCount}개 대회"
+    />
 </svelte:head>
 
-<div class="min-h-screen bg-gradient-to-br from-primary/5 via-base-100 to-secondary/5">
-    <div>
-        <div class="max-w-6xl mx-auto px-4 py-6 md:py-10">
-            <div class="flex flex-col gap-4 md:hidden">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <span class="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-primary/10 text-primary">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                        </span>
-                        <h1 class="text-xl font-bold text-base-content">{year}년 대회 일정</h1>
-                    </div>
-                    <div class="flex items-center gap-0.5 bg-base-100 rounded-lg p-1 shadow-sm border border-base-200">
-                        <a href="/races/year/{year - 1}" class="flex items-center justify-center w-8 h-8 rounded-md text-base-content/60 hover:bg-base-200 hover:text-base-content transition-colors cursor-pointer" aria-label="{year - 1}년으로 이동">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                        </a>
-                        <span class="px-3 py-1.5 rounded-md text-sm font-bold bg-primary text-primary-content min-w-[52px] text-center">{year}</span>
-                        <a href="/races/year/{year + 1}" class="flex items-center justify-center w-8 h-8 rounded-md text-base-content/60 hover:bg-base-200 hover:text-base-content transition-colors cursor-pointer" aria-label="{year + 1}년으로 이동">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
-                        </a>
-                    </div>
-                </div>
-                <p class="text-sm text-base-content/60">총 <span class="font-semibold text-primary">{totalCount.toLocaleString()}</span>개 대회</p>
-            </div>
-
-            <div class="hidden md:flex items-center justify-between">
-                <div>
-                    <div class="flex items-center gap-3 mb-2">
-                        <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 text-primary">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                        </span>
-                        <p class="text-3xl font-bold text-base-content" aria-hidden="true">{year}년 대회 일정</p>
-                    </div>
-                    <p class="text-base-content/60 ml-13">총 <span class="font-semibold text-primary">{totalCount.toLocaleString()}</span>개 대회가 등록되어 있습니다</p>
-                </div>
-                <div class="flex items-center gap-1 bg-base-100 rounded-xl p-1.5 shadow-sm border border-base-200">
-                    <a href="/races/year/{year - 1}" class="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-base font-medium text-base-content/70 hover:bg-base-200 hover:text-base-content transition-colors cursor-pointer">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                        {year - 1}
-                    </a>
-                    <span class="px-5 py-2.5 rounded-lg text-base font-bold bg-primary text-primary-content">{year}</span>
-                    <a href="/races/year/{year + 1}" class="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-base font-medium text-base-content/70 hover:bg-base-200 hover:text-base-content transition-colors cursor-pointer">
-                        {year + 1}
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
-                    </a>
-                </div>
+<div class="year-wrap">
+    <!-- HEADER -->
+    <header class="year-head">
+        <div class="head-left">
+            <div class="kicker">시즌 · {year}</div>
+            <h1 class="title">{year}년 대회 일정</h1>
+            <div class="sub">
+                총 <b>{totalCount.toLocaleString()}</b>개 대회 · {ALL_SPORTS.length}개 종목
             </div>
         </div>
-    </div>
+        <nav class="year-nav" aria-label="연도 이동">
+            <a class="year-nav-btn" href="/races/year/{year - 1}" aria-label="{year - 1}년">
+                <span class="arrow">←</span>
+                <span class="num">{year - 1}</span>
+            </a>
+            <span class="year-nav-current">{year}</span>
+            <a class="year-nav-btn" href="/races/year/{year + 1}" aria-label="{year + 1}년">
+                <span class="num">{year + 1}</span>
+                <span class="arrow">→</span>
+            </a>
+        </nav>
+    </header>
 
-    <div class="sticky top-16 z-20 backdrop-blur-lg">
-        <div class="max-w-7xl mx-auto px-4 py-3">
-            <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide" id="month-nav">
-                {#each Array(12) as _, i}
-                    {@const m = i + 1}
-                    {@const monthRaces = getMonthRaces(m)}
-                    <a id="month-nav-{m}" href="#month-{m}" class="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all cursor-pointer {activeMonth === m ? 'bg-primary text-primary-content' : monthRaces.length > 0 ? 'bg-base-200/70 text-base-content hover:bg-primary hover:text-primary-content' : 'bg-base-200/30 text-base-content/30 pointer-events-none'}">
-                        <span>{m}월</span>
-                        {#if monthRaces.length > 0}
-                            <span class="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-md text-xs font-semibold {activeMonth === m ? 'bg-primary-content/20' : 'bg-base-content/10'}">{monthRaces.length}</span>
-                        {/if}
-                    </a>
-                {/each}
-            </div>
+    <!-- STICKY MONTH NAV -->
+    <nav class="month-nav" aria-label="월 이동">
+        <div class="month-nav-inner">
+            {#each Array(12) as _, i}
+                {@const m = i + 1}
+                {@const monthRaces = getMonthRaces(m)}
+                {@const empty = monthRaces.length === 0}
+                {@const active = activeMonth === m}
+                <a
+                    id="month-nav-{m}"
+                    href="#month-{m}"
+                    class="month-chip"
+                    class:active
+                    class:empty
+                    aria-disabled={empty}
+                >
+                    <span class="month-chip-label">{MONTH_LABELS[i]}</span>
+                    {#if monthRaces.length > 0}
+                        <span class="month-chip-count">{monthRaces.length}</span>
+                    {/if}
+                </a>
+            {/each}
         </div>
-    </div>
+    </nav>
 
-    <div class="max-w-7xl mx-auto px-4 py-6">
-        <div class="flex gap-6">
-            <div class="flex-1 min-w-0">
-                {#each Array(12) as _, i}
-                    {@const m = i + 1}
-                    {@const monthRaces = getMonthRaces(m)}
-                    <section id="month-{m}" class="scroll-mt-32 {m > 1 ? 'mt-8' : ''}">
-                        <div class="py-3 mb-3">
-                            <div class="flex items-center gap-4">
-                                <div class="flex items-baseline gap-1.5">
-                                    <span class="text-3xl font-bold {monthRaces.length > 0 ? 'text-base-content' : 'text-base-content/20'}">{m}</span>
-                                    <span class="text-lg text-base-content/40 font-medium">월</span>
-                                </div>
-                                {#if monthRaces.length > 0}
-                                    <div class="h-px flex-1 bg-gradient-to-r from-base-300 to-transparent"></div>
-                                    <span class="text-sm bg-primary/10 text-primary px-3 py-1 rounded-full font-semibold">{monthRaces.length}개 대회</span>
-                                {:else}
-                                    <div class="h-px flex-1 bg-base-200/50"></div>
-                                {/if}
-                            </div>
+    <div class="year-body">
+        <!-- MONTH SECTIONS -->
+        <div class="months">
+            {#each Array(12) as _, i}
+                {@const m = i + 1}
+                {@const monthRaces = getMonthRaces(m)}
+                <section id="month-{m}" class="month-sec" class:empty={monthRaces.length === 0}>
+                    <div class="month-head">
+                        <div class="month-head-num">
+                            <span class="month-num">{MONTH_LABELS[i]}</span>
                         </div>
-
+                        <div class="month-head-line"></div>
                         {#if monthRaces.length > 0}
-                            <div class="hidden md:block overflow-hidden rounded-2xl border border-base-200/70 bg-base-100/80 backdrop-blur-sm shadow-sm">
-                                <table class="table w-full">
-                                    <thead><tr class="bg-base-200/50"><th class="w-28 py-3 text-sm font-semibold text-base-content/70">날짜</th><th class="w-24 py-3 text-sm font-semibold text-base-content/70">종목</th><th class="py-3 text-sm font-semibold text-base-content/70">대회명</th><th class="w-24 py-3 text-sm font-semibold text-base-content/70">지역</th><th class="w-24 py-3 text-sm font-semibold text-base-content/70 text-center">상태</th></tr></thead>
-                                    <tbody class="divide-y divide-base-200/50">
-                                        {#each monthRaces as race}
-                                            <tr class="hover:bg-base-200/50 transition-colors cursor-pointer group" onclick={() => window.location.href = race.url} tabindex="0" role="link">
-                                                <td class="py-3">
-                                                    <div class="flex items-center gap-2.5">
-                                                        <span class="w-1 h-10 rounded-full {sportColorsBg[race.sport as Sport] || 'bg-gray-400'}"></span>
-                                                        <div>
-                                                            <div class="text-base font-semibold text-base-content">{race.raceDate ? formatDateSlash(race.raceDate) : '-'}</div>
-                                                            <div class="text-sm text-base-content/50">{race.raceDate ? formatDateDay(race.raceDate) + '요일' : ''}</div>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td class="py-3"><span class="inline-flex min-w-24"><span class="inline-flex px-2.5 py-1 rounded-md text-sm font-semibold whitespace-nowrap justify-center {sportBgColors[race.sport as Sport] || 'bg-gray-100 text-gray-700'}">{race.sportLabel}</span></span></td>
-                                                <td class="py-3"><span class="text-base font-medium text-base-content group-hover:text-primary transition-colors">{race.title.length > 45 ? race.title.substring(0, 45) + '...' : race.title}</span></td>
-                                                <td class="py-3"><span class="text-base text-base-content/70">{race.region || '-'}</span></td>
-                                                <td class="py-3 text-center">
-                                                    {#if race.status === 'registration_open'}
-                                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-semibold whitespace-nowrap min-w-14 justify-center bg-success/15 text-success"><span class="w-1.5 h-1.5 rounded-full bg-success animate-pulse"></span>접수중</span>
-                                                    {:else if race.status === 'registration_closed'}
-                                                        <span class="inline-flex px-2.5 py-1 rounded-full text-sm font-medium whitespace-nowrap min-w-14 justify-center bg-warning/10 text-warning">접수마감</span>
-                                                    {:else if race.status === 'finished'}
-                                                        <span class="inline-flex px-2.5 py-1 rounded-full text-sm font-medium whitespace-nowrap min-w-14 justify-center bg-base-200 text-base-content/50">종료</span>
-                                                    {:else}
-                                                        <span class="inline-flex px-2.5 py-1 rounded-full text-sm font-medium whitespace-nowrap min-w-14 justify-center bg-info/10 text-info">예정</span>
-                                                    {/if}
-                                                </td>
-                                            </tr>
-                                        {/each}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <div class="md:hidden space-y-2.5">
-                                {#each monthRaces as race}
-                                    <a href={race.url} class="block p-4 rounded-xl border border-base-200/70 bg-base-100/80 backdrop-blur-sm border-l-4 {sportBorderColors[race.sport as Sport] || 'border-l-gray-400'} hover:shadow-md hover:border-base-300 transition-all cursor-pointer active:scale-[0.99]">
-                                        <div class="flex items-start justify-between gap-3">
-                                            <div class="flex-1 min-w-0">
-                                                <h3 class="text-base font-semibold text-base-content line-clamp-2">{race.title}</h3>
-                                                <div class="flex items-center gap-2 mt-2 text-sm text-base-content/60">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-base-content/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                                    <span class="font-medium">{race.raceDate ? `${formatDateSlash(race.raceDate)}(${formatDateDay(race.raceDate)})` : '-'}</span>
-                                                    {#if race.region}<span class="text-base-content/30">&#8226;</span><span>{race.region}</span>{/if}
-                                                </div>
-                                                <div class="flex items-center gap-2 mt-2.5">
-                                                    <span class="inline-flex px-2.5 py-1 rounded-md text-sm font-semibold min-w-16 justify-center {sportBgColors[race.sport as Sport] || 'bg-gray-100 text-gray-700'}">{race.sportLabel}</span>
-                                                    {#if race.status === 'registration_open'}
-                                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-semibold min-w-14 justify-center bg-success/15 text-success"><span class="w-1.5 h-1.5 rounded-full bg-success animate-pulse"></span>접수중</span>
-                                                    {:else if race.status === 'registration_closed'}
-                                                        <span class="inline-flex px-2.5 py-1 rounded-full text-sm font-medium min-w-14 justify-center bg-warning/10 text-warning">접수마감</span>
-                                                    {:else if race.status === 'finished'}
-                                                        <span class="inline-flex px-2.5 py-1 rounded-full text-sm font-medium min-w-14 justify-center bg-base-200 text-base-content/50">종료</span>
-                                                    {:else}
-                                                        <span class="inline-flex px-2.5 py-1 rounded-full text-sm font-medium min-w-14 justify-center bg-info/10 text-info">예정</span>
-                                                    {/if}
-                                                </div>
-                                            </div>
-                                            <div class="flex items-center justify-center w-8 h-8 rounded-full bg-base-200/50 flex-shrink-0 mt-1">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-base-content/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
-                                            </div>
-                                        </div>
-                                    </a>
-                                {/each}
-                            </div>
+                            <span class="month-head-count">{monthRaces.length}개 대회</span>
                         {:else}
-                            <div class="text-center py-12 px-4">
-                                <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-base-200/50 mb-4">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                </div>
-                                <p class="text-base-content/50 text-base">등록된 대회가 없습니다</p>
-                            </div>
-                        {/if}
-                    </section>
-                {/each}
-            </div>
-
-            <aside class="hidden lg:block w-64 flex-shrink-0">
-                <div class="sticky top-36">
-                    <div class="bg-base-100/80 backdrop-blur-sm rounded-2xl border border-base-200/70 p-5 shadow-sm">
-                        <h3 class="text-sm font-semibold text-base-content/70 uppercase tracking-wider mb-4">필터</h3>
-                        <div class="mb-6">
-                            <h4 class="text-sm font-medium text-base-content mb-3">종목</h4>
-                            <div class="space-y-2">
-                                {#each sports as sport}
-                                    <label class="flex items-center gap-3 cursor-pointer group">
-                                        <input type="checkbox" class="checkbox checkbox-sm checkbox-primary" checked={selectedSports.has(sport.key)} onchange={() => toggleSport(sport.key)} />
-                                        <span class="w-2 h-2 rounded-full {sport.color}"></span>
-                                        <span class="text-sm text-base-content/80 group-hover:text-base-content transition-colors">{sport.label}</span>
-                                    </label>
-                                {/each}
-                            </div>
-                        </div>
-                        <div class="mb-6">
-                            <h4 class="text-sm font-medium text-base-content mb-3">상태</h4>
-                            <div class="space-y-2">
-                                {#each statuses as status}
-                                    <label class="flex items-center gap-3 cursor-pointer group">
-                                        <input type="checkbox" class="checkbox checkbox-sm checkbox-primary" checked={selectedStatuses.has(status.key)} onchange={() => toggleStatus(status.key)} />
-                                        <span class="w-2 h-2 rounded-full {status.color}"></span>
-                                        <span class="text-sm text-base-content/80 group-hover:text-base-content transition-colors">{status.label}</span>
-                                    </label>
-                                {/each}
-                            </div>
-                        </div>
-                        <div>
-                            <h4 class="text-sm font-medium text-base-content mb-3">지역</h4>
-                            <div class="space-y-2 max-h-64 overflow-y-auto pr-2">
-                                {#each regions as region}
-                                    <label class="flex items-center gap-3 cursor-pointer group">
-                                        <input type="checkbox" class="checkbox checkbox-sm checkbox-primary" checked={selectedRegions.has(region)} onchange={() => toggleRegion(region)} />
-                                        <span class="text-sm text-base-content/80 group-hover:text-base-content transition-colors">{region}</span>
-                                    </label>
-                                {/each}
-                            </div>
-                        </div>
-                        {#if hasActiveFilter}
-                            <button onclick={resetFilters} class="btn btn-sm btn-outline btn-error w-full mt-5 cursor-pointer">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
-                                필터 모두 지우기
-                            </button>
+                            <span class="month-head-count muted">대회 없음</span>
                         {/if}
                     </div>
-                </div>
-            </aside>
+
+                    {#if monthRaces.length > 0}
+                        <div class="race-table">
+                            <div class="race-thead">
+                                <span>접수마감</span>
+                                <span>대회명</span>
+                                <span>일정</span>
+                                <span>종목</span>
+                                <span>거리</span>
+                                <span>지역</span>
+                                <span>참가비</span>
+                            </div>
+                            {#each monthRaces as race (race.id)}
+                                <RaceRow {race} />
+                            {/each}
+                        </div>
+                    {:else}
+                        <div class="empty-card">
+                            <span class="empty-kicker">결과 없음</span>
+                            <p>이 달에 해당하는 대회가 없습니다.</p>
+                        </div>
+                    {/if}
+                </section>
+            {/each}
         </div>
+
+        <!-- DESKTOP FILTER SIDEBAR -->
+        <aside class="filter-sidebar">
+            <div class="filter-panel">
+                <div class="filter-panel-head">
+                    <span class="kicker">필터</span>
+                    {#if hasActiveFilter}
+                        <button class="filter-reset" onclick={resetFilters}>초기화 ✕</button>
+                    {/if}
+                </div>
+
+                <div class="filter-group">
+                    <div class="filter-group-label">종목</div>
+                    <div class="chip-row">
+                        {#each sports as sport}
+                            <button
+                                class="filter-chip"
+                                class:active={selectedSports.has(sport.key)}
+                                onclick={() => toggleSport(sport.key)}
+                            >
+                                {sport.label}
+                            </button>
+                        {/each}
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <div class="filter-group-label">상태</div>
+                    <div class="chip-row">
+                        {#each statuses as status}
+                            <button
+                                class="filter-chip"
+                                class:active={selectedStatuses.has(status.key)}
+                                onclick={() => toggleStatus(status.key)}
+                            >
+                                {status.label}
+                            </button>
+                        {/each}
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <div class="filter-group-label">지역</div>
+                    <div class="chip-row chip-row-wrap">
+                        {#each regions as region}
+                            <button
+                                class="filter-chip"
+                                class:active={selectedRegions.has(region)}
+                                onclick={() => toggleRegion(region)}
+                            >
+                                {region}
+                            </button>
+                        {/each}
+                    </div>
+                </div>
+            </div>
+        </aside>
     </div>
 
-    <button onclick={openMobileFilter} class="lg:hidden fixed bottom-6 left-6 flex items-center gap-2 px-4 py-3 rounded-full bg-base-100 text-base-content shadow-lg border border-base-200 hover:shadow-xl transition-all cursor-pointer z-30">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-        <span class="text-sm font-medium">필터</span>
-    </button>
-
-    <button onclick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} class="fixed bottom-6 right-6 flex items-center justify-center w-12 h-12 rounded-full bg-primary text-primary-content shadow-lg hover:shadow-xl hover:scale-105 transition-all cursor-pointer z-30" aria-label="맨 위로 이동">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" /></svg>
+    <!-- MOBILE FILTER FAB -->
+    <button class="mobile-fab" onclick={openMobileFilter} aria-label="필터 열기">
+        <span class="mono">필터</span>
+        {#if hasActiveFilter}<span class="fab-dot"></span>{/if}
     </button>
 </div>
 
 {#if mobileFilterOpen}
-    <div class="lg:hidden fixed inset-0 z-[9999]">
-        <button class="absolute inset-0 bg-black/50" onclick={closeMobileFilter} aria-label="모달 닫기"></button>
-        <div class="absolute bottom-0 left-0 right-0 bg-base-100 rounded-t-3xl p-6 max-h-[80vh] overflow-y-auto animate-slide-up">
-            <div class="flex items-center justify-between mb-6">
-                <h3 class="text-lg font-semibold text-base-content">필터</h3>
-                <button onclick={closeMobileFilter} class="btn btn-sm btn-circle btn-ghost" aria-label="닫기">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
+    <div class="mobile-filter">
+        <button
+            class="mobile-filter-bg"
+            onclick={closeMobileFilter}
+            aria-label="모달 닫기"
+        ></button>
+        <div class="mobile-filter-sheet">
+            <div class="mobile-filter-head">
+                <span class="kicker">필터</span>
+                <button class="mobile-filter-close" onclick={closeMobileFilter} aria-label="닫기">✕</button>
             </div>
-            <div class="mb-6">
-                <h4 class="text-sm font-medium text-base-content mb-3">종목</h4>
-                <div class="flex flex-wrap gap-2">
+
+            <div class="filter-group">
+                <div class="filter-group-label">종목</div>
+                <div class="chip-row chip-row-wrap">
                     {#each sports as sport}
-                        <button onclick={() => toggleSport(sport.key)} class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all cursor-pointer {selectedSports.has(sport.key) ? 'bg-primary text-primary-content border-primary' : 'border-base-200'}">
-                            <span class="w-2 h-2 rounded-full {sport.color}"></span>{sport.label}
+                        <button
+                            class="filter-chip"
+                            class:active={selectedSports.has(sport.key)}
+                            onclick={() => toggleSport(sport.key)}
+                        >
+                            {sport.label}
                         </button>
                     {/each}
                 </div>
             </div>
-            <div class="mb-6">
-                <h4 class="text-sm font-medium text-base-content mb-3">상태</h4>
-                <div class="flex flex-wrap gap-2">
+
+            <div class="filter-group">
+                <div class="filter-group-label">상태</div>
+                <div class="chip-row chip-row-wrap">
                     {#each statuses as status}
-                        <button onclick={() => toggleStatus(status.key)} class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all cursor-pointer {selectedStatuses.has(status.key) ? 'bg-primary text-primary-content border-primary' : 'border-base-200'}">
-                            <span class="w-2 h-2 rounded-full {status.color}"></span>{status.label}
+                        <button
+                            class="filter-chip"
+                            class:active={selectedStatuses.has(status.key)}
+                            onclick={() => toggleStatus(status.key)}
+                        >
+                            {status.label}
                         </button>
                     {/each}
                 </div>
             </div>
-            <div class="mb-6">
-                <h4 class="text-sm font-medium text-base-content mb-3">지역</h4>
-                <div class="flex flex-wrap gap-2">
+
+            <div class="filter-group">
+                <div class="filter-group-label">지역</div>
+                <div class="chip-row chip-row-wrap">
                     {#each regions as region}
-                        <button onclick={() => toggleRegion(region)} class="inline-flex px-3 py-2 rounded-lg border text-sm font-medium transition-all cursor-pointer {selectedRegions.has(region) ? 'bg-primary text-primary-content border-primary' : 'border-base-200'}">{region}</button>
+                        <button
+                            class="filter-chip"
+                            class:active={selectedRegions.has(region)}
+                            onclick={() => toggleRegion(region)}
+                        >
+                            {region}
+                        </button>
                     {/each}
                 </div>
             </div>
-            <div class="flex gap-2">
+
+            <div class="mobile-filter-actions">
                 {#if hasActiveFilter}
-                    <button onclick={resetFilters} class="btn btn-outline btn-error cursor-pointer">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
-                        초기화
-                    </button>
+                    <button class="arena-btn arena-btn-ghost" onclick={resetFilters}>초기화</button>
                 {/if}
-                <button onclick={closeMobileFilter} class="btn btn-primary flex-1 cursor-pointer">필터 적용</button>
+                <button class="arena-btn arena-btn-primary mobile-filter-apply" onclick={closeMobileFilter}>
+                    적용
+                </button>
             </div>
         </div>
     </div>
 {/if}
 
 <style>
-    @keyframes slide-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
-    .animate-slide-up { animation: slide-up 0.3s ease-out; }
-    .scrollbar-hide::-webkit-scrollbar { display: none; }
-    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-    .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .year-wrap {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 32px 24px 80px;
+    }
+    @media (min-width: 1024px) {
+        .year-wrap { padding: 40px 32px 100px; }
+    }
+
+    /* ── HEADER ── */
+    .year-head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 24px;
+        padding-bottom: 24px;
+        flex-wrap: wrap;
+    }
+    .head-left { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    .kicker {
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        letter-spacing: 2px;
+        color: var(--arena-ink-soft);
+        text-transform: uppercase;
+    }
+    .title {
+        font-family: var(--arena-f-display);
+        font-size: clamp(32px, 5vw, 52px);
+        font-weight: 700;
+        letter-spacing: -1.5px;
+        line-height: 1;
+        margin: 4px 0 6px;
+        color: var(--arena-ink);
+    }
+    .sub {
+        font-family: var(--arena-f-mono);
+        font-size: 12px;
+        letter-spacing: 0.3px;
+        color: var(--arena-ink-soft);
+    }
+    .sub b { color: var(--arena-ink); font-weight: 700; }
+
+    .year-nav {
+        display: flex;
+        align-items: stretch;
+        border: 1px solid var(--arena-line);
+        background: var(--arena-paper);
+    }
+    .year-nav-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        font-family: var(--arena-f-mono);
+        font-size: 12px;
+        letter-spacing: 1px;
+        color: var(--arena-ink-soft);
+        text-decoration: none;
+        background: var(--arena-paper);
+        transition: background 0.1s, color 0.1s;
+    }
+    .year-nav-btn:hover { background: var(--arena-paper-alt); color: var(--arena-ink); }
+    .year-nav-btn .arrow { font-size: 13px; }
+    .year-nav-current {
+        padding: 10px 18px;
+        font-family: var(--arena-f-display);
+        font-weight: 700;
+        font-size: 14px;
+        letter-spacing: -0.3px;
+        color: var(--arena-paper);
+        background: var(--arena-ink);
+        display: flex;
+        align-items: center;
+        border-left: 1px solid var(--arena-line);
+        border-right: 1px solid var(--arena-line);
+    }
+
+    /* ── STICKY MONTH NAV ── */
+    .month-nav {
+        position: sticky;
+        top: 62px;
+        z-index: 20;
+        background: var(--arena-paper);
+        margin: 0 -24px;
+    }
+    @media (min-width: 1024px) {
+        .month-nav {
+             margin: 0 -32px;         
+             top: 60px;
+        }
+    }
+    .month-nav-inner {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 10px 24px;
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+    .month-nav-inner::-webkit-scrollbar { display: none; }
+    @media (min-width: 1024px) {
+        .month-nav-inner { padding: 12px 32px; }
+    }
+    .month-chip {
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: baseline;
+        gap: 7px;
+        padding: 7px 13px;
+        border: 1px solid var(--arena-line-soft);
+        background: var(--arena-paper);
+        font-family: var(--arena-f-mono);
+        text-decoration: none;
+        color: var(--arena-ink);
+        transition: background 0.1s, color 0.1s, border-color 0.1s;
+    }
+    .month-chip-label {
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+    }
+    .month-chip-count {
+        font-size: 11px;
+        font-weight: 700;
+        padding: 1px 5px;
+        margin-left: 2px;
+        background: var(--arena-paper-alt);
+        color: var(--arena-ink-soft);
+    }
+    .month-chip:hover {
+        border-color: var(--arena-ink);
+    }
+    .month-chip.active {
+        background: var(--arena-ink);
+        color: var(--arena-paper);
+        border-color: var(--arena-ink);
+    }
+    .month-chip.active .month-chip-label {
+        color: var(--arena-accent);
+    }
+    .month-chip.active .month-chip-count {
+        background: var(--arena-accent);
+        color: var(--arena-ink);
+    }
+    .month-chip.empty {
+        color: var(--arena-ink-mute);
+        pointer-events: none;
+        opacity: 0.5;
+    }
+    .month-chip.empty .month-chip-label,
+    .month-chip.empty .month-chip-num { color: var(--arena-ink-mute); }
+
+    /* ── BODY (months + sidebar) ── */
+    .year-body {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 32px;
+        margin-top: 28px;
+    }
+    @media (min-width: 1024px) {
+        .year-body {
+            grid-template-columns: minmax(0, 1fr) 240px;
+            gap: 28px;
+        }
+    }
+
+    .months { min-width: 0; }
+    .month-sec { scroll-margin-top: 140px; margin-bottom: 36px; }
+    .month-sec:last-child { margin-bottom: 0; }
+
+    .month-head {
+        display: flex;
+        align-items: baseline;
+        gap: 14px;
+        margin-bottom: 12px;
+    }
+    .month-head-num {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+    }
+    .month-num {
+        font-family: var(--arena-f-display);
+        font-size: 32px;
+        font-weight: 700;
+        letter-spacing: -1.5px;
+        color: var(--arena-ink);
+        line-height: 1;
+    }
+    .month-sec.empty .month-num { color: var(--arena-ink-mute); }
+    .month-mono {
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        letter-spacing: 2px;
+        color: var(--arena-ink-soft);
+    }
+    .month-head-line {
+        flex: 1;
+        height: 1px;
+        background: var(--arena-line-soft);
+    }
+    .month-head-count {
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        letter-spacing: 1.5px;
+        color: var(--arena-ink);
+        font-weight: 700;
+    }
+    .month-head-count.muted { color: var(--arena-ink-mute); font-weight: 500; }
+
+    /* ── RACE TABLE (mirrored from /races) ── */
+    .race-table {
+        border: 1px solid var(--arena-line);
+        background: var(--arena-paper);
+    }
+    .race-thead {
+        display: grid;
+        grid-template-columns: 56px 1fr 90px 60px 100px 110px 90px;
+        gap: 16px;
+        padding: 10px 20px;
+        background: var(--arena-paper-alt);
+        border-bottom: 1px solid var(--arena-line);
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        letter-spacing: 0.3px;
+        color: var(--arena-ink-soft);
+    }
+    @media (max-width: 879px) {
+        .race-thead { display: none; }
+    }
+
+    .empty-card {
+        border: 1px solid var(--arena-line-soft);
+        background: var(--arena-paper);
+        padding: 32px 20px;
+        text-align: center;
+        color: var(--arena-ink-soft);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+    }
+    .empty-kicker {
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        letter-spacing: 2px;
+        color: var(--arena-ink-mute);
+    }
+    .empty-card p { margin: 0; font-size: 13px; }
+
+    /* ── FILTER SIDEBAR ── */
+    .filter-sidebar { display: none; }
+    @media (min-width: 1024px) { .filter-sidebar { display: block; } }
+    .filter-panel {
+        position: sticky;
+        top: 140px;
+        border: 1px solid var(--arena-line);
+        background: var(--arena-paper);
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
+    .filter-panel-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--arena-line-soft);
+    }
+    .filter-reset {
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        letter-spacing: 1.5px;
+        color: var(--arena-urgent);
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: 0;
+    }
+    .filter-reset:hover { text-decoration: underline; }
+
+    .filter-group { display: flex; flex-direction: column; gap: 8px; }
+    .filter-group-label {
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        letter-spacing: 1.5px;
+        color: var(--arena-ink-soft);
+    }
+    .chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip-row-wrap { gap: 5px; }
+    .filter-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 5px 10px;
+        border: 1px solid var(--arena-line-soft);
+        background: var(--arena-paper);
+        color: var(--arena-ink-soft);
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        letter-spacing: 0.3px;
+        cursor: pointer;
+        transition: all 0.1s;
+    }
+    .filter-chip:hover { border-color: var(--arena-ink); color: var(--arena-ink); }
+    .filter-chip.active {
+        background: var(--arena-ink);
+        color: var(--arena-paper);
+        border-color: var(--arena-ink);
+    }
+
+    /* ── MOBILE FAB ── */
+    .mobile-fab {
+        display: flex;
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        background: var(--arena-ink);
+        color: var(--arena-paper);
+        border: none;
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        letter-spacing: 1.5px;
+        cursor: pointer;
+        z-index: 30;
+    }
+    .mobile-fab:active { transform: translateY(1px); }
+    .fab-dot {
+        width: 6px;
+        height: 6px;
+        background: var(--arena-accent);
+    }
+    @media (min-width: 1024px) { .mobile-fab { display: none; } }
+
+    /* ── MOBILE FILTER SHEET ── */
+    .mobile-filter {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+    }
+    .mobile-filter-bg {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        border: none;
+        cursor: pointer;
+    }
+    .mobile-filter-sheet {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: var(--arena-paper);
+        border-top: 1px solid var(--arena-line);
+        padding: 20px 20px 28px;
+        max-height: 80vh;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        animation: slide-up 0.25s ease-out;
+    }
+    .mobile-filter-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--arena-line-soft);
+    }
+    .mobile-filter-close {
+        background: transparent;
+        border: none;
+        font-family: var(--arena-f-mono);
+        font-size: 16px;
+        color: var(--arena-ink);
+        cursor: pointer;
+    }
+    .mobile-filter-actions {
+        display: flex;
+        gap: 8px;
+        padding-top: 8px;
+        border-top: 1px solid var(--arena-line-soft);
+    }
+    .mobile-filter-apply { flex: 1; justify-content: center; }
+
+    @keyframes slide-up {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+    }
 </style>

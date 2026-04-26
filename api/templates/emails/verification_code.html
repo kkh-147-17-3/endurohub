@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <title>endurohub 이메일 인증</title>
+    <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    {% include "emails/_styles.html" %}
+    <style>
+        .code-box {
+            border: 2px solid #1A2520;
+            background: #F4F4EE;
+            padding: 28px 16px;
+            text-align: center;
+            margin-top: 8px;
+        }
+        .code-digits {
+            font-family: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+            font-weight: 600;
+            font-size: 36px;
+            letter-spacing: 14px;
+            color: #1A2520;
+            line-height: 1;
+            padding-left: 14px;
+        }
+        .code-ttl {
+            font-family: 'IBM Plex Mono', Menlo, monospace;
+            font-size: 11px;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: #D14E2C;
+            margin-top: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+                <td align="center" style="padding: 32px 16px;">
+                    <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="border: 1px solid #1A2520;">
+
+                        {% include "emails/_header.html" with header_meta="이메일 인증" %}
+
+                        <tr>
+                            <td class="hero" style="padding-bottom: 32px;">
+                                <div class="kicker">이메일 인증</div>
+                                <h1>인증을<br><em>완료해주세요.</em></h1>
+                                <p>아래 코드를 입력하면 가입이 마무리됩니다.</p>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td class="section" style="border-bottom: 1px solid #1A2520;">
+                                <div class="kicker">인증 코드</div>
+                                <div class="code-box">
+                                    <div class="code-digits">{{ code }}</div>
+                                </div>
+                                <div class="code-ttl">10분 유효</div>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td class="footer">
+                                <div class="footer-logo"><span class="header-logo-dot"></span>endurohub</div>
+                                <p>본인이 요청하지 않았다면 이 메일을 무시하셔도 됩니다.</p>
+                                <p style="margin-top: 12px; opacity: 0.7;">&copy; {% now "Y" %} endurohub</p>
+                            </td>
+                        </tr>
+
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </div>
+</body>
+</html>

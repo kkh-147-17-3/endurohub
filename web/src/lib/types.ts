@@ -37,6 +37,7 @@ export interface Distance {
 	distance_meter?: number | null;
 	fee?: number | null;
 	cutoff?: string | null;
+	start_time?: string | null;
 }
 
 export interface RegistrationPhase {
@@ -50,6 +51,7 @@ export interface Race {
 	id: number;
 	slug: string;
 	title: string;
+	edition: string | null;
 	sport: Sport;
 	sportLabel: string;
 
@@ -99,8 +101,24 @@ export interface Race {
 
 	isFavorited: boolean;
 
+	weatherForecast: WeatherForecast | null;
+
+	courseSurface: string | null;
+	courseDifficulty: string | null;
+	aidStations: string | null;
+	timingMethod: string | null;
+	parking: string | null;
+
 	createdAt: string;
 	updatedAt: string;
+}
+
+export interface WeatherForecast {
+	temp_high: number | null;
+	temp_low: number | null;
+	rain_prob: number | null;
+	wind: string | null;
+	fetched_at: string;
 }
 
 export interface FavoriteToggleResponse {
@@ -301,12 +319,16 @@ export interface CalendarResponse {
 	previousMonth: { year: number; month: number };
 	nextMonth: { year: number; month: number };
 	sport: string | null;
+	region: string | null;
 	sports: SportOption[];
+	regions: string[];
 }
 
 export interface PostDetailResponse {
 	post: Post;
 	hasLiked: boolean;
+	prevPost: { id: number; title: string } | null;
+	nextPost: { id: number; title: string } | null;
 }
 
 export interface PostListResponse extends PaginatedResponse<Post> {

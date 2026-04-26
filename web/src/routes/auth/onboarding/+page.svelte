@@ -1,6 +1,7 @@
 <script lang="ts">
     import { enhance } from '$app/forms';
     import type { Sport } from '$lib/types';
+    import ProgressBar from '$lib/components/ProgressBar.svelte';
 
     let { data, form } = $props();
 
@@ -8,12 +9,12 @@
     let selectedRegions = $state<string[]>([]);
     let isSubmitting = $state(false);
 
-    const sports: { value: Sport; label: string; emoji: string; color: string; colorSelected: string }[] = [
-        { value: 'running', label: '마라톤', emoji: '🏃', color: 'border-base-300 hover:border-primary/40', colorSelected: 'border-primary bg-primary/8 ring-2 ring-primary/20' },
-        { value: 'trail_running', label: '트레일러닝', emoji: '⛰️', color: 'border-base-300 hover:border-success/40', colorSelected: 'border-success bg-success/8 ring-2 ring-success/20' },
-        { value: 'cycling', label: '자전거', emoji: '🚴', color: 'border-base-300 hover:border-warning/40', colorSelected: 'border-warning bg-warning/8 ring-2 ring-warning/20' },
-        { value: 'swimming', label: '수영', emoji: '🏊', color: 'border-base-300 hover:border-info/40', colorSelected: 'border-info bg-info/8 ring-2 ring-info/20' },
-        { value: 'triathlon', label: '철인3종', emoji: '🏅', color: 'border-base-300 hover:border-secondary/40', colorSelected: 'border-secondary bg-secondary/8 ring-2 ring-secondary/20' },
+    const sports: { value: Sport; label: string; code: string }[] = [
+        { value: 'running', label: '러닝', code: 'RUN' },
+        { value: 'trail_running', label: '트레일', code: 'TRL' },
+        { value: 'cycling', label: '자전거', code: 'CYCLE' },
+        { value: 'swimming', label: '수영', code: 'SWIM' },
+        { value: 'triathlon', label: '철인3종', code: 'TRI' },
     ];
 
     const regions = [
@@ -54,18 +55,15 @@
     <meta name="robots" content="noindex" />
 </svelte:head>
 
-<div class="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-12">
-    <div class="w-full max-w-lg">
+<ProgressBar active={isSubmitting} />
 
-        <!-- Progress -->
-        <div class="flex items-center gap-2 mb-8 px-2">
-            <div class="flex-1 h-1.5 rounded-full overflow-hidden bg-base-200">
-                <div
-                    class="h-full bg-primary rounded-full transition-all duration-500 ease-out"
-                    style="width: {(step / totalSteps) * 100}%"
-                ></div>
+<div class="auth-wrap">
+    <div class="auth-shell">
+        <div class="progress-row">
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {(step / totalSteps) * 100}%"></div>
             </div>
-            <span class="text-xs text-base-content/40 tabular-nums shrink-0">{step}/{totalSteps}</span>
+            <span class="progress-num">{step}/{totalSteps}</span>
         </div>
 
         <form
@@ -81,65 +79,54 @@
             <input type="hidden" name="preferred_sports" value={selectedSports.join(',')} />
             <input type="hidden" name="preferred_regions" value={selectedRegions.join(',')} />
 
-            <!-- Step 1: Sport Selection -->
             {#if step === 1}
-                <div class="text-center mb-8" style="animation: fadeSlideUp 0.4s ease-out">
-                    <h1 class="text-2xl font-bold tracking-tight">어떤 종목에 관심 있으세요?</h1>
-                    <p class="mt-2 text-base-content/50 text-sm">관심 종목을 선택하면 맞춤 대회 정보를 받을 수 있어요</p>
-                </div>
+                <header class="step-head">
+                    <div class="kicker">STEP 01 · SPORT</div>
+                    <h1 class="step-title">어떤 종목에<br />관심 있으세요?</h1>
+                    <p class="step-sub">관심 종목을 선택하면 맞춤 대회 정보를 받을 수 있어요</p>
+                </header>
 
-                <div class="grid grid-cols-1 gap-3" style="animation: fadeSlideUp 0.4s ease-out 0.05s both">
+                <div class="sport-list">
                     {#each sports as sport}
                         {@const isSelected = selectedSports.includes(sport.value)}
                         <button
                             type="button"
-                            class="flex items-center gap-4 px-5 py-4 rounded-xl border-2 transition-all duration-200 cursor-pointer
-                                {isSelected ? sport.colorSelected : sport.color}"
+                            class="sport-tile"
+                            class:active={isSelected}
+                            data-sport={sport.value}
                             onclick={() => toggleSport(sport.value)}
                         >
-                            <span class="text-3xl w-10 text-center select-none">{sport.emoji}</span>
-                            <span class="font-semibold text-base flex-1 text-left">{sport.label}</span>
-                            {#if isSelected}
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                                </svg>
-                            {:else}
-                                <div class="w-5 h-5 rounded-full border-2 border-base-300"></div>
-                            {/if}
+                            <span class="sport-code">{sport.code}</span>
+                            <span class="sport-label">{sport.label}</span>
+                            <span class="sport-mark" class:checked={isSelected}>
+                                {isSelected ? '✓' : ''}
+                            </span>
                         </button>
                     {/each}
                 </div>
 
-                <div class="mt-8 flex gap-3">
-                    <button
-                        type="button"
-                        class="btn btn-primary btn-block"
-                        onclick={nextStep}
-                    >
-                        {selectedSports.length > 0 ? '다음' : '건너뛰기'}
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-                        </svg>
+                <div class="step-actions">
+                    <button type="button" class="arena-submit" onclick={nextStep}>
+                        <span>{selectedSports.length > 0 ? '다음' : '건너뛰기'}</span>
+                        <span class="arena-submit-arrow">→</span>
                     </button>
                 </div>
             {/if}
 
-            <!-- Step 2: Region Selection -->
             {#if step === 2}
-                <div class="text-center mb-8" style="animation: fadeSlideUp 0.4s ease-out">
-                    <h1 class="text-2xl font-bold tracking-tight">주로 어디서 뛰세요?</h1>
-                    <p class="mt-2 text-base-content/50 text-sm">관심 지역의 대회를 우선 추천해드릴게요</p>
-                </div>
+                <header class="step-head">
+                    <div class="kicker">STEP 02 · REGION</div>
+                    <h1 class="step-title">주로 어디서<br />뛰세요?</h1>
+                    <p class="step-sub">관심 지역의 대회를 우선 추천해드릴게요</p>
+                </header>
 
-                <div class="flex flex-wrap gap-2 justify-center" style="animation: fadeSlideUp 0.4s ease-out 0.05s both">
+                <div class="region-list">
                     {#each regions as region}
                         {@const isSelected = selectedRegions.includes(region)}
                         <button
                             type="button"
-                            class="px-4 py-2.5 rounded-full border-2 text-sm font-medium transition-all duration-200 cursor-pointer
-                                {isSelected
-                                    ? 'border-primary bg-primary text-primary-content shadow-sm'
-                                    : 'border-base-300 hover:border-primary/30 text-base-content/70 hover:text-base-content'}"
+                            class="region-chip"
+                            class:active={isSelected}
                             onclick={() => toggleRegion(region)}
                         >
                             {region}
@@ -148,40 +135,26 @@
                 </div>
 
                 {#if selectedRegions.length > 0}
-                    <div class="mt-4 text-center" style="animation: fadeSlideUp 0.3s ease-out">
-                        <span class="text-xs text-base-content/40">
-                            {selectedRegions.join(', ')} 선택됨
-                        </span>
+                    <div class="region-summary">
+                        <span class="summary-label">SELECTED</span>
+                        <span class="summary-value">{selectedRegions.join(' · ')}</span>
                     </div>
                 {/if}
 
-                <div class="mt-8 flex gap-3">
-                    <button
-                        type="button"
-                        class="btn btn-ghost flex-none"
-                        onclick={prevStep}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-                        </svg>
-                        이전
+                <div class="step-actions">
+                    <button type="button" class="arena-back" onclick={prevStep}>
+                        <span class="arena-submit-arrow">←</span>
+                        <span>이전</span>
                     </button>
-                    <button
-                        type="submit"
-                        class="btn btn-primary flex-1"
-                        disabled={isSubmitting}
-                    >
-                        {#if isSubmitting}
-                            <span class="loading loading-spinner loading-sm"></span>
-                        {/if}
-                        시작하기
+                    <button type="submit" class="arena-submit" disabled={isSubmitting}>
+                        <span>시작하기</span>
+                        <span class="arena-submit-arrow">→</span>
                     </button>
                 </div>
             {/if}
         </form>
 
-        <!-- Skip link -->
-        <div class="text-center mt-6">
+        <div class="skip-row">
             <form
                 method="POST"
                 use:enhance={() => {
@@ -194,11 +167,7 @@
             >
                 <input type="hidden" name="preferred_sports" value="" />
                 <input type="hidden" name="preferred_regions" value="" />
-                <button
-                    type="submit"
-                    class="text-sm text-base-content/40 hover:text-base-content/60 transition-colors cursor-pointer"
-                    disabled={isSubmitting}
-                >
+                <button type="submit" class="skip-btn" disabled={isSubmitting}>
                     나중에 설정할게요
                 </button>
             </form>
@@ -207,14 +176,232 @@
 </div>
 
 <style>
-    @keyframes fadeSlideUp {
-        from {
-            opacity: 0;
-            transform: translateY(12px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
+    .auth-wrap {
+        min-height: calc(100vh - 4rem);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 48px 24px 80px;
+        background: var(--arena-paper);
     }
+    .auth-shell {
+        width: 100%;
+        max-width: 480px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+
+    .progress-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .progress-bar {
+        flex: 1;
+        height: 2px;
+        background: var(--arena-line-soft);
+        position: relative;
+    }
+    .progress-fill {
+        position: absolute;
+        inset: 0 auto 0 0;
+        background: var(--arena-ink);
+        transition: width 0.4s ease-out;
+    }
+    .progress-num {
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        letter-spacing: 1.5px;
+        color: var(--arena-ink-soft);
+    }
+
+    .step-head { margin-bottom: 28px; }
+    .kicker {
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        letter-spacing: 2px;
+        color: var(--arena-ink-soft);
+        margin-bottom: 8px;
+    }
+    .step-title {
+        font-family: var(--arena-f-display);
+        font-size: 32px;
+        font-weight: 700;
+        letter-spacing: -1px;
+        line-height: 1.05;
+        margin: 0 0 8px;
+        color: var(--arena-ink);
+    }
+    .step-sub {
+        font-family: var(--arena-f-mono);
+        font-size: 12px;
+        color: var(--arena-ink-soft);
+        margin: 0;
+    }
+
+    /* Sport tiles */
+    .sport-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .sport-tile {
+        display: grid;
+        grid-template-columns: 60px 1fr 24px;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 16px;
+        background: var(--arena-paper);
+        border: 1px solid var(--arena-line-soft);
+        cursor: pointer;
+        text-align: left;
+        transition: border-color 0.1s, background 0.1s;
+    }
+    .sport-tile:hover { border-color: var(--arena-ink); }
+    .sport-tile.active {
+        background: var(--arena-ink);
+        border-color: var(--arena-ink);
+        color: var(--arena-paper);
+    }
+    .sport-tile.active .sport-code { color: var(--arena-accent); }
+    .sport-code {
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 1.5px;
+        color: var(--arena-ink-soft);
+    }
+    .sport-label {
+        font-family: var(--arena-f-display);
+        font-weight: 600;
+        font-size: 16px;
+        letter-spacing: -0.2px;
+    }
+    .sport-mark {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border: 1px solid var(--arena-line);
+        font-family: var(--arena-f-mono);
+        font-size: 12px;
+        color: var(--arena-paper);
+    }
+    .sport-mark.checked {
+        background: var(--arena-accent);
+        border-color: var(--arena-accent);
+        color: var(--arena-ink);
+    }
+
+    /* Region chips */
+    .region-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .region-chip {
+        padding: 7px 12px;
+        border: 1px solid var(--arena-line-soft);
+        background: var(--arena-paper);
+        font-family: var(--arena-f-mono);
+        font-size: 12px;
+        letter-spacing: 0.3px;
+        color: var(--arena-ink-soft);
+        cursor: pointer;
+        transition: border-color 0.1s, background 0.1s, color 0.1s;
+    }
+    .region-chip:hover { border-color: var(--arena-ink); color: var(--arena-ink); }
+    .region-chip.active {
+        background: var(--arena-ink);
+        color: var(--arena-paper);
+        border-color: var(--arena-ink);
+    }
+
+    .region-summary {
+        margin-top: 14px;
+        padding: 10px 12px;
+        border: 1px solid var(--arena-line-soft);
+        background: var(--arena-paper-alt);
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+    }
+    .summary-label {
+        font-size: 10px;
+        letter-spacing: 1.5px;
+        color: var(--arena-ink-soft);
+    }
+    .summary-value {
+        color: var(--arena-ink);
+        flex: 1;
+        word-break: keep-all;
+    }
+
+    /* Action buttons */
+    .step-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 24px;
+    }
+    .arena-submit {
+        flex: 1;
+        padding: 12px 16px;
+        background: var(--arena-ink);
+        color: var(--arena-paper);
+        border: none;
+        font-family: var(--arena-f-display);
+        font-weight: 600;
+        font-size: 14px;
+        letter-spacing: -0.2px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        transition: transform 0.1s;
+    }
+    .arena-submit:active:not(:disabled) { transform: translateY(1px); }
+    .arena-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    .arena-submit-arrow {
+        font-family: var(--arena-f-mono);
+        font-size: 14px;
+        color: var(--arena-accent);
+    }
+    .arena-back {
+        padding: 12px 16px;
+        background: transparent;
+        color: var(--arena-ink);
+        border: 1px solid var(--arena-line);
+        font-family: var(--arena-f-mono);
+        font-size: 12px;
+        letter-spacing: 1px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .arena-back:hover { background: var(--arena-paper-alt); }
+    .arena-back .arena-submit-arrow { color: var(--arena-ink-soft); }
+
+    .skip-row { text-align: center; }
+    .skip-btn {
+        background: transparent;
+        border: none;
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        letter-spacing: 0.5px;
+        color: var(--arena-ink-mute);
+        cursor: pointer;
+        padding: 4px 8px;
+        text-decoration: underline;
+        text-decoration-color: var(--arena-line-soft);
+        text-underline-offset: 4px;
+    }
+    .skip-btn:hover { color: var(--arena-ink-soft); }
+    .skip-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
 </style>

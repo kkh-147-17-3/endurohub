@@ -1,271 +1,539 @@
 <script lang="ts">
-    import DistanceSelector from '$lib/components/Tools/DistanceSelector.svelte';
-    import TimeInput from '$lib/components/Tools/TimeInput.svelte';
-    import PaceInput from '$lib/components/Tools/PaceInput.svelte';
-    import SplitTable from '$lib/components/Tools/SplitTable.svelte';
-    import ToolsSidebar from '$lib/components/Tools/ToolsSidebar.svelte';
-    import type { CalculationMode, DistancePreset, SplitStrategy } from '$lib/tools/types';
-    import {
-        DISTANCES, timeToPaceSeconds, paceToTotalSeconds, paceToSpeed,
-        formatTime, formatPace, generateSplits,
-        FULL_MARATHON_PRESETS, HALF_MARATHON_PRESETS
-    } from '$lib/tools/pace-calculator';
+    import { page } from '$app/stores';
+    import ToolsShell from '$lib/components/arena/ToolsShell.svelte';
+    import { STD_DISTANCES, fmtPace, fmtTime, parsePace, parseTime } from '$lib/tools';
 
-    let activeTab = $state<CalculationMode>('time-to-pace');
+    type Mode = 'time-from-dist-pace' | 'pace-from-dist-time' | 'dist-from-time-pace';
 
-    let selectedDistance = $state<DistancePreset>('full');
-    let customDistanceKm = $state(10);
+    let mode = $state<Mode>('time-from-dist-pace');
+    let distKm = $state(21.0975);
+    let timeSec = $state(parseTime('1:42:15'));
+    let paceSec = $state(Math.round(parseTime('1:42:15') / 21.0975));
 
-    let targetHours = $state(3);
-    let targetMinutes = $state(59);
-    let targetSeconds = $state(59);
+    const computed = $derived.by(() => {
+        if (mode === 'time-from-dist-pace') return { distKm, paceSec, timeSec: distKm * paceSec };
+        if (mode === 'pace-from-dist-time')
+            return { distKm, timeSec, paceSec: distKm > 0 ? timeSec / distKm : 0 };
+        return { paceSec, timeSec, distKm: paceSec > 0 ? timeSec / paceSec : 0 };
+    });
 
-    let paceMinutes = $state(5);
-    let paceSeconds = $state(30);
-
-    let splitStrategy = $state<SplitStrategy>('even');
-    let splitInterval = $state(5);
-
-    let distanceKm = $derived(
-        selectedDistance === 'custom' ? customDistanceKm : DISTANCES[selectedDistance]?.km || 42.195
-    );
-
-    let mode1PaceSeconds = $derived(
-        timeToPaceSeconds(targetHours, targetMinutes, targetSeconds, distanceKm)
-    );
-    let mode1PaceFormatted = $derived(formatPace(mode1PaceSeconds));
-    let mode1SpeedKmH = $derived(paceToSpeed(mode1PaceSeconds).toFixed(2));
-
-    let mode2TotalSeconds = $derived(
-        paceToTotalSeconds(paceMinutes, paceSeconds, distanceKm)
-    );
-    let mode2TimeFormatted = $derived(formatTime(mode2TotalSeconds));
-    let mode2SpeedKmH = $derived(paceToSpeed(paceMinutes * 60 + paceSeconds).toFixed(2));
-
-    let currentPaceSeconds = $derived(
-        activeTab === 'pace-to-time'
-            ? paceMinutes * 60 + paceSeconds
-            : mode1PaceSeconds
-    );
-
-    let splits = $derived(
-        generateSplits(distanceKm, currentPaceSeconds, splitStrategy, splitInterval)
-    );
-
-    let showSplitTable = $derived(splits.length > 0 && splits.length <= 100);
-
-    let currentPresets = $derived(
-        selectedDistance === 'half' ? HALF_MARATHON_PRESETS
-        : selectedDistance === 'full' ? FULL_MARATHON_PRESETS
-        : null
-    );
-
-    function applyPreset(preset: { hours: number; minutes: number; seconds: number }) {
-        targetHours = preset.hours;
-        targetMinutes = preset.minutes;
-        targetSeconds = preset.seconds;
-        activeTab = 'time-to-pace';
+    function fmtDistInput(km: number): string {
+        if (!Number.isFinite(km)) return '0';
+        if (km % 1 === 0) return String(km);
+        return km.toFixed(km < 10 ? 2 : 4).replace(/\.?0+$/, '');
     }
 
-    let copied = $state(false);
-    function copyResults() {
-        const lines = splits.map(s => `${s.label}\t${s.pace}/km\t${s.splitTime}\t${s.cumulativeTime}`);
-        const header = '구간\t페이스\t구간시간\t누적시간';
-        navigator.clipboard.writeText([header, ...lines].join('\n'));
-        copied = true;
-        setTimeout(() => copied = false, 2000);
+    function paceInputStr(sec: number): string {
+        if (!Number.isFinite(sec) || sec < 0) return '0:00';
+        const m = Math.floor(sec / 60);
+        const s = Math.round(sec % 60);
+        return `${m}:${String(s).padStart(2, '0')}`;
     }
 
-    const tabs: { key: CalculationMode; label: string }[] = [
-        { key: 'time-to-pace', label: '목표시간 → 페이스' },
-        { key: 'pace-to-time', label: '페이스 → 완주시간' },
+    const splits = $derived.by(() => {
+        const out: { km: number; time: number; label: string }[] = [];
+        const nWhole = Math.floor(computed.distKm);
+        for (let kkm = 1; kkm <= nWhole; kkm++) {
+            out.push({ km: kkm, time: kkm * computed.paceSec, label: `${kkm}K` });
+        }
+        if (computed.distKm - nWhole > 0.01) {
+            out.push({
+                km: computed.distKm,
+                time: computed.distKm * computed.paceSec,
+                label: `완주 (${computed.distKm.toFixed(2)}K)`,
+            });
+        }
+        return out;
+    });
+
+    const modeOptions: { k: Mode; label: string; sub: string }[] = [
+        { k: 'time-from-dist-pace', label: '완주 시간 계산', sub: '거리 + 페이스' },
+        { k: 'pace-from-dist-time', label: '평균 페이스 계산', sub: '거리 + 시간' },
+        { k: 'dist-from-time-pace', label: '거리 계산', sub: '시간 + 페이스' },
     ];
+
+    function setDist(v: string) {
+        const n = parseFloat(v);
+        if (Number.isFinite(n)) distKm = n;
+    }
+    function setTime(v: string) {
+        timeSec = parseTime(v);
+    }
+    function setPace(v: string) {
+        paceSec = parsePace(v);
+    }
 </script>
 
 <svelte:head>
-    <title>마라톤 페이스 계산기 - 엔듀로허브</title>
-    <meta name="description" content="마라톤 페이스 계산기 - 목표 시간에 맞는 km당 페이스, 평균 속도, 구간별 스플릿을 계산하세요. 5km, 10km, 하프마라톤, 풀마라톤 지원." />
-    <meta property="og:title" content="마라톤 페이스 계산기 - 엔듀로허브" />
-    <meta property="og:description" content="목표 시간에 맞는 km당 페이스, 평균 속도, 구간별 스플릿을 계산하세요." />
-    {@html `<script type="application/ld+json">${JSON.stringify({
-        '@context': 'https://schema.org',
-        '@type': 'WebApplication',
-        'name': '마라톤 페이스 계산기 - 엔듀로허브',
-        'description': '마라톤 페이스 계산기 - 목표 시간으로 km당 페이스를 계산하고, 구간별 스플릿 테이블을 확인하세요.',
-        'applicationCategory': 'SportsApplication',
-        'operatingSystem': 'Web',
-        'offers': { '@type': 'Offer', 'price': '0', 'priceCurrency': 'KRW' },
-    })}</script>`}
-    {@html `<script type="application/ld+json">${JSON.stringify({
-        '@context': 'https://schema.org',
-        '@type': 'BreadcrumbList',
-        'itemListElement': [
-            { '@type': 'ListItem', 'position': 1, 'name': '홈', 'item': 'https://www.endurohub.kr' },
-            { '@type': 'ListItem', 'position': 2, 'name': '페이스 계산기' },
-        ],
-    })}</script>`}
+    <title>페이스 계산기 — endurohub</title>
 </svelte:head>
 
-<div class="container mx-auto px-4 py-8">
-    <div class="breadcrumbs text-sm mb-6">
-        <ul>
-            <li><a href="/">홈</a></li>
-            <li>페이스 계산기</li>
-        </ul>
-    </div>
+<ToolsShell currentPath={$page.url.pathname}>
+    <div class="page">
+        <header class="head">
+            <div class="arena-kicker">01 · PACE</div>
+            <h2>페이스 계산기</h2>
+            <p>거리 · 시간 · 페이스 — 셋 중 둘을 입력하면 나머지를 계산합니다.</p>
+        </header>
 
-    <div class="mb-8">
-        <h1 class="text-2xl md:text-3xl font-bold">페이스 계산기</h1>
-    </div>
+        <!-- Mode tabs -->
+        <div class="modes">
+            {#each modeOptions as opt (opt.k)}
+                <button
+                    type="button"
+                    class="mode"
+                    class:active={mode === opt.k}
+                    onclick={() => (mode = opt.k)}
+                >
+                    <div class="mode-label">{opt.label}</div>
+                    <div class="mode-sub">{opt.sub}</div>
+                </button>
+            {/each}
+        </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div class="lg:col-span-2 space-y-6">
-            <div class="card bg-base-100 border border-base-300">
-                <div class="card-body">
-                    <div role="tablist" class="flex gap-2 mb-6 p-1 bg-base-200 rounded-lg">
-                        {#each tabs as tab (tab.key)}
-                            <button
-                                role="tab"
-                                class="flex-1 py-2.5 px-4 text-sm font-medium rounded-md cursor-pointer transition-all duration-200
-                                    {activeTab === tab.key ? 'bg-base-100 text-primary shadow-sm' : 'text-base-content/60 hover:text-base-content'}"
-                                onclick={() => activeTab = tab.key}
-                                aria-selected={activeTab === tab.key}
+        <!-- Inputs -->
+        <div class="fields">
+            <div class="field" class:dim={mode === 'dist-from-time-pace'}>
+                <div class="field-head">
+                    <span>거리 (km)</span>
+                    {#if mode === 'dist-from-time-pace'}<span class="auto">계산됨</span>{/if}
+                </div>
+                <input
+                    class="field-input"
+                    readOnly={mode === 'dist-from-time-pace'}
+                    value={fmtDistInput(computed.distKm)}
+                    oninput={(e) => setDist((e.currentTarget as HTMLInputElement).value)}
+                />
+                {#if mode !== 'dist-from-time-pace'}
+                    <div class="presets">
+                        {#each STD_DISTANCES as d}
+                            <button class="preset" onclick={() => (distKm = d.km)}
+                                >{d.label}</button
                             >
-                                {tab.label}
-                            </button>
                         {/each}
                     </div>
+                {/if}
+            </div>
+            <div class="field" class:dim={mode === 'time-from-dist-pace'}>
+                <div class="field-head">
+                    <span>시간</span>
+                    {#if mode === 'time-from-dist-pace'}<span class="auto">계산됨</span>{/if}
+                </div>
+                <input
+                    class="field-input"
+                    readOnly={mode === 'time-from-dist-pace'}
+                    value={fmtTime(computed.timeSec)}
+                    oninput={(e) => setTime((e.currentTarget as HTMLInputElement).value)}
+                />
+                <div class="hint">시:분:초</div>
+            </div>
+            <div class="field" class:dim={mode === 'pace-from-dist-time'}>
+                <div class="field-head">
+                    <span>페이스 (/km)</span>
+                    {#if mode === 'pace-from-dist-time'}<span class="auto">계산됨</span>{/if}
+                </div>
+                <input
+                    class="field-input"
+                    readOnly={mode === 'pace-from-dist-time'}
+                    value={paceInputStr(computed.paceSec)}
+                    oninput={(e) => setPace((e.currentTarget as HTMLInputElement).value)}
+                />
+                <div class="hint">분:초</div>
+            </div>
+        </div>
 
-                    <DistanceSelector bind:selected={selectedDistance} bind:customDistance={customDistanceKm} />
-
-                    <div class="divider my-2"></div>
-
-                    {#if activeTab === 'time-to-pace'}
-                        <TimeInput bind:hours={targetHours} bind:minutes={targetMinutes} bind:seconds={targetSeconds} />
-
-                        {#if mode1PaceSeconds > 0 && isFinite(mode1PaceSeconds)}
-                            <div class="grid grid-cols-2 gap-4 mt-6">
-                                <div class="bg-primary/10 border-2 border-primary/30 rounded-xl p-5 text-center">
-                                    <p class="text-sm text-base-content/50 mb-2">km당 페이스</p>
-                                    <p class="text-3xl md:text-4xl font-extrabold text-primary tabular-nums">{mode1PaceFormatted}</p>
-                                    <p class="text-sm text-base-content/50 mt-1">/km</p>
-                                </div>
-                                <div class="bg-base-200/60 border border-base-300 rounded-xl p-5 text-center">
-                                    <p class="text-sm text-base-content/50 mb-2">평균 속도</p>
-                                    <p class="text-3xl md:text-4xl font-extrabold tabular-nums">{mode1SpeedKmH}</p>
-                                    <p class="text-sm text-base-content/50 mt-1">km/h</p>
-                                </div>
-                            </div>
-                        {/if}
-                    {:else}
-                        <PaceInput bind:minutes={paceMinutes} bind:seconds={paceSeconds} />
-
-                        {#if mode2TotalSeconds > 0 && isFinite(mode2TotalSeconds)}
-                            <div class="grid grid-cols-2 gap-4 mt-6">
-                                <div class="bg-primary/10 border-2 border-primary/30 rounded-xl p-5 text-center">
-                                    <p class="text-sm text-base-content/50 mb-2">예상 완주 시간</p>
-                                    <p class="text-3xl md:text-4xl font-extrabold text-primary tabular-nums">{mode2TimeFormatted}</p>
-                                </div>
-                                <div class="bg-base-200/60 border border-base-300 rounded-xl p-5 text-center">
-                                    <p class="text-sm text-base-content/50 mb-2">평균 속도</p>
-                                    <p class="text-3xl md:text-4xl font-extrabold tabular-nums">{mode2SpeedKmH}</p>
-                                    <p class="text-sm text-base-content/50 mt-1">km/h</p>
-                                </div>
-                            </div>
-                        {/if}
-                    {/if}
+        <!-- Result card -->
+        <div class="result">
+            <div class="result-kicker">결과</div>
+            <div class="result-grid">
+                <div class="result-cell" class:active={mode === 'dist-from-time-pace'}>
+                    <div class="cell-lbl">
+                        {#if mode === 'dist-from-time-pace'}<span class="dot"></span>{/if}거리
+                    </div>
+                    <div class="cell-val">
+                        {fmtDistInput(computed.distKm)}<span class="unit">km</span>
+                    </div>
+                </div>
+                <div class="result-cell" class:active={mode === 'time-from-dist-pace'}>
+                    <div class="cell-lbl">
+                        {#if mode === 'time-from-dist-pace'}<span class="dot"></span>{/if}시간
+                    </div>
+                    <div class="cell-val">{fmtTime(computed.timeSec)}</div>
+                </div>
+                <div class="result-cell" class:active={mode === 'pace-from-dist-time'}>
+                    <div class="cell-lbl">
+                        {#if mode === 'pace-from-dist-time'}<span class="dot"></span>{/if}페이스
+                    </div>
+                    <div class="cell-val">
+                        {fmtPace(computed.paceSec)}<span class="unit">/km</span>
+                    </div>
                 </div>
             </div>
-
-            {#if showSplitTable}
-                <div class="card bg-base-100 border border-base-300">
-                    <div class="card-body">
-                        <div class="flex items-center justify-between mb-4">
-                            <h2 class="text-lg font-semibold">구간별 스플릿</h2>
-                            <div class="flex items-center gap-2">
-                                <button
-                                    type="button"
-                                    class="btn btn-ghost btn-xs cursor-pointer"
-                                    onclick={copyResults}
-                                    aria-label="스플릿 테이블 복사"
-                                >
-                                    {#if copied}
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-                                        <span class="text-success">복사됨</span>
-                                    {:else}
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                                        복사
-                                    {/if}
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="flex flex-wrap items-center gap-3 mb-4">
-                            <div class="flex gap-1" role="radiogroup" aria-label="스플릿 전략">
-                                <button type="button" role="radio" aria-checked={splitStrategy === 'even'} class="btn btn-xs cursor-pointer transition-colors duration-200 {splitStrategy === 'even' ? 'btn-primary' : 'btn-outline'}" onclick={() => splitStrategy = 'even'} title="모든 구간을 동일한 페이스로 달리는 전략">이븐 페이스</button>
-                                <button type="button" role="radio" aria-checked={splitStrategy === 'negative'} class="btn btn-xs cursor-pointer transition-colors duration-200 {splitStrategy === 'negative' ? 'btn-primary' : 'btn-outline'}" onclick={() => splitStrategy = 'negative'} title="후반부를 전반부보다 빠르게 달리는 전략 (엘리트 선수들이 선호)">네거티브 스플릿</button>
-                            </div>
-                            <div class="flex gap-1" role="radiogroup" aria-label="스플릿 간격">
-                                <button type="button" role="radio" aria-checked={splitInterval === 1} class="btn btn-xs cursor-pointer transition-colors duration-200 {splitInterval === 1 ? 'btn-neutral' : 'btn-outline'}" onclick={() => splitInterval = 1}>1km</button>
-                                <button type="button" role="radio" aria-checked={splitInterval === 5} class="btn btn-xs cursor-pointer transition-colors duration-200 {splitInterval === 5 ? 'btn-neutral' : 'btn-outline'}" onclick={() => splitInterval = 5}>5km</button>
-                            </div>
-                        </div>
-
-                        <SplitTable {splits} highlightHalf={splitStrategy === 'negative'} />
-                    </div>
-                </div>
-            {/if}
         </div>
 
-        <div class="space-y-6">
-            {#if currentPresets}
-                <div class="card bg-base-100 border border-base-300">
-                    <div class="card-body">
-                        <h2 class="font-semibold text-base mb-3">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline-block mr-1 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                            빠른 설정
-                        </h2>
-
-                        {#if selectedDistance === 'full'}
-                            <p class="text-xs text-base-content/50 mb-2">풀 마라톤 (42.195km)</p>
-                            <div class="space-y-1.5">
-                                {#each FULL_MARATHON_PRESETS as preset}
-                                    <button type="button" class="btn btn-outline btn-sm btn-block justify-start cursor-pointer transition-colors duration-200 hover:btn-primary" onclick={() => { selectedDistance = 'full'; applyPreset(preset); }}>{preset.label}</button>
-                                {/each}
-                            </div>
-                        {/if}
-
-                        {#if selectedDistance === 'half'}
-                            <p class="text-xs text-base-content/50 mb-2">하프 마라톤 (21.0975km)</p>
-                            <div class="space-y-1.5">
-                                {#each HALF_MARATHON_PRESETS as preset}
-                                    <button type="button" class="btn btn-outline btn-sm btn-block justify-start cursor-pointer transition-colors duration-200 hover:btn-primary" onclick={() => { selectedDistance = 'half'; applyPreset(preset); }}>{preset.label}</button>
-                                {/each}
-                            </div>
-                        {/if}
-
-                        {#if selectedDistance === 'full'}
-                            <div class="divider my-2"></div>
-                            <p class="text-xs text-base-content/50 mb-2">하프 마라톤</p>
-                            <div class="space-y-1.5">
-                                {#each HALF_MARATHON_PRESETS as preset}
-                                    <button type="button" class="btn btn-outline btn-sm btn-block justify-start cursor-pointer transition-colors duration-200 hover:btn-primary" onclick={() => { selectedDistance = 'half'; applyPreset(preset); }}>{preset.label}</button>
-                                {/each}
-                            </div>
-                        {:else if selectedDistance === 'half'}
-                            <div class="divider my-2"></div>
-                            <p class="text-xs text-base-content/50 mb-2">풀 마라톤</p>
-                            <div class="space-y-1.5">
-                                {#each FULL_MARATHON_PRESETS as preset}
-                                    <button type="button" class="btn btn-outline btn-sm btn-block justify-start cursor-pointer transition-colors duration-200 hover:btn-primary" onclick={() => { selectedDistance = 'full'; applyPreset(preset); }}>{preset.label}</button>
-                                {/each}
-                            </div>
-                        {/if}
+        <!-- Pace conversions -->
+        <section class="block">
+            <div class="block-title">
+                <span class="title-rule"></span>
+                페이스 변환
+            </div>
+            <div class="conv-grid">
+                {#each [['/ km', fmtPace(computed.paceSec)], ['/ mile', fmtPace(computed.paceSec * 1.60934)], ['/ 400m', fmtPace(computed.paceSec * 0.4)], ['km/h', (3600 / Math.max(computed.paceSec, 1)).toFixed(2)]] as [lbl, val]}
+                    <div class="conv-cell">
+                        <div class="conv-lbl">{lbl}</div>
+                        <div class="conv-val">{val}</div>
                     </div>
-                </div>
-            {/if}
+                {/each}
+            </div>
+        </section>
 
-            <ToolsSidebar current="pace-calculator" />
-        </div>
+        <!-- Splits -->
+        <section class="block">
+            <div class="block-title">
+                <span class="title-rule"></span>
+                1km 스플릿 ({splits.length}개)
+            </div>
+            <div class="splits">
+                <div class="splits-head">
+                    <span>지점</span>
+                    <span>누적 시간</span>
+                    <span class="right">구간 페이스</span>
+                </div>
+                <div class="splits-body">
+                    {#each splits as s, i (i)}
+                        <div class="split-row" class:final={i === splits.length - 1}>
+                            <span class="split-lbl">{s.label}</span>
+                            <span>{fmtTime(s.time)}</span>
+                            <span class="right muted">{fmtPace(computed.paceSec)}</span>
+                        </div>
+                    {/each}
+                </div>
+            </div>
+        </section>
+
     </div>
-</div>
+</ToolsShell>
+
+<style>
+    .page {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 32px 24px 60px;
+    }
+    @media (min-width: 1024px) {
+        .page {
+            padding: 40px 32px 80px;
+        }
+    }
+    .head {
+        margin-bottom: 28px;
+    }
+    .head h2 {
+        font-family: var(--arena-f-display);
+        font-size: clamp(24px, 3vw, 32px);
+        font-weight: 700;
+        letter-spacing: -0.8px;
+        margin: 8px 0 6px;
+        color: var(--arena-ink);
+    }
+    .head p {
+        margin: 0;
+        font-size: 13px;
+        color: var(--arena-ink-soft);
+    }
+
+    .modes {
+        display: grid;
+        grid-template-columns: 1fr;
+        border: 1px solid var(--arena-line);
+        margin-bottom: 20px;
+    }
+    @media (min-width: 768px) {
+        .modes {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+    .mode {
+        padding: 12px 14px;
+        background: var(--arena-paper);
+        color: var(--arena-ink);
+        border: none;
+        border-bottom: 1px solid var(--arena-line);
+        cursor: pointer;
+        text-align: left;
+    }
+    @media (min-width: 768px) {
+        .mode {
+            border-bottom: none;
+            border-right: 1px solid var(--arena-line);
+        }
+        .mode:last-child {
+            border-right: none;
+        }
+    }
+    .mode:last-child {
+        border-bottom: none;
+    }
+    .mode.active {
+        background: var(--arena-ink);
+        color: var(--arena-paper);
+    }
+    .mode-label {
+        font-family: var(--arena-f-display);
+        font-weight: 600;
+        font-size: 13px;
+        letter-spacing: -0.2px;
+    }
+    .mode-sub {
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        opacity: 0.7;
+        margin-top: 2px;
+    }
+
+    .fields {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+    @media (min-width: 768px) {
+        .fields {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+    .field {
+        border: 1px solid var(--arena-line);
+        padding: 12px 14px;
+        background: var(--arena-paper);
+    }
+    .field.dim {
+        background: var(--arena-paper-alt);
+        opacity: 0.7;
+    }
+    .field-head {
+        display: flex;
+        justify-content: space-between;
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        letter-spacing: 1.5px;
+        color: var(--arena-ink-soft);
+        text-transform: uppercase;
+        margin-bottom: 6px;
+    }
+    .auto {
+        color: var(--arena-ink-mute);
+    }
+    .field-input {
+        width: 100%;
+        border: none;
+        outline: none;
+        background: transparent;
+        font-family: var(--arena-f-display);
+        font-size: 24px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        color: var(--arena-ink);
+        padding: 0;
+    }
+    .hint {
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        color: var(--arena-ink-mute);
+        margin-top: 2px;
+    }
+    .presets {
+        display: flex;
+        gap: 4px;
+        margin-top: 8px;
+        flex-wrap: wrap;
+    }
+    .preset {
+        padding: 3px 8px;
+        border: 1px solid var(--arena-line-soft);
+        background: transparent;
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        cursor: pointer;
+    }
+    .preset:hover {
+        background: var(--arena-paper-alt);
+    }
+
+    .result {
+        background: var(--arena-ink);
+        color: var(--arena-paper);
+        padding: 28px;
+        margin-bottom: 24px;
+    }
+    .result-kicker {
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        letter-spacing: 2px;
+        opacity: 0.6;
+        text-transform: uppercase;
+        margin-bottom: 14px;
+    }
+    .result-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 28px;
+    }
+    @media (max-width: 640px) {
+        .result-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+    }
+    .result-cell .cell-lbl {
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        letter-spacing: 2px;
+        opacity: 0.5;
+        text-transform: uppercase;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .result-cell.active .cell-lbl {
+        opacity: 0.9;
+    }
+    .dot {
+        width: 6px;
+        height: 6px;
+        background: var(--arena-accent);
+        display: inline-block;
+    }
+    .cell-val {
+        font-family: var(--arena-f-display);
+        font-size: 36px;
+        font-weight: 700;
+        letter-spacing: -1px;
+    }
+    .unit {
+        font-size: 16px;
+        font-weight: 500;
+        opacity: 0.6;
+        margin-left: 4px;
+    }
+
+    .block {
+        margin-bottom: 24px;
+    }
+    .block-title {
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        letter-spacing: 2px;
+        color: var(--arena-ink-soft);
+        text-transform: uppercase;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .title-rule {
+        width: 14px;
+        height: 1px;
+        background: var(--arena-ink);
+    }
+
+    .conv-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    @media (min-width: 768px) {
+        .conv-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+    .conv-cell {
+        border: 1px solid var(--arena-line-soft);
+        padding: 10px 12px;
+    }
+    .conv-lbl {
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        letter-spacing: 1.5px;
+        color: var(--arena-ink-soft);
+        text-transform: uppercase;
+        margin-bottom: 4px;
+    }
+    .conv-val {
+        font-family: var(--arena-f-mono);
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: -0.3px;
+        color: var(--arena-ink);
+    }
+
+    .splits {
+        border: 1px solid var(--arena-line);
+    }
+    .splits-head {
+        display: grid;
+        grid-template-columns: 110px 1fr 130px;
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        letter-spacing: 1.5px;
+        color: var(--arena-ink-soft);
+        text-transform: uppercase;
+        padding: 8px 14px;
+        background: var(--arena-paper-alt);
+        border-bottom: 1px solid var(--arena-line);
+    }
+    .splits-body {
+        max-height: 320px;
+        overflow: auto;
+    }
+    .split-row {
+        display: grid;
+        grid-template-columns: 110px 1fr 130px;
+        font-family: var(--arena-f-mono);
+        font-size: 12px;
+        padding: 7px 14px;
+        border-bottom: 1px solid var(--arena-line-soft);
+    }
+    .split-row.final {
+        background: oklch(95% 0.04 145);
+    }
+    .split-lbl {
+        font-weight: 700;
+    }
+    .right {
+        text-align: right;
+    }
+    .muted {
+        color: var(--arena-ink-soft);
+    }
+
+    .save {
+        margin-top: 24px;
+        padding: 16px 20px;
+        background: var(--arena-paper-alt);
+        border: 1px dashed var(--arena-line);
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 16px;
+        align-items: center;
+    }
+    .save-desc {
+        font-size: 13px;
+        color: var(--arena-ink);
+        margin-top: 2px;
+    }
+    .save-cta {
+        padding: 10px 14px;
+        border: 1px solid var(--arena-ink);
+        background: var(--arena-paper);
+        font-family: var(--arena-f-mono);
+        font-size: 12px;
+        color: var(--arena-ink);
+        text-decoration: none;
+    }
+    .save-cta:hover {
+        background: var(--arena-ink);
+        color: var(--arena-paper);
+    }
+</style>

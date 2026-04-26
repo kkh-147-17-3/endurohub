@@ -4,9 +4,17 @@ from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 
+from races.constants import SPORT_CODES
 from races.models import RacePendingChange
 
 logger = logging.getLogger(__name__)
+
+
+def _inject_sport_code(races):
+    for race in races:
+        sport = getattr(race, 'sport', None)
+        race.sport_code = SPORT_CODES.get(sport, sport[:3].upper() if sport else '')
+    return races
 
 
 def send_crawl_report_email(result, crawl_type='detailed'):
@@ -20,10 +28,14 @@ def send_crawl_report_email(result, crawl_type='detailed'):
         logger.warning('EMAIL_HOST_USER not configured, skipping crawl report email')
         return False
 
+    updated_items = _build_updated_items(result.get('updatedRaces', []))
+    _inject_sport_code(result.get('createdRaces', []))
+    _inject_sport_code(item['race'] for item in updated_items)
+
     context = {
         'result': result,
         'crawl_type': crawl_type,
-        'updated_items': _build_updated_items(result.get('updatedRaces', [])),
+        'updated_items': updated_items,
     }
     subject = f'[크롤링 리포트] 신규 {created}건, 업데이트 {updated}건'
     html_body = render_to_string('emails/crawl_report.html', context)

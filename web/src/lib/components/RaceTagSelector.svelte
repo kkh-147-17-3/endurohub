@@ -18,14 +18,18 @@
 
     let filteredRaces = $derived(
         searchQuery.trim() === ''
-            ? races.filter(r => !selectedIds.includes(r.id)).slice(0, 20)
+            ? races.filter((r) => !selectedIds.includes(r.id)).slice(0, 20)
             : races
-                .filter(r => !selectedIds.includes(r.id) && r.title.toLowerCase().includes(searchQuery.toLowerCase()))
-                .slice(0, 20)
+                  .filter(
+                      (r) =>
+                          !selectedIds.includes(r.id) &&
+                          r.title.toLowerCase().includes(searchQuery.toLowerCase())
+                  )
+                  .slice(0, 20)
     );
 
     let selectedRaces = $derived(
-        selectedIds.map(id => races.find(r => r.id === id)).filter(Boolean) as RaceOption[]
+        selectedIds.map((id) => races.find((r) => r.id === id)).filter(Boolean) as RaceOption[]
     );
 
     function addRace(race: RaceOption) {
@@ -37,13 +41,11 @@
     }
 
     function removeRace(raceId: number) {
-        selectedIds = selectedIds.filter(id => id !== raceId);
+        selectedIds = selectedIds.filter((id) => id !== raceId);
     }
 
     function handleInputFocus() {
-        if (selectedIds.length < maxTags) {
-            isOpen = true;
-        }
+        if (selectedIds.length < maxTags) isOpen = true;
     }
 
     function handleInputBlur() {
@@ -53,26 +55,24 @@
     }
 </script>
 
-<div class="space-y-2">
-    <div class="label">
-        <span class="label-text font-medium">관련 대회 태그</span>
-        <span class="label-text-alt">최대 {maxTags}개</span>
+<div class="tag-selector">
+    <div class="label-row">
+        <span class="label">관련 대회 태그</span>
+        <span class="hint">최대 {maxTags}개</span>
     </div>
 
     {#if selectedRaces.length > 0}
-        <div class="flex flex-wrap gap-2 mb-2">
+        <div class="selected-row">
             {#each selectedRaces as race}
-                <span class="badge badge-primary gap-1">
-                    {race.title.length > 20 ? race.title.slice(0, 20) + '...' : race.title}
+                <span class="active-chip">
+                    <span>{race.title.length > 20 ? race.title.slice(0, 20) + '…' : race.title}</span>
                     <button
                         type="button"
-                        class="btn btn-xs btn-ghost btn-circle cursor-pointer"
+                        class="x"
                         aria-label="{race.title} 태그 삭제"
                         onclick={() => removeRace(race.id)}
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                        ×
                     </button>
                 </span>
             {/each}
@@ -80,29 +80,30 @@
     {/if}
 
     {#if selectedIds.length < maxTags}
-        <div class="relative">
+        <div class="search-wrap">
             <input
                 type="text"
-                class="input input-bordered w-full"
+                class="search-input"
                 placeholder="대회 이름으로 검색..."
                 aria-label="대회 검색"
                 bind:value={searchQuery}
                 onfocus={handleInputFocus}
                 onblur={handleInputBlur}
             />
-
             {#if isOpen && filteredRaces.length > 0}
-                <ul class="absolute z-50 w-full mt-1 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                <ul class="dropdown">
                     {#each filteredRaces as race}
                         <li>
                             <button
                                 type="button"
-                                class="w-full text-left px-4 py-2 hover:bg-base-200 transition-colors cursor-pointer"
+                                class="option"
                                 onmousedown={() => addRace(race)}
                             >
-                                <div class="font-medium text-sm">{race.title}</div>
-                                <div class="text-xs text-base-content/60">
-                                    {race.sportLabel} | {race.raceDate}
+                                <div class="option-title">{race.title}</div>
+                                <div class="option-meta">
+                                    <span>{race.sportLabel}</span>
+                                    <span class="sep">·</span>
+                                    <span>{race.raceDate}</span>
                                 </div>
                             </button>
                         </li>
@@ -111,6 +112,139 @@
             {/if}
         </div>
     {:else}
-        <p class="text-sm text-base-content/60">최대 태그 수에 도달했습니다.</p>
+        <p class="full">최대 태그 수에 도달했습니다.</p>
     {/if}
 </div>
+
+<style>
+    .tag-selector {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .label-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+    }
+    .label {
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: var(--arena-ink-soft);
+    }
+    .hint {
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        color: var(--arena-ink-mute);
+        letter-spacing: 1px;
+    }
+    .selected-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .active-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--arena-ink);
+        color: var(--arena-paper);
+        padding: 4px 6px 4px 10px;
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        line-height: 1.4;
+        border: 1px solid var(--arena-ink);
+    }
+    .x {
+        background: transparent;
+        border: none;
+        color: inherit;
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1;
+        padding: 0;
+        opacity: 0.7;
+        transform: translateY(-1px);
+    }
+    .x:hover {
+        opacity: 1;
+    }
+    .search-wrap {
+        position: relative;
+    }
+    .search-input {
+        width: 100%;
+        border: 1px solid var(--arena-line);
+        border-radius: 0;
+        background: var(--arena-paper);
+        padding: 10px 14px;
+        font-family: var(--arena-f-body);
+        font-size: 14px;
+        color: var(--arena-ink);
+        appearance: none;
+        -webkit-appearance: none;
+    }
+    .search-input:focus {
+        outline: none;
+        border-color: var(--arena-ink);
+        background: var(--arena-paper-alt);
+    }
+    .search-input::placeholder {
+        color: var(--arena-ink-mute);
+    }
+    .dropdown {
+        position: absolute;
+        z-index: 50;
+        top: calc(100% + 2px);
+        left: 0;
+        right: 0;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        background: var(--arena-paper);
+        border: 1px solid var(--arena-ink);
+        max-height: 240px;
+        overflow-y: auto;
+        box-shadow: 4px 4px 0 var(--arena-ink);
+    }
+    .option {
+        display: block;
+        width: 100%;
+        text-align: left;
+        background: transparent;
+        border: none;
+        border-bottom: 1px solid var(--arena-line-soft);
+        padding: 10px 14px;
+        cursor: pointer;
+    }
+    .option:last-child {
+        border-bottom: none;
+    }
+    .option:hover {
+        background: var(--arena-paper-alt);
+    }
+    .option-title {
+        font-family: var(--arena-f-body);
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--arena-ink);
+        margin-bottom: 2px;
+    }
+    .option-meta {
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        color: var(--arena-ink-soft);
+        letter-spacing: 0.5px;
+    }
+    .sep {
+        margin: 0 6px;
+        opacity: 0.5;
+    }
+    .full {
+        font-size: 12px;
+        color: var(--arena-ink-soft);
+        margin: 0;
+    }
+</style>

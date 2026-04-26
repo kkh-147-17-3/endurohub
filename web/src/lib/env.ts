@@ -2,7 +2,7 @@ import { env } from '$env/dynamic/private';
 import { env as publicEnv } from '$env/dynamic/public';
 
 /** Internal API URL for SSR server-side calls (e.g. http://api:8000) */
-export const API_URL_INTERNAL = env.API_URL_INTERNAL || 'http://localhost:8000';
+export const API_URL_INTERNAL = env.API_URL_INTERNAL || 'http://127.0.0.1:8000';
 
 /** Public API URL for client-side calls (e.g. /api, proxied by nginx) */
 export const PUBLIC_API_URL = publicEnv.PUBLIC_API_URL || '/api';

@@ -1,6 +1,7 @@
 import logging
 
 from celery import shared_task
+from django.core.management import call_command
 
 from races.emails import send_crawl_report_email
 from races.services import MarathonCrawlerService
@@ -29,3 +30,9 @@ def crawl_marathon_task(year=None, month=None, with_details=True):
             'email_sent': email_sent,
         },
     )
+
+
+@shared_task(ignore_result=True)
+def fetch_weather_task(days=16):
+    call_command('fetch_weather', days=days)
+    logger.info('Fetch weather task completed', extra={'days': days})

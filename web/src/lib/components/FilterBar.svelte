@@ -340,112 +340,99 @@
     }
 </script>
 
-<div class="bg-base-100 rounded-lg shadow mb-6">
+<div class="arena-filter">
     <form onsubmit={handleSubmit}>
-        <div class="p-4 pb-3">
-            <div class="flex items-center justify-between mb-3">
-                <h1 class="text-2xl sm:text-3xl font-bold">
-                    {title}
-                    <span class="text-base sm:text-lg font-normal text-base-content/70">(총 {totalCount.toLocaleString()}개)</span>
-                </h1>
-            </div>
-            <div class="flex gap-3">
-                <div class="flex-1">
-                    <input
-                        type="text"
-                        bind:value={name}
-                        placeholder="대회명 검색..."
-                        class="input input-bordered w-full"
-                    />
-                </div>
-                <button type="submit" class="btn btn-primary cursor-pointer">검색</button>
-            </div>
+        <header class="filter-head">
+            <div class="filter-kicker">FILTER · 검색</div>
+            <h1 class="filter-title">
+                {title}
+                <span class="filter-count">총 {totalCount.toLocaleString()}개</span>
+            </h1>
+        </header>
+
+        <div class="filter-search">
+            <input
+                type="text"
+                bind:value={name}
+                placeholder="대회명 검색..."
+                class="filter-input"
+            />
+            <button type="submit" class="filter-submit">검색 →</button>
         </div>
 
-        <div class="px-4 pb-3 flex flex-wrap items-center gap-2">
-            {#each statuses as status}
-                <button
-                    type="button"
-                    class="btn btn-sm cursor-pointer {statusValues.includes(status.value) ? 'btn-accent' : 'btn-outline'}"
-                    onclick={() => toggleStatus(status.value)}
-                >
-                    {status.label}
-                </button>
-            {/each}
-            <div class="border-l border-base-300 h-5 mx-1"></div>
+        <div class="filter-quick">
+            <span class="filter-label">상태</span>
+            <div class="filter-chips">
+                {#each statuses as status}
+                    <button
+                        type="button"
+                        class="filter-chip"
+                        class:active={statusValues.includes(status.value)}
+                        onclick={() => toggleStatus(status.value)}
+                    >
+                        {status.label}
+                    </button>
+                {/each}
+            </div>
             <button
                 type="button"
-                class="btn btn-outline btn-sm gap-2 cursor-pointer"
+                class="filter-toggle"
+                class:active={isExpanded}
+                aria-expanded={isExpanded}
                 onclick={() => isExpanded = !isExpanded}
             >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
-                </svg>
-                <span class="hidden sm:inline">상세필터</span>
+                <span>상세 필터</span>
                 {#if totalSelected > 0}
-                    <span class="badge badge-primary badge-sm">{totalSelected}</span>
+                    <span class="filter-toggle-badge">{totalSelected}</span>
                 {/if}
+                <span class="filter-toggle-arrow">{isExpanded ? '−' : '+'}</span>
             </button>
         </div>
 
         {#if totalSelected > 0}
-            <div class="px-4 pb-3 flex flex-wrap gap-2 items-center">
+            <div class="filter-active">
                 {#each sportValues as sport}
-                    <span class="badge badge-primary gap-1 py-3">
-                        {getSportLabel(sport)}
-                        <button type="button" onclick={() => toggleSport(sport)} class="hover:opacity-70 cursor-pointer" aria-label="{getSportLabel(sport)} 필터 제거">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3 h-3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
-                        </button>
-                    </span>
+                    <button type="button" class="active-chip" onclick={() => toggleSport(sport)} aria-label="{getSportLabel(sport)} 필터 제거">
+                        <span>{getSportLabel(sport)}</span><span class="x">×</span>
+                    </button>
                 {/each}
                 {#each regionValues as region}
-                    <span class="badge badge-secondary gap-1 py-3">
-                        {region}
-                        <button type="button" onclick={() => toggleRegion(region)} class="hover:opacity-70 cursor-pointer" aria-label="{region} 필터 제거">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3 h-3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
-                        </button>
-                    </span>
+                    <button type="button" class="active-chip" onclick={() => toggleRegion(region)} aria-label="{region} 필터 제거">
+                        <span>{region}</span><span class="x">×</span>
+                    </button>
                 {/each}
                 {#each distanceCategoryValues as dc}
-                    <span class="badge badge-warning gap-1 py-3">
-                        {getDistanceCategoryLabel(dc)}
-                        <button type="button" onclick={() => toggleDistanceCategory(dc)} class="hover:opacity-70 cursor-pointer" aria-label="{getDistanceCategoryLabel(dc)} 필터 제거">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3 h-3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
-                        </button>
-                    </span>
+                    <button type="button" class="active-chip" onclick={() => toggleDistanceCategory(dc)} aria-label="{getDistanceCategoryLabel(dc)} 필터 제거">
+                        <span>{getDistanceCategoryLabel(dc)}</span><span class="x">×</span>
+                    </button>
                 {/each}
                 {#if hasMonthFilter}
-                    <span class="badge badge-info gap-1 py-3">
-                        {getMonthRangeLabel()}
-                        <button type="button" onclick={clearMonthFilter} class="hover:opacity-70 cursor-pointer" aria-label="개최월 필터 제거">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-3 h-3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
-                        </button>
-                    </span>
+                    <button type="button" class="active-chip" onclick={clearMonthFilter} aria-label="개최월 필터 제거">
+                        <span>{getMonthRangeLabel()}</span><span class="x">×</span>
+                    </button>
                 {/if}
-                <button type="button" onclick={handleReset} class="text-sm text-base-content/60 hover:text-error ml-2 cursor-pointer transition-colors">
-                    모두 지우기
-                </button>
+                <button type="button" class="filter-clear" onclick={handleReset}>모두 지우기 ↺</button>
             </div>
         {/if}
 
         {#if isExpanded}
-            <div class="px-4 pb-4 border-t border-base-200 pt-4 space-y-4" transition:slide={{ duration: 200 }}>
-                <div>
-                    <span class="text-sm font-medium mb-2 block text-base-content/70">종목</span>
-                    <div class="flex flex-wrap gap-2">
+            <div class="filter-expanded" transition:slide={{ duration: 200 }}>
+                <div class="filter-group">
+                    <div class="filter-label">종목</div>
+                    <div class="filter-chips">
                         {#each sports as sport}
-                            <button type="button" class="btn btn-sm cursor-pointer {sportValues.includes(sport.value) ? 'btn-primary' : 'btn-outline'}" onclick={() => toggleSport(sport.value)}>
+                            <button type="button" class="filter-chip" class:active={sportValues.includes(sport.value)} onclick={() => toggleSport(sport.value)}>
                                 {sport.label}
                             </button>
                         {/each}
                     </div>
                 </div>
 
-                <div>
-                    <span class="text-sm font-medium mb-2 block text-base-content/70">지역</span>
-                    <div class="flex flex-wrap gap-2">
+                <div class="filter-group">
+                    <div class="filter-label">지역</div>
+                    <div class="filter-chips">
                         {#each regions as region}
-                            <button type="button" class="btn btn-sm cursor-pointer {regionValues.includes(region) ? 'btn-secondary' : 'btn-outline'}" onclick={() => toggleRegion(region)}>
+                            <button type="button" class="filter-chip" class:active={regionValues.includes(region)} onclick={() => toggleRegion(region)}>
                                 {region}
                             </button>
                         {/each}
@@ -453,11 +440,11 @@
                 </div>
 
                 {#if availableDistanceCategories.length > 0}
-                    <div>
-                        <span class="text-sm font-medium mb-2 block text-base-content/70">거리</span>
-                        <div class="flex flex-wrap gap-2">
+                    <div class="filter-group">
+                        <div class="filter-label">거리</div>
+                        <div class="filter-chips">
                             {#each availableDistanceCategories as cat}
-                                <button type="button" class="btn btn-sm cursor-pointer {distanceCategoryValues.includes(cat.value) ? 'btn-warning' : 'btn-outline'}" onclick={() => toggleDistanceCategory(cat.value)}>
+                                <button type="button" class="filter-chip" class:active={distanceCategoryValues.includes(cat.value)} onclick={() => toggleDistanceCategory(cat.value)}>
                                     {cat.label}
                                 </button>
                             {/each}
@@ -465,25 +452,24 @@
                     </div>
                 {/if}
 
-                <div class="bg-base-200/40 rounded-xl p-4 -mx-0.5">
-                    <div class="flex items-center justify-between mb-3">
-                        <span class="text-sm font-medium text-base-content/70">개최월</span>
-                        <span class="text-sm font-semibold tabular-nums tracking-tight text-primary">{getMonthRangeLabel()}</span>
+                <div class="filter-group filter-group-month">
+                    <div class="filter-group-head">
+                        <div class="filter-label">개최월</div>
+                        <div class="filter-range">{getMonthRangeLabel() || '—'}</div>
                     </div>
-
-                    <div class="flex flex-wrap gap-1.5 mb-3">
+                    <div class="filter-chips">
                         {#each presets as preset}
                             <button
                                 type="button"
-                                class="btn btn-sm cursor-pointer transition-all duration-200 {activePreset === preset.label ? 'btn-primary shadow-sm' : 'btn-ghost text-base-content/60 hover:text-primary hover:bg-primary/10'}"
+                                class="filter-chip"
+                                class:active={activePreset === preset.label}
                                 onclick={() => applyPreset(preset)}
                             >
                                 {preset.label}
                             </button>
                         {/each}
                     </div>
-
-                    <div class="month-range-slider px-2">
+                    <div class="month-range-slider">
                         <RangeSlider
                             range
                             pushy
@@ -501,3 +487,287 @@
         {/if}
     </form>
 </div>
+
+<style>
+    .arena-filter {
+        background: var(--arena-paper);
+        border: 1px solid var(--arena-line);
+        margin-bottom: 24px;
+        font-family: var(--arena-f-body);
+        color: var(--arena-ink);
+    }
+
+    /* ── Head ─────────────────────────── */
+    .filter-head {
+        padding: 18px 22px 14px;
+        border-bottom: 1px solid var(--arena-line-soft);
+    }
+    .filter-kicker {
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        letter-spacing: 2px;
+        color: var(--arena-ink-soft);
+        text-transform: uppercase;
+        margin-bottom: 8px;
+    }
+    .filter-title {
+        font-family: var(--arena-f-display);
+        font-size: clamp(22px, 3vw, 30px);
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        margin: 0;
+        color: var(--arena-ink);
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    .filter-count {
+        font-family: var(--arena-f-mono);
+        font-size: 12px;
+        font-weight: 400;
+        letter-spacing: 1px;
+        color: var(--arena-ink-soft);
+    }
+
+    /* ── Search ─────────────────────────── */
+    .filter-search {
+        display: flex;
+        gap: 0;
+        padding: 14px 22px;
+        border-bottom: 1px solid var(--arena-line-soft);
+    }
+    .filter-input {
+        flex: 1;
+        min-width: 0;
+        border: 1px solid var(--arena-line);
+        background: var(--arena-paper);
+        padding: 10px 14px;
+        font-family: var(--arena-f-body);
+        font-size: 14px;
+        color: var(--arena-ink);
+        border-right: none;
+    }
+    .filter-input:focus {
+        outline: none;
+        border-color: var(--arena-ink);
+        background: var(--arena-paper-alt);
+    }
+    .filter-input::placeholder {
+        color: var(--arena-ink-mute);
+    }
+    .filter-submit {
+        background: var(--arena-ink);
+        color: var(--arena-paper);
+        border: 1px solid var(--arena-ink);
+        padding: 10px 18px;
+        font-family: var(--arena-f-mono);
+        font-size: 12px;
+        letter-spacing: 1px;
+        cursor: pointer;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+    .filter-submit:hover {
+        background: var(--arena-ink-soft);
+    }
+
+    /* ── Quick row ─────────────────────────── */
+    .filter-quick {
+        padding: 12px 22px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 12px;
+    }
+    .filter-label {
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        letter-spacing: 1.5px;
+        color: var(--arena-ink-soft);
+        text-transform: uppercase;
+    }
+    .filter-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .filter-quick > .filter-chips {
+        flex: 1;
+        min-width: 0;
+    }
+    .filter-chip {
+        border: 1px solid var(--arena-line);
+        background: var(--arena-paper);
+        color: var(--arena-ink);
+        padding: 6px 12px;
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        transition: background 0.1s, border-color 0.1s;
+        line-height: 1.4;
+    }
+    .filter-chip:hover {
+        border-color: var(--arena-ink);
+    }
+    .filter-chip.active {
+        background: var(--arena-ink);
+        color: var(--arena-paper);
+        border-color: var(--arena-ink);
+    }
+    .filter-toggle {
+        margin-left: auto;
+        border: 1px solid var(--arena-line);
+        background: var(--arena-paper-alt);
+        color: var(--arena-ink);
+        padding: 6px 12px;
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        letter-spacing: 0.5px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        line-height: 1.4;
+    }
+    .filter-toggle:hover {
+        border-color: var(--arena-ink);
+    }
+    .filter-toggle.active {
+        background: var(--arena-ink);
+        color: var(--arena-paper);
+        border-color: var(--arena-ink);
+    }
+    .filter-toggle-arrow {
+        font-family: var(--arena-f-mono);
+        font-size: 14px;
+        line-height: 1;
+        opacity: 0.7;
+    }
+    .filter-toggle-badge {
+        background: var(--arena-accent);
+        color: var(--arena-ink);
+        padding: 0 6px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0;
+        line-height: 16px;
+        min-width: 16px;
+        text-align: center;
+    }
+    .filter-toggle.active .filter-toggle-badge {
+        background: var(--arena-accent);
+    }
+
+    /* ── Active filters ─────────────────────────── */
+    .filter-active {
+        padding: 12px 22px;
+        border-top: 1px solid var(--arena-line-soft);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+    }
+    .active-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--arena-ink);
+        background: var(--arena-ink);
+        color: var(--arena-paper);
+        padding: 4px 6px 4px 10px;
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        line-height: 1.4;
+    }
+    .active-chip:hover {
+        background: var(--arena-ink-soft);
+        border-color: var(--arena-ink-soft);
+    }
+    .active-chip .x {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 14px;
+        height: 14px;
+        font-size: 14px;
+        line-height: 1;
+        opacity: 0.7;
+        /* Nudge × up to compensate for IBM Plex Mono ×'s low visual center */
+        transform: translateY(-1px);
+    }
+    .active-chip:hover .x {
+        opacity: 1;
+    }
+    .filter-clear {
+        margin-left: auto;
+        background: transparent;
+        border: none;
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        letter-spacing: 1px;
+        color: var(--arena-ink-soft);
+        cursor: pointer;
+        text-transform: uppercase;
+        padding: 4px 0;
+    }
+    .filter-clear:hover {
+        color: var(--arena-urgent);
+    }
+
+    /* ── Expanded ─────────────────────────── */
+    .filter-expanded {
+        padding: 18px 22px 22px;
+        border-top: 1px solid var(--arena-line-soft);
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .filter-group-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+    }
+    .filter-range {
+        font-family: var(--arena-f-mono);
+        font-size: 12px;
+        color: var(--arena-ink);
+        letter-spacing: 0.5px;
+    }
+    .filter-group-month {
+        background: var(--arena-paper-alt);
+        border: 1px solid var(--arena-line-soft);
+        padding: 14px 16px 22px;
+    }
+    .month-range-slider {
+        margin-top: 14px;
+        padding: 0 12px;
+    }
+    /* slider visual overrides live in app.css (.month-range-slider scope) */
+
+    /* ── Mobile ─────────────────────────── */
+    @media (max-width: 640px) {
+        .filter-head,
+        .filter-search,
+        .filter-quick,
+        .filter-active,
+        .filter-expanded {
+            padding-left: 16px;
+            padding-right: 16px;
+        }
+        .filter-toggle {
+            margin-left: 0;
+        }
+        .filter-clear {
+            margin-left: 0;
+        }
+    }
+</style>
