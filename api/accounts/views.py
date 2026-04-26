@@ -6,6 +6,7 @@ import string
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
+from django.template.loader import render_to_string
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -46,19 +47,11 @@ def parse_checkbox_value(value) -> bool:
 
 
 def send_verification_email(email: str, code: str) -> None:
+    html_message = render_to_string('emails/verification_code.html', {'code': code})
     send_mail(
         subject='[EnduroHub] 이메일 인증 코드',
         message=f'인증 코드: {code}\n\n이 코드는 10분간 유효합니다.',
-        html_message=(
-            f'<div style="font-family:sans-serif;max-width:400px;margin:0 auto;padding:20px;">'
-            f'<h2 style="color:#333;">EnduroHub 이메일 인증</h2>'
-            f'<p>아래 인증 코드를 입력해주세요:</p>'
-            f'<div style="font-size:32px;font-weight:bold;letter-spacing:8px;'
-            f'text-align:center;padding:20px;background:#f5f5f5;border-radius:8px;'
-            f'margin:20px 0;">{code}</div>'
-            f'<p style="color:#666;font-size:14px;">이 코드는 10분간 유효합니다.</p>'
-            f'</div>'
-        ),
+        html_message=html_message,
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[email],
         fail_silently=False,

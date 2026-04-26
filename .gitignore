@@ -34,3 +34,5 @@ claude.md
 # SvelteKit build
 .svelte-kit/
 build/
+endurohub-design/
+.cache/

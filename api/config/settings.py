@@ -20,6 +20,7 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'insecure-dev-key-change-me')
 DEBUG = os.environ.get('DJANGO_DEBUG', 'true').lower() in ('true', '1', 'yes')
 
 ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,api').split(',')
+print(f"[settings.py] ALLOWED_HOSTS={ALLOWED_HOSTS}  (raw env={os.environ.get('DJANGO_ALLOWED_HOSTS', 'UNSET')!r})")
 
 INSTALLED_APPS = [
     'unfold',
@@ -229,6 +230,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'accounts.tasks.send_new_races_alert_task',
         'schedule': crontab(minute=5),  # Every hour at :05 (after crawl at :00)
     },
+    'fetch-weather-daily': {
+        'task': 'races.tasks.fetch_weather_task',
+        'schedule': crontab(hour=6, minute=30),  # Daily 6:30 AM KST
+    },
 }
 
 # Logging
@@ -245,11 +250,15 @@ LOGGING = {
                 'levelname': 'level',
             },
         },
+        'verbose': {
+            'format': '[{asctime}] {levelname} {name}: {message}',
+            'style': '{',
+        },
     },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
-            'formatter': 'json',
+            'formatter': 'json' if not DEBUG else 'verbose',
         },
     },
     'root': {
@@ -259,12 +268,17 @@ LOGGING = {
     'loggers': {
         'django.request': {
             'handlers': ['console'],
-            'level': 'WARNING',
+            'level': 'DEBUG',
             'propagate': False,
         },
         'django.server': {
             'handlers': ['console'],
-            'level': 'WARNING',
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': ['console'],
+            'level': 'INFO' if DEBUG else 'WARNING',
             'propagate': False,
         },
     },

@@ -269,7 +269,7 @@ class RaceAdmin(ModelAdmin):
 
     fieldsets = (
         ('기본 정보', {
-            'fields': ('title', 'slug', 'sport', 'description'),
+            'fields': ('title', 'edition', 'slug', 'sport', 'description'),
         }),
         ('일정', {
             'fields': (
@@ -285,6 +285,10 @@ class RaceAdmin(ModelAdmin):
         }),
         ('주최 정보', {
             'fields': ('organizer', 'organizer_contact', 'organizer_email'),
+        }),
+        ('대회 정보 (러닝/트레일 한정)', {
+            'fields': ('course_surface', 'course_difficulty', 'aid_stations', 'timing_method', 'parking'),
+            'description': '러닝·트레일러닝 상세 페이지 우측 AT A GLANCE 카드에 노출됩니다. 다른 종목은 사용 안 함.',
         }),
         ('대표 이미지', {
             'fields': ('image_preview', 'image_file', 'image_path', 'image_url'),

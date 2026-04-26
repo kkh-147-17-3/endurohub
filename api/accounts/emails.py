@@ -5,7 +5,7 @@ from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils import timezone
 
-from races.constants import SPORT_LABELS
+from races.constants import SPORT_CODES, SPORT_LABELS
 from races.models import Race
 
 logger = logging.getLogger(__name__)
@@ -23,9 +23,10 @@ def _make_absolute_url(url):
 
 
 def _prepare_races_for_email(races):
-    """Ensure all race image URLs are absolute for email rendering."""
+    """Ensure all race image URLs are absolute and inject sport_code for email rendering."""
     for race in races:
         race.email_image_src = _make_absolute_url(race.image_src)
+        race.sport_code = SPORT_CODES.get(race.sport, race.sport[:3].upper() if race.sport else '')
     return races
 
 
@@ -138,8 +139,6 @@ def send_weekly_digest_email(profile):
         new_races = list(new_races_qs[:5])
     new_races = _prepare_races_for_email(new_races)
 
-    total_upcoming = Race.objects.upcoming().count()
-
     today = timezone.now().date()
     week_label = f'{today.month}월 {today.day}일'
 
@@ -151,7 +150,6 @@ def send_weekly_digest_email(profile):
         'new_races': new_races,
         'new_races_count': len(new_races),
         'closing_soon_count': len(closing_soon_races),
-        'total_upcoming': total_upcoming,
         'has_preferences': bool(profile.preferred_sports),
         'app_url': APP_URL,
     }
@@ -276,7 +274,7 @@ def _build_digest_text(ctx):
     lines = [
         f'{ctx["nickname"]}님의 주간 대회 소식 ({ctx["week_label"]})',
         '',
-        f'신규 대회: {ctx["new_races_count"]}건 | 마감 임박: {ctx["closing_soon_count"]}건 | 예정: {ctx["total_upcoming"]}건',
+        f'신규 대회: {ctx["new_races_count"]}건 | 마감 임박: {ctx["closing_soon_count"]}건',
         '',
     ]
     if ctx['closing_soon_races']:

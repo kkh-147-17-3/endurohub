@@ -3,138 +3,216 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
     <title>크롤링 리포트</title>
+    <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    {% include "emails/_styles.html" %}
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }
-        .header { background: #2563eb; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
-        .header h1 { margin: 0; font-size: 24px; }
-        .summary { background: #f8fafc; padding: 20px; border: 1px solid #e2e8f0; }
-        .summary-grid { display: flex; gap: 20px; flex-wrap: wrap; }
-        .summary-item { background: white; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; min-width: 100px; text-align: center; }
-        .summary-item .number { font-size: 32px; font-weight: bold; color: #2563eb; }
-        .summary-item .label { font-size: 14px; color: #64748b; }
-        .created .number { color: #16a34a; }
-        .updated .number { color: #f59e0b; }
-        .skipped .number { color: #94a3b8; }
-        .section { margin-top: 30px; }
-        .section h2 { font-size: 18px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
-        .race-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
-        .race-card h3 { margin: 0 0 10px 0; font-size: 16px; }
-        .race-info { font-size: 14px; color: #64748b; }
-        .race-info span { margin-right: 15px; }
-        .changes { margin-top: 10px; background: #fef3c7; padding: 10px; border-radius: 4px; font-size: 13px; }
-        .changes strong { color: #92400e; }
-        .change-item { margin: 5px 0; }
-        .old-value { color: #dc2626; text-decoration: line-through; }
-        .new-value { color: #16a34a; font-weight: 500; }
-        .pending { background: #fef2f2; }
-        .pending strong { color: #991b1b; }
-        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center; }
-        .empty-message { color: #94a3b8; font-style: italic; }
+        .stats-4 td { width: 25%; }
+        .change-block {
+            border: 1px solid #1A2520;
+            background: #F4F4EE;
+            margin-bottom: 14px;
+        }
+        .change-block-head {
+            background: #E8E9DD;
+            border-bottom: 1px solid #1A2520;
+            padding: 10px 14px;
+        }
+        .change-block-title {
+            font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif;
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: -0.3px;
+            color: #1A2520;
+            margin: 0 0 4px;
+        }
+        .change-block-meta {
+            font-family: 'IBM Plex Mono', Menlo, monospace;
+            font-size: 10px;
+            letter-spacing: 1.2px;
+            color: #5A6661;
+            text-transform: uppercase;
+        }
+        .change-table { width: 100%; }
+        .change-table td {
+            padding: 8px 14px;
+            font-family: 'IBM Plex Mono', Menlo, monospace;
+            font-size: 11px;
+            border-bottom: 1px solid #C5C7BC;
+            vertical-align: top;
+        }
+        .change-table tr:last-child td { border-bottom: none; }
+        .change-field {
+            width: 110px;
+            color: #5A6661;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 10px;
+        }
+        .change-old { color: #D14E2C; text-decoration: line-through; }
+        .change-arrow { color: #5A6661; padding: 0 6px; }
+        .change-new { color: #3A8556; font-weight: 600; }
+        .pending-tag {
+            display: inline-block;
+            padding: 2px 6px;
+            background: #D14E2C;
+            color: #F4F4EE;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 1px;
+            margin-left: 6px;
+        }
+        .empty-msg {
+            text-align: center;
+            padding: 40px 20px;
+            font-family: 'IBM Plex Mono', Menlo, monospace;
+            font-size: 12px;
+            color: #5A6661;
+            letter-spacing: 1px;
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>마라톤 대회 크롤링 리포트</h1>
-        <p style="margin: 5px 0 0 0; opacity: 0.9;">{% now "Y-m-d H:i:s" %}</p>
-    </div>
+    <div class="wrapper">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+                <td align="center" style="padding: 32px 16px;">
+                    <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="border: 1px solid #1A2520;">
 
-    <div class="summary">
-        <div class="summary-grid">
-            <div class="summary-item">
-                <div class="number">{{ result.total|default:0 }}</div>
-                <div class="label">전체</div>
-            </div>
-            <div class="summary-item created">
-                <div class="number">{{ result.created|default:0 }}</div>
-                <div class="label">신규</div>
-            </div>
-            <div class="summary-item updated">
-                <div class="number">{{ result.updated|default:0 }}</div>
-                <div class="label">업데이트</div>
-            </div>
-            <div class="summary-item skipped">
-                <div class="number">{{ result.skipped|default:0 }}</div>
-                <div class="label">스킵</div>
-            </div>
-        </div>
-    </div>
+                        {% include "emails/_header.html" with header_meta="크롤링 리포트" %}
 
-    {% if result.createdRaces %}
-    <div class="section">
-        <h2>신규 등록된 대회 ({{ result.createdRaces|length }}건)</h2>
-        {% for race in result.createdRaces %}
-        <div class="race-card">
-            <h3>{{ race.title }}</h3>
-            <div class="race-info">
-                <span>{{ race.race_date }}</span>
-                <span>{{ race.region }}</span>
-                <span>{{ race.location }}</span>
-                {% if race.distances %}
-                <span>{% for d in race.distances %}{% if not forloop.first %}, {% endif %}{{ d.name }}{% endfor %}</span>
-                {% endif %}
-            </div>
-            {% if race.official_url %}
-            <div style="margin-top: 8px;">
-                <a href="{{ race.official_url }}" style="color: #2563eb; font-size: 13px;">공식 사이트</a>
-            </div>
-            {% endif %}
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
+                        <!-- Hero -->
+                        <tr>
+                            <td class="hero" style="padding-bottom: 28px;">
+                                <div class="kicker">{% now "Y.m.d H:i" %}</div>
+                                <h1>크롤링 <em>리포트</em></h1>
+                            </td>
+                        </tr>
 
-    {% if updated_items %}
-    <div class="section">
-        <h2>업데이트된 대회 ({{ updated_items|length }}건)</h2>
-        {% for item in updated_items %}
-        <div class="race-card">
-            <h3>{{ item.race.title }}</h3>
-            <div class="race-info">
-                <span>{{ item.race.race_date }}</span>
-                <span>{{ item.race.region }}</span>
-                <span>{{ item.race.location }}</span>
-            </div>
-            {% if item.applied_changes %}
-            <div class="changes">
-                <strong>적용된 변경:</strong>
-                {% for change in item.applied_changes %}
-                <div class="change-item">
-                    <strong>{{ change.field_label }}:</strong>
-                    <span class="old-value">{{ change.old_value }}</span>
-                    →
-                    <span class="new-value">{{ change.new_value }}</span>
-                </div>
-                {% endfor %}
-            </div>
-            {% endif %}
-            {% if item.pending_changes %}
-            <div class="changes pending">
-                <strong>검토 대기중:</strong>
-                {% for change in item.pending_changes %}
-                <div class="change-item">
-                    <strong>{{ change.field_label }}:</strong>
-                    <span class="old-value">{{ change.old_value }}</span>
-                    →
-                    <span class="new-value">{{ change.new_value }}</span>
-                </div>
-                {% endfor %}
-            </div>
-            {% endif %}
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
+                        <!-- Stats -->
+                        <tr>
+                            <td>
+                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="stats stats-4">
+                                    <tr>
+                                        <td>
+                                            <div class="stat-num">{{ result.total|default:0 }}</div>
+                                            <div class="stat-label">전체</div>
+                                        </td>
+                                        <td>
+                                            <div class="stat-num">{{ result.created|default:0 }}</div>
+                                            <div class="stat-label">신규</div>
+                                        </td>
+                                        <td>
+                                            <div class="stat-num">{{ result.updated|default:0 }}</div>
+                                            <div class="stat-label">업데이트</div>
+                                        </td>
+                                        <td>
+                                            <div class="stat-num" style="color: #5A6661;">{{ result.skipped|default:0 }}</div>
+                                            <div class="stat-label">스킵</div>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
 
-    {% if not result.createdRaces and not updated_items %}
-    <div class="section">
-        <p class="empty-message">변경된 내용이 없습니다.</p>
-    </div>
-    {% endif %}
+                        {% if result.createdRaces %}
+                        <!-- Created Races -->
+                        <tr>
+                            <td class="section">
+                                <div class="kicker">01 · 신규 등록</div>
+                                <div class="section-title">신규 등록 <span class="accent">{{ result.createdRaces|length }}건</span></div>
+                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="row-table simple-row-table">
+                                    <tr class="row-head">
+                                        <td>대회</td>
+                                        <td class="col-date" align="right">대회일</td>
+                                    </tr>
+                                    {% for race in result.createdRaces %}
+                                    <tr class="row">
+                                        <td>
+                                            <div class="name">{% if race.official_url %}<a href="{{ race.official_url }}">{{ race.title }}</a>{% else %}{{ race.title }}{% endif %}</div>
+                                            <div style="margin-top: 4px;">{{ race.sport_label }} · {{ race.region }} · {{ race.location }}{% if race.distances %} · {% for d in race.distances %}{% if not forloop.first %}, {% endif %}{{ d.name }}{% endfor %}{% endif %}</div>
+                                        </td>
+                                        <td class="col-date" align="right">{{ race.race_date|date:"n.j" }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </table>
+                            </td>
+                        </tr>
+                        {% endif %}
 
-    <div class="footer">
-        <p>이 메일은 자동으로 발송되었습니다.</p>
-        <p>EnduroHub - 마라톤 대회 정보 서비스</p>
+                        {% if updated_items %}
+                        <!-- Updated Races -->
+                        <tr>
+                            <td class="section">
+                                <div class="kicker">02 · 업데이트</div>
+                                <div class="section-title">업데이트 <span class="accent">{{ updated_items|length }}건</span></div>
+                                {% for item in updated_items %}
+                                <div class="change-block">
+                                    <div class="change-block-head">
+                                        <div class="change-block-title">{{ item.race.title }}</div>
+                                        <div class="change-block-meta">{{ item.race.sport_label }} · 대회일 {{ item.race.race_date|date:"Y.n.j" }} · {{ item.race.region }}</div>
+                                    </div>
+                                    {% if item.applied_changes %}
+                                    <table role="presentation" cellpadding="0" cellspacing="0" class="change-table">
+                                        {% for change in item.applied_changes %}
+                                        <tr>
+                                            <td class="change-field">{{ change.field_label }}</td>
+                                            <td>
+                                                <span class="change-old">{{ change.old_value }}</span>
+                                                <span class="change-arrow">→</span>
+                                                <span class="change-new">{{ change.new_value }}</span>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </table>
+                                    {% endif %}
+                                    {% if item.pending_changes %}
+                                    <table role="presentation" cellpadding="0" cellspacing="0" class="change-table" style="border-top: 1px solid #1A2520;">
+                                        <tr>
+                                            <td colspan="2" style="background: #E8E9DD; padding: 6px 14px; color: #1A2520;">
+                                                <span class="pending-tag" style="margin-left: 0;">검토 대기</span>
+                                            </td>
+                                        </tr>
+                                        {% for change in item.pending_changes %}
+                                        <tr>
+                                            <td class="change-field">{{ change.field_label }}</td>
+                                            <td>
+                                                <span class="change-old">{{ change.old_value }}</span>
+                                                <span class="change-arrow">→</span>
+                                                <span class="change-new">{{ change.new_value }}</span>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </table>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </td>
+                        </tr>
+                        {% endif %}
+
+                        {% if not result.createdRaces and not updated_items %}
+                        <tr>
+                            <td class="section">
+                                <div class="empty-msg">변경 없음</div>
+                            </td>
+                        </tr>
+                        {% endif %}
+
+                        <tr>
+                            <td class="footer">
+                                <div class="footer-logo"><span class="header-logo-dot"></span>endurohub</div>
+                                <p>자동 발송 · 어드민 전용 리포트</p>
+                                <p style="margin-top: 12px; opacity: 0.7;">&copy; {% now "Y" %} endurohub</p>
+                            </td>
+                        </tr>
+
+                    </table>
+                </td>
+            </tr>
+        </table>
     </div>
 </body>
 </html>

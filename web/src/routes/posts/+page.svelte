@@ -23,7 +23,9 @@
         if (selectedCategory) params.set('category', selectedCategory);
         if (selectedSort && selectedSort !== 'latest') params.set('sort', selectedSort);
         const qs = params.toString();
-        goto(`/posts${qs ? '?' + qs : ''}`).then(() => { isSearching = false; });
+        goto(`/posts${qs ? '?' + qs : ''}`).then(() => {
+            isSearching = false;
+        });
     }
 
     function handleSearch(e: Event) {
@@ -31,247 +33,402 @@
         applyFilters();
     }
 
-    function clearSearch() {
+    function clearAll() {
         searchInput = '';
         selectedCategory = '';
         selectedSort = 'latest';
         goto('/posts');
     }
 
-    const categoryOptions = [
-        { value: '', label: '전체' },
-        { value: 'free', label: '자유' },
-        { value: 'race_review', label: '대회 후기' },
-        { value: 'injury', label: '부상/재활' },
-        { value: 'gear', label: '장비 추천' },
-        { value: 'training', label: '훈련 팁' },
-        { value: 'question', label: '질문' },
-    ];
-
-    const sidebar = $derived(data.sidebar);
-
-    let showCategoryDropdown = $state(false);
-    let showSortDropdown = $state(false);
-
-    const selectedCategoryLabel = $derived(
-        categoryOptions.find(o => o.value === selectedCategory)?.label || '전체'
-    );
-    const selectedSortLabel = $derived(
-        selectedSort === 'popular' ? '인기순' : '최신순'
-    );
-
     function selectCategory(value: string) {
-        selectedCategory = value;
-        showCategoryDropdown = false;
+        selectedCategory = selectedCategory === value ? '' : value;
         applyFilters();
     }
 
     function selectSort(value: string) {
         selectedSort = value;
-        showSortDropdown = false;
         applyFilters();
     }
+
+    const categoryOptions = [
+        { value: 'free', label: '자유' },
+        { value: 'race_review', label: '대회 후기' },
+        { value: 'injury', label: '부상/재활' },
+        { value: 'gear', label: '장비' },
+        { value: 'training', label: '훈련' },
+        { value: 'question', label: '질문' },
+    ];
+
+    const hasActiveFilter = $derived(!!(data.search || data.category));
 </script>
 
 <svelte:head>
-    <title>자유게시판 - 엔듀로허브</title>
+    <title>커뮤니티 - 엔듀로허브</title>
     <meta name="description" content="대회 후기, 훈련 이야기, 자유로운 이야기를 나눠보세요." />
-    <meta property="og:title" content="자유게시판 - 엔듀로허브" />
+    <meta property="og:title" content="커뮤니티 - 엔듀로허브" />
     <meta property="og:description" content="대회 후기, 훈련 이야기, 자유로운 이야기를 나눠보세요." />
 </svelte:head>
 
-<div class="container mx-auto px-4 py-8">
-    <div class="mb-6">
-        <h1 class="text-3xl font-bold">자유게시판</h1>
-        <p class="text-base-content/60 mt-1">대회 후기, 훈련 이야기, 자유로운 이야기를 나눠보세요.</p>
-    </div>
+<div class="posts-wrap">
+    <div class="filter-card">
+        <form onsubmit={handleSearch}>
+            <header class="filter-head">
+                <div class="kicker">COMMUNITY · 자유게시판</div>
+                <h1 class="title">
+                    커뮤니티
+                    <span class="count">총 {data.meta.total.toLocaleString()}개</span>
+                </h1>
+            </header>
 
-    <!-- Filters bar -->
-    <form onsubmit={handleSearch} class="mb-6">
-        <div class="flex flex-col sm:flex-row gap-3">
-            <div class="join flex-1">
-                <input type="text" bind:value={searchInput} placeholder="제목 또는 내용으로 검색..." class="input input-bordered join-item flex-1" />
-                {#if data.search}
-                    <button type="button" onclick={clearSearch} class="btn btn-ghost join-item" aria-label="검색 초기화">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                {/if}
-                <button type="submit" class="btn btn-primary join-item" disabled={isSearching}>
-                    {#if isSearching}
-                        <span class="loading loading-spinner loading-sm"></span>
-                    {:else}
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                    {/if}
+            <div class="search-row">
+                <input
+                    type="text"
+                    bind:value={searchInput}
+                    placeholder="제목 또는 내용으로 검색..."
+                    class="search-input"
+                />
+                <button type="submit" class="submit-btn" disabled={isSearching}>
+                    {isSearching ? '...' : '검색 →'}
                 </button>
+                <a href="/posts/create" class="write-btn">글쓰기 +</a>
             </div>
-            <div class="flex gap-2 shrink-0">
-                <!-- Category dropdown -->
-                <div class="relative">
-                    <button
-                        type="button"
-                        class="btn btn-sm sm:btn-md btn-outline min-w-[7rem] justify-between"
-                        onclick={() => { showCategoryDropdown = !showCategoryDropdown; showSortDropdown = false; }}
-                    >
-                        <span class="truncate text-left">{selectedCategoryLabel}</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" /></svg>
-                    </button>
-                    {#if showCategoryDropdown}
-                        <button class="fixed inset-0 z-10 cursor-default" tabindex="-1" onclick={() => { showCategoryDropdown = false; }} aria-label="닫기"></button>
-                        <ul class="absolute right-0 top-full mt-2 z-20 menu bg-base-100 rounded-xl w-44 p-1.5 shadow-xl border border-base-200">
-                            {#each categoryOptions as opt}
-                                <li>
-                                    <button
-                                        type="button"
-                                        class="flex items-center justify-between gap-2 text-sm {selectedCategory === opt.value ? 'active font-semibold' : ''}"
-                                        onclick={() => selectCategory(opt.value)}
-                                    >
-                                        <span>{opt.label}</span>
-                                        {#if selectedCategory === opt.value}
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
-                                        {/if}
-                                    </button>
-                                </li>
-                            {/each}
-                        </ul>
-                    {/if}
-                </div>
 
-                <!-- Sort dropdown -->
-                <div class="relative">
-                    <button
-                        type="button"
-                        class="btn btn-sm sm:btn-md btn-outline min-w-[6rem] justify-between"
-                        onclick={() => { showSortDropdown = !showSortDropdown; showCategoryDropdown = false; }}
-                    >
-                        <span class="truncate text-left">{selectedSortLabel}</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" /></svg>
-                    </button>
-                    {#if showSortDropdown}
-                        <button class="fixed inset-0 z-10 cursor-default" tabindex="-1" onclick={() => { showSortDropdown = false; }} aria-label="닫기"></button>
-                        <ul class="absolute right-0 top-full mt-2 z-20 menu bg-base-100 rounded-xl w-36 p-1.5 shadow-xl border border-base-200">
-                            <li>
-                                <button
-                                    type="button"
-                                    class="flex items-center justify-between gap-2 text-sm {selectedSort === 'latest' ? 'active font-semibold' : ''}"
-                                    onclick={() => selectSort('latest')}
-                                >
-                                    <span>최신순</span>
-                                    {#if selectedSort === 'latest'}
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
-                                    {/if}
-                                </button>
-                            </li>
-                            <li>
-                                <button
-                                    type="button"
-                                    class="flex items-center justify-between gap-2 text-sm {selectedSort === 'popular' ? 'active font-semibold' : ''}"
-                                    onclick={() => selectSort('popular')}
-                                >
-                                    <span>인기순</span>
-                                    {#if selectedSort === 'popular'}
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
-                                    {/if}
-                                </button>
-                            </li>
-                        </ul>
-                    {/if}
-                </div>
-
-                <a href="/posts/create" class="btn btn-primary btn-sm sm:btn-md shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-                    <span class="hidden sm:inline">글쓰기</span>
-                </a>
-            </div>
-        </div>
-    </form>
-
-    {#if data.search || data.category}
-        <div class="mb-4 flex items-center gap-2 text-sm text-base-content/60">
-            {#if data.search}
-                <span>"{data.search}" 검색 결과: {data.meta.total}개</span>
-            {:else}
-                <span>총 {data.meta.total}개</span>
-            {/if}
-        </div>
-    {/if}
-
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- Main content -->
-        <div class="lg:col-span-2">
-            {#if data.data.length === 0}
-                <div class="alert">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    {#if data.search}
-                        <span>검색 결과가 없습니다.</span>
-                    {:else}
-                        <span>아직 작성된 글이 없습니다. 첫 번째 글을 작성해보세요!</span>
-                    {/if}
-                </div>
-            {:else}
-                <div class="space-y-4">
-                    {#each data.data as post (post.id)}
-                        <PostCard {post} showExcerpt />
+            <div class="quick-row">
+                <span class="label">카테고리</span>
+                <div class="chips">
+                    {#each categoryOptions as opt}
+                        <button
+                            type="button"
+                            class="chip"
+                            class:active={selectedCategory === opt.value}
+                            onclick={() => selectCategory(opt.value)}
+                        >
+                            {opt.label}
+                        </button>
                     {/each}
                 </div>
+                <div class="sort-group">
+                    <span class="label">정렬</span>
+                    <div class="chips">
+                        <button
+                            type="button"
+                            class="chip"
+                            class:active={selectedSort === 'latest'}
+                            onclick={() => selectSort('latest')}
+                        >
+                            최신순
+                        </button>
+                        <button
+                            type="button"
+                            class="chip"
+                            class:active={selectedSort === 'popular'}
+                            onclick={() => selectSort('popular')}
+                        >
+                            인기순
+                        </button>
+                    </div>
+                </div>
+            </div>
 
-                <div class="mt-8 flex justify-center">
-                    <Pagination meta={data.meta} showInfo scrollToTop />
+            {#if hasActiveFilter}
+                <div class="active-row">
+                    {#if data.search}
+                        <span class="active-chip">
+                            "{data.search}"
+                            <button type="button" class="x" onclick={() => { searchInput = ''; applyFilters(); }} aria-label="검색어 제거">×</button>
+                        </span>
+                    {/if}
+                    {#if data.category}
+                        <span class="active-chip">
+                            {categoryOptions.find((o) => o.value === data.category)?.label ?? data.category}
+                            <button type="button" class="x" onclick={() => { selectedCategory = ''; applyFilters(); }} aria-label="카테고리 제거">×</button>
+                        </span>
+                    {/if}
+                    <button type="button" class="clear-all" onclick={clearAll}>모두 지우기 ↺</button>
                 </div>
             {/if}
+        </form>
+    </div>
+
+    {#if data.data.length === 0}
+        <div class="empty">
+            <span class="kicker">NO RESULTS</span>
+            <p>{data.search ? '검색 결과가 없습니다.' : '아직 작성된 글이 없습니다. 첫 번째 글을 작성해보세요.'}</p>
+        </div>
+    {:else}
+        <div class="post-list">
+            {#each data.data as post (post.id)}
+                <PostCard {post} showExcerpt />
+            {/each}
         </div>
 
-        <!-- Sidebar -->
-        {#if sidebar}
-            <aside class="hidden lg:block space-y-6">
-                {#if sidebar.popularPosts && sidebar.popularPosts.length > 0}
-                    <div class="card bg-base-100 border border-base-300">
-                        <div class="card-body">
-                            <h3 class="card-title text-base">인기 글</h3>
-                            <ul class="space-y-3 mt-2">
-                                {#each sidebar.popularPosts as post, i}
-                                    <li>
-                                        <a href="/posts/{post.id}" class="flex items-start gap-2 group">
-                                            <span class="text-sm lg:text-base font-bold text-base-content/50 mt-0.5">{i + 1}</span>
-                                            <div class="min-w-0">
-                                                <p class="text-sm lg:text-base font-medium line-clamp-1 group-hover:text-primary transition-colors">{post.title}</p>
-                                                <p class="text-xs lg:text-sm text-base-content/50">조회 {post.viewCount} · 추천 {post.likeCount}</p>
-                                            </div>
-                                        </a>
-                                    </li>
-                                {/each}
-                            </ul>
-                        </div>
-                    </div>
-                {/if}
-
-                {#if sidebar.upcomingRaces && sidebar.upcomingRaces.length > 0}
-                    <div class="card bg-base-100 border border-base-300">
-                        <div class="card-body">
-                            <h3 class="card-title text-base">다가오는 대회</h3>
-                            <ul class="space-y-3 mt-2">
-                                {#each sidebar.upcomingRaces as race}
-                                    <li>
-                                        <a href="/races/{race.id}" class="flex items-center justify-between group">
-                                            <span class="text-sm lg:text-base font-medium line-clamp-1 group-hover:text-primary transition-colors">{race.title}</span>
-                                            <span class="text-xs lg:text-sm text-base-content/50 shrink-0 ml-2">{race.raceDate}</span>
-                                        </a>
-                                    </li>
-                                {/each}
-                            </ul>
-                            <a href="/races" class="text-sm lg:text-base text-primary hover:underline mt-2">전체 대회 보기 →</a>
-                        </div>
-                    </div>
-                {/if}
-            </aside>
-        {/if}
-    </div>
+        <div class="pagination-wrap">
+            <Pagination meta={data.meta} showInfo scrollToTop />
+        </div>
+    {/if}
 </div>
 
 <style>
-    .line-clamp-1 {
-        display: -webkit-box;
-        -webkit-line-clamp: 1;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
+    .posts-wrap {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 32px 24px;
+    }
+    @media (min-width: 1024px) {
+        .posts-wrap {
+            padding: 40px 32px;
+        }
+    }
+
+    /* Filter card */
+    .filter-card {
+        background: var(--arena-paper);
+        border: 1px solid var(--arena-line);
+        margin-bottom: 24px;
+        font-family: var(--arena-f-body);
+        color: var(--arena-ink);
+    }
+    .filter-head {
+        padding: 18px 22px 14px;
+        border-bottom: 1px solid var(--arena-line-soft);
+    }
+    .kicker {
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: var(--arena-ink-soft);
+        margin-bottom: 8px;
+    }
+    .title {
+        font-family: var(--arena-f-display);
+        font-size: clamp(22px, 3vw, 30px);
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        margin: 0;
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    .count {
+        font-family: var(--arena-f-mono);
+        font-size: 12px;
+        font-weight: 400;
+        letter-spacing: 1px;
+        color: var(--arena-ink-soft);
+    }
+
+    .search-row {
+        display: flex;
+        gap: 0;
+        padding: 14px 22px;
+        border-bottom: 1px solid var(--arena-line-soft);
+    }
+    .search-input {
+        flex: 1;
+        min-width: 0;
+        border: 1px solid var(--arena-line);
+        border-radius: 0;
+        background: var(--arena-paper);
+        padding: 10px 14px;
+        font-family: var(--arena-f-body);
+        font-size: 14px;
+        color: var(--arena-ink);
+        border-right: none;
+        appearance: none;
+        -webkit-appearance: none;
+    }
+    .search-input:focus {
+        outline: none;
+        border-color: var(--arena-ink);
+        background: var(--arena-paper-alt);
+    }
+    .search-input::placeholder {
+        color: var(--arena-ink-mute);
+    }
+    .submit-btn {
+        background: var(--arena-ink);
+        color: var(--arena-paper);
+        border: 1px solid var(--arena-ink);
+        padding: 10px 18px;
+        font-family: var(--arena-f-mono);
+        font-size: 12px;
+        letter-spacing: 1px;
+        cursor: pointer;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+    .submit-btn:hover {
+        background: var(--arena-ink-soft);
+    }
+    .write-btn {
+        background: var(--arena-accent);
+        color: var(--arena-ink);
+        border: 1px solid var(--arena-accent);
+        padding: 10px 16px;
+        margin-left: 8px;
+        font-family: var(--arena-f-mono);
+        font-size: 12px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        text-decoration: none;
+        white-space: nowrap;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+    }
+    .write-btn:hover {
+        background: var(--arena-accent-deep);
+        color: var(--arena-paper);
+        border-color: var(--arena-accent-deep);
+    }
+
+    .quick-row {
+        padding: 12px 22px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 16px;
+    }
+    .label {
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        letter-spacing: 1.5px;
+        color: var(--arena-ink-soft);
+        text-transform: uppercase;
+    }
+    .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .chip {
+        border: 1px solid var(--arena-line);
+        background: var(--arena-paper);
+        color: var(--arena-ink);
+        padding: 6px 12px;
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        transition: background 0.1s, border-color 0.1s;
+        line-height: 1.4;
+    }
+    .chip:hover {
+        border-color: var(--arena-ink);
+    }
+    .chip.active {
+        background: var(--arena-ink);
+        color: var(--arena-paper);
+        border-color: var(--arena-ink);
+    }
+    .sort-group {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .active-row {
+        padding: 12px 22px;
+        border-top: 1px solid var(--arena-line-soft);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+    }
+    .active-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--arena-ink);
+        color: var(--arena-paper);
+        padding: 4px 6px 4px 10px;
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        letter-spacing: 0.5px;
+        line-height: 1.4;
+        border: 1px solid var(--arena-ink);
+    }
+    .active-chip .x {
+        background: transparent;
+        border: none;
+        color: inherit;
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1;
+        padding: 0 2px;
+        opacity: 0.7;
+        transform: translateY(-1px);
+    }
+    .active-chip .x:hover {
+        opacity: 1;
+    }
+    .clear-all {
+        margin-left: auto;
+        background: transparent;
+        border: none;
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        letter-spacing: 1px;
+        color: var(--arena-ink-soft);
+        cursor: pointer;
+        text-transform: uppercase;
+    }
+    .clear-all:hover {
+        color: var(--arena-urgent);
+    }
+
+    @media (max-width: 640px) {
+        .filter-head,
+        .search-row,
+        .quick-row,
+        .active-row {
+            padding-left: 16px;
+            padding-right: 16px;
+        }
+        .sort-group {
+            margin-left: 0;
+            width: 100%;
+            padding-top: 4px;
+            border-top: 1px dashed var(--arena-line-soft);
+        }
+        .clear-all {
+            margin-left: 0;
+        }
+    }
+
+    /* Empty */
+    .empty {
+        border: 1px solid var(--arena-line);
+        background: var(--arena-paper);
+        padding: 48px 24px;
+        text-align: center;
+        font-family: var(--arena-f-body);
+        color: var(--arena-ink-soft);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+    .empty .kicker {
+        margin-bottom: 0;
+    }
+    .empty p {
+        margin: 0;
+        font-size: 14px;
+    }
+
+    /* Post list */
+    .post-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .pagination-wrap {
+        margin-top: 32px;
+        display: flex;
+        justify-content: center;
     }
 </style>

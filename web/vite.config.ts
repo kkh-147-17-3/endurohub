@@ -5,6 +5,7 @@ import { defineConfig } from 'vite';
 
 const isDocker = process.env.DOCKER === 'true';
 const apiTarget = isDocker ? 'http://api:8000' : 'http://localhost:8000';
+const port = Number(process.env.VITE_PORT) || 3000;
 
 export default defineConfig({
 	plugins: [
@@ -14,7 +15,7 @@ export default defineConfig({
 	],
 	server: {
 		host: '0.0.0.0',
-		port: 3000,
+		port,
 		strictPort: true,
 		allowedHosts: true,
 		proxy: {

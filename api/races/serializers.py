@@ -24,7 +24,7 @@ class RaceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Race
         fields = [
-            'id', 'slug', 'title', 'sport', 'sport_label',
+            'id', 'slug', 'title', 'edition', 'sport', 'sport_label',
             'race_date', 'race_end_date', 'start_time',
             'location', 'address', 'latitude', 'longitude', 'region',
             'distances',
@@ -38,6 +38,9 @@ class RaceSerializer(serializers.ModelSerializer):
             'is_registration_open', 'is_verified', 'verified_at', 'verified_by',
             'recap_url', 'ai_summary', 'url',
             'is_favorited',
+            'weather_forecast',
+            'course_surface', 'course_difficulty', 'aid_stations',
+            'timing_method', 'parking',
             'created_at', 'updated_at',
         ]
 

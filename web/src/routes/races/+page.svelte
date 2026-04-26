@@ -1,5 +1,5 @@
 <script lang="ts">
-    import RaceCard from '$lib/components/RaceCard.svelte';
+    import RaceRow from '$lib/components/arena/RaceRow.svelte';
     import FilterBar from '$lib/components/FilterBar.svelte';
     import Pagination from '$lib/components/Pagination.svelte';
     import { sportLabels } from '$lib/race';
@@ -26,7 +26,7 @@
     <meta property="og:description" content={metaDescription} />
 </svelte:head>
 
-<div class="container mx-auto px-4 py-8">
+<div class="races-wrap">
     <FilterBar
         sports={data.filters.sports}
         regions={data.filters.regions}
@@ -43,16 +43,23 @@
     />
 
     {#if data.data.length === 0}
-        <div class="alert">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-6 h-6">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-            <span>검색 조건에 맞는 대회가 없습니다.</span>
+        <div class="empty-card">
+            <span class="empty-kicker">NO RESULTS</span>
+            <p>검색 조건에 맞는 대회가 없습니다.</p>
         </div>
     {:else}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div class="race-table">
+            <div class="race-thead">
+                <span>접수마감</span>
+                <span>대회명</span>
+                <span>일정</span>
+                <span>종목</span>
+                <span>거리</span>
+                <span>지역</span>
+                <span>참가비</span>
+            </div>
             {#each data.data as race (race.id)}
-                <RaceCard {race} />
+                <RaceRow {race} />
             {/each}
         </div>
 
@@ -61,3 +68,62 @@
         </div>
     {/if}
 </div>
+
+<style>
+    .races-wrap {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 32px 24px;
+    }
+    @media (min-width: 1024px) {
+        .races-wrap {
+            padding: 40px 32px;
+        }
+    }
+
+    .empty-card {
+        border: 1px solid var(--arena-line);
+        background: var(--arena-paper);
+        padding: 48px 24px;
+        text-align: center;
+        font-family: var(--arena-f-body);
+        color: var(--arena-ink-soft);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+    .empty-kicker {
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        letter-spacing: 2px;
+        color: var(--arena-ink-mute);
+    }
+    .empty-card p {
+        margin: 0;
+        font-size: 14px;
+    }
+
+    .race-table {
+        border: 1px solid var(--arena-line);
+        background: var(--arena-paper);
+    }
+    .race-thead {
+        display: grid;
+        grid-template-columns: 56px 1fr 90px 60px 100px 110px 90px;
+        gap: 16px;
+        padding: 10px 20px;
+        background: var(--arena-paper-alt);
+        border-bottom: 1px solid var(--arena-line);
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        letter-spacing: 0.3px;
+        color: var(--arena-ink-soft);
+    }
+    /* Mobile: hide thead — RaceRow reflows into a 2-line self-describing layout */
+    @media (max-width: 879px) {
+        .race-thead {
+            display: none;
+        }
+    }
+</style>

@@ -6,7 +6,7 @@ import sys
 
 def main():
     """Run administrative tasks."""
-    
+
     # Try to load .env from parent directory for local development
     try:
         from dotenv import load_dotenv

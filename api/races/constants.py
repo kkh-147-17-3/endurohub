@@ -13,6 +13,14 @@ SPORT_LABELS = {
     'trail_running': '트레일러닝',
 }
 
+SPORT_CODES = {
+    'running': 'RUN',
+    'swimming': 'SWIM',
+    'cycling': 'CYC',
+    'triathlon': 'TRI',
+    'trail_running': 'TRL',
+}
+
 STATUS_LABELS = {
     'upcoming': '예정',
     'registration_open': '접수중',

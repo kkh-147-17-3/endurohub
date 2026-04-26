@@ -10,6 +10,7 @@
     import { onMount } from 'svelte';
     import { capturePostHogPageView, initPostHog, syncPostHogUser } from '$lib/posthog';
     import { getTheme, toggleTheme, type Theme } from '$lib/theme';
+    import ProgressBar from '$lib/components/ProgressBar.svelte';
 
     let { data, children } = $props();
 
@@ -26,31 +27,31 @@
 
     let theme = $state<Theme>('light');
     let lastTrackedPath = $state('');
+    let mobileMenuOpen = $state(false);
+    let userMenuOpen = $state(false);
 
     onMount(() => {
         theme = getTheme();
         initPostHog();
         syncPostHogUser(user);
 
-        // 첫 페이지 로드 시 pageview (afterNavigate는 첫 SSR 로드에서 발동 안 함)
         const initialPath = $page.url.pathname + $page.url.search;
         capturePostHogPageView($page.url.pathname, $page.url.search, document.referrer);
         lastTrackedPath = initialPath;
 
-        // Load Google Analytics deferred
         if (googleAnalyticsId && !document.querySelector('script[src*="googletagmanager"]')) {
             window.dataLayer = window.dataLayer || [];
-            window.gtag = function() { window.dataLayer.push(arguments); };
+            window.gtag = function () {
+                window.dataLayer.push(arguments);
+            };
             window.gtag('js', new Date());
             window.gtag('config', googleAnalyticsId);
-
             const gaScript = document.createElement('script');
             gaScript.src = `https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}`;
             gaScript.async = true;
             document.head.appendChild(gaScript);
         }
 
-        // Load Kakao SDK deferred
         if (kakaoJsKey && !document.querySelector('script[src*="kakao_js_sdk"]')) {
             const script = document.createElement('script');
             script.src = 'https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js';
@@ -82,7 +83,26 @@
         if (googleAnalyticsId && typeof gtag === 'function') {
             gtag('config', googleAnalyticsId, { page_path: $page.url.pathname });
         }
+        mobileMenuOpen = false;
+        userMenuOpen = false;
     });
+
+    const links = [
+        { href: '/', label: '홈', match: (p: string) => p === '/' },
+        { href: '/races?reset=1', label: '전체 대회', match: (p: string) => p === '/races' },
+        { href: '/races/year/2026', label: '2026년 대회', match: (p: string) => p === '/races/year/2026' },
+        { href: '/calendar', label: '캘린더', match: (p: string) => p === '/calendar' },
+        { href: '/posts', label: '커뮤니티', match: (p: string) => p.startsWith('/posts') },
+        { href: '/tools', label: '도구', match: (p: string) => p.startsWith('/tools') || p === '/running-terms' },
+    ];
+
+    const sportLinks = [
+        { href: '/running', label: '마라톤', code: 'RUN' },
+        { href: '/swimming', label: '수영', code: 'SWIM' },
+        { href: '/cycling', label: '자전거', code: 'CYCLE' },
+        { href: '/triathlon', label: '철인3종', code: 'TRI' },
+        { href: '/trail-running', label: '트레일러닝', code: 'TRL' },
+    ];
 </script>
 
 <svelte:head>
@@ -93,284 +113,532 @@
     <link rel="canonical" href="{data.appUrl}{currentPath}" />
 </svelte:head>
 
-<header class="sticky top-0 z-50 bg-base-100 border-b border-base-200">
-    <div class="navbar container mx-auto px-4 h-16">
-        <div class="navbar-start">
-            <!-- Mobile Menu -->
-            <div class="dropdown">
-                <div tabindex="0" role="button" class="btn btn-ghost btn-sm lg:hidden cursor-pointer" aria-label="메뉴 열기">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h8m-8 6h16" />
-                    </svg>
-                </div>
-                <ul class="menu menu-sm dropdown-content mt-2 z-[1] p-2 bg-base-100 rounded-lg w-52 border border-base-200">
-                    <li><a href="/" class:active={currentPath === '/'}>홈</a></li>
-                    <li><a href="/races" class:active={currentPath === '/races'}>전체 대회</a></li>
-                    <li><a href={`/races/year/${currentYear}`} class:active={currentPath.startsWith('/races/year/')}>{currentYear}년 대회보기</a></li>
-                    <li class="menu-title pt-2">
-                        <span class="text-xs">종목별</span>
-                    </li>
-                    <li><a href="/running">마라톤</a></li>
-                    <li><a href="/swimming">수영</a></li>
-                    <li><a href="/cycling">자전거</a></li>
-                    <li><a href="/triathlon">철인3종</a></li>
-                    <li><a href="/trail-running">트레일러닝</a></li>
-                    <div class="divider my-1"></div>
-                    <li><a href="/calendar" class:active={currentPath === '/calendar'}>캘린더</a></li>
-                    <li class="menu-title pt-2">
-                        <span class="text-xs">도구</span>
-                    </li>
-                    <li><a href="/tools/pace-calculator" class:active={currentPath === '/tools/pace-calculator'}>페이스 계산기</a></li>
-                    <li><a href="/tools/training-plan" class:active={currentPath === '/tools/training-plan'}>훈련 플랜</a></li>
-                    <li><a href="/tools/vo2max" class:active={currentPath === '/tools/vo2max'}>VO2max</a></li>
-                    <li><a href="/tools/race-predictor" class:active={currentPath === '/tools/race-predictor'}>기록 예측</a></li>
-                    <li><a href="/running-terms" class:active={currentPath === '/running-terms'}>러닝 용어</a></li>
-                    <div class="divider my-1"></div>
-                    <li><a href="/posts" class:active={currentPath === '/posts'}>자유게시판</a></li>
-                    <div class="divider my-1"></div>
-                    {#if user}
-                        <li class="px-3 py-1 text-xs text-base-content/60">{userLabel}</li>
-                        <li><a href="/mypage/favorites" class:active={currentPath === '/mypage/favorites'}>관심 대회</a></li>
-                        <li><a href="/mypage" class:active={currentPath === '/mypage'}>마이페이지</a></li>
-                        <li>
-                            <form method="POST" action="/auth/logout" class="w-full">
-                                <button type="submit" class="w-full text-left">로그아웃</button>
-                            </form>
-                        </li>
-                    {:else}
-                        <li><a href="/auth/login" class:active={currentPath === '/auth/login'}>로그인</a></li>
-                    {/if}
-                </ul>
-            </div>
-            <!-- Logo -->
-            <a href="/" class="text-xl font-bold cursor-pointer flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                <span><span class="text-primary">Enduro</span><span class="text-base-content">Hub</span></span>
-            </a>
-        </div>
+<nav class="arena-nav">
+    <div class="nav-inner">
+        <a href="/" class="nav-logo">
+            <span class="logo-dot"></span>
+            endurohub
+        </a>
 
-        <!-- Desktop Menu -->
-        <div class="navbar-center hidden lg:flex">
-            <ul class="menu menu-horizontal gap-1 text-base">
-                <li>
-                    <a href="/" class:active={currentPath === '/'}>홈</a>
-                </li>
-                <li>
-                    <a href="/races" class:active={currentPath === '/races'}>전체 대회</a>
-                </li>
-                <li>
-                    <a href={`/races/year/${currentYear}`} class:active={currentPath.startsWith('/races/year/')}>{currentYear}년 대회</a>
-                </li>
-                <li>
-                    <details>
-                        <summary>종목별</summary>
-                        <ul class="p-2 bg-base-100 rounded-lg w-40 border border-base-200">
-                            <li><a href="/running" class="flex items-center gap-2">
-                                <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>마라톤
-                            </a></li>
-                            <li><a href="/swimming" class="flex items-center gap-2">
-                                <span class="w-1.5 h-1.5 rounded-full bg-info"></span>수영
-                            </a></li>
-                            <li><a href="/cycling" class="flex items-center gap-2">
-                                <span class="w-1.5 h-1.5 rounded-full bg-warning"></span>자전거
-                            </a></li>
-                            <li><a href="/triathlon" class="flex items-center gap-2">
-                                <span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>철인3종
-                            </a></li>
-                            <li><a href="/trail-running" class="flex items-center gap-2">
-                                <span class="w-1.5 h-1.5 rounded-full bg-success"></span>트레일러닝
-                            </a></li>
-                        </ul>
-                    </details>
-                </li>
-                <li>
-                    <a href="/calendar" class:active={currentPath === '/calendar'}>캘린더</a>
-                </li>
-                <li>
-                    <details>
-                        <summary>도구</summary>
-                        <ul class="p-2 bg-base-100 rounded-lg w-44 border border-base-200">
-                            <li><a href="/tools/pace-calculator" class="flex items-center gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                페이스 계산기
-                            </a></li>
-                            <li><a href="/tools/training-plan" class="flex items-center gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
-                                훈련 플랜
-                            </a></li>
-                            <li><a href="/tools/vo2max" class="flex items-center gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
-                                VO2max
-                            </a></li>
-                            <li><a href="/tools/race-predictor" class="flex items-center gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                                기록 예측
-                            </a></li>
-                            <li><a href="/running-terms" class="flex items-center gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
-                                러닝 용어
-                            </a></li>
-                        </ul>
-                    </details>
-                </li>
-                <li>
-                    <a href="/posts" class:active={currentPath === '/posts'}>자유게시판</a>
-                </li>
-            </ul>
-        </div>
-
-        <!-- CTA -->
-        <div class="navbar-end gap-1">
-            <!-- 테마 토글 -->
-            <button
-                onclick={handleToggleTheme}
-                class="btn btn-ghost btn-sm btn-square cursor-pointer"
-                aria-label={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
-            >
-                {#if theme === 'dark'}
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
-                {:else}
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                    </svg>
-                {/if}
-            </button>
-
-            {#if user}
-                <!-- 관심 대회 바로가기 -->
+        <div class="nav-links desktop">
+            {#each links as l (l.href)}
                 <a
-                    href="/mypage/favorites"
-                    class="btn btn-ghost btn-sm btn-circle cursor-pointer"
-                    class:text-primary={currentPath === '/mypage/favorites'}
-                    aria-label="관심 대회"
-                    title="관심 대회"
+                    href={l.href}
+                    class="nav-link"
+                    class:active={l.match(currentPath)}
                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-7.5-4.35-10-9.5C.5 7 3 3 7 3c2.1 0 3.6 1 5 2.5C13.4 4 14.9 3 17 3c4 0 6.5 4 5 8.5-2.5 5.15-10 9.5-10 9.5z"/>
-                    </svg>
+                    {l.label}
                 </a>
+            {/each}
+        </div>
 
-                <!-- 아바타 드롭다운 -->
-                <div class="dropdown dropdown-end">
-                    <button tabindex="0" class="btn btn-ghost btn-sm btn-circle cursor-pointer" aria-label="계정 메뉴">
-                        {#if user.profileImage}
-                            <img src={user.profileImage} alt={userLabel} class="w-8 h-8 rounded-full object-cover" />
-                        {:else}
-                            <div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
-                                {userLabel.charAt(0).toUpperCase()}
-                            </div>
-                        {/if}
-                    </button>
-                    <ul class="dropdown-content menu menu-sm z-[1] mt-2 w-52 rounded-xl bg-base-100 p-2 shadow-lg border border-base-200">
-                        <li class="px-3 py-2 text-xs text-base-content/50 select-none" title={user.email}>
-                            {userLabel}
-                        </li>
-                        <div class="divider my-0.5"></div>
+        <div class="nav-spacer"></div>
+
+        <button
+            class="theme-toggle"
+            onclick={handleToggleTheme}
+            aria-label={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
+            title="테마 전환"
+        >
+            {#if theme === 'dark'}
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+            {:else}
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+            {/if}
+        </button>
+
+        {#if user}
+            <a
+                href="/mypage/favorites"
+                class="user-icon"
+                class:active={currentPath === '/mypage/favorites'}
+                aria-label="관심 대회"
+                title="관심 대회"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-7.5-4.35-10-9.5C.5 7 3 3 7 3c2.1 0 3.6 1 5 2.5C13.4 4 14.9 3 17 3c4 0 6.5 4 5 8.5-2.5 5.15-10 9.5-10 9.5z" />
+                </svg>
+            </a>
+            <div class="user-dropdown">
+                <button
+                    class="avatar-btn"
+                    onclick={() => (userMenuOpen = !userMenuOpen)}
+                    aria-expanded={userMenuOpen}
+                    aria-label="계정 메뉴"
+                >
+                    {#if user.profileImage}
+                        <img src={user.profileImage} alt={userLabel} />
+                    {:else}
+                        <span class="avatar-fallback">{userLabel.charAt(0).toUpperCase()}</span>
+                    {/if}
+                </button>
+                {#if userMenuOpen}
+                    <ul class="user-menu">
+                        <li class="user-menu-label" title={user.email}>{userLabel}</li>
+                        <li><a href="/mypage" onclick={() => (userMenuOpen = false)}>마이페이지</a></li>
+                        <li><a href="/mypage/favorites" onclick={() => (userMenuOpen = false)}>관심 대회</a></li>
                         <li>
-                            <a href="/mypage" class:active={currentPath === '/mypage'}>
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                </svg>
-                                마이페이지
-                            </a>
-                        </li>
-                        <li>
-                            <form method="POST" action="/auth/logout" class="w-full">
-                                <button type="submit" class="w-full flex items-center gap-2 text-left">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                    </svg>
-                                    로그아웃
-                                </button>
+                            <form method="POST" action="/auth/logout">
+                                <button type="submit">로그아웃</button>
                             </form>
                         </li>
                     </ul>
+                {/if}
+            </div>
+        {:else}
+            <a href="/auth/login" class="arena-btn arena-btn-ghost login-btn">로그인</a>
+        {/if}
+
+        <button
+            class="hamburger"
+            onclick={() => (mobileMenuOpen = !mobileMenuOpen)}
+            aria-label="메뉴 열기"
+            aria-expanded={mobileMenuOpen}
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                {#if mobileMenuOpen}
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                {:else}
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                {/if}
+            </svg>
+        </button>
+    </div>
+
+    {#if mobileMenuOpen}
+        <div class="mobile-panel">
+            <div class="mobile-section">
+                {#each links as l (l.href)}
+                    <a href={l.href} class="mobile-link" class:active={l.match(currentPath)}>{l.label}</a>
+                {/each}
+                <a href={`/races/year/${currentYear}`} class="mobile-link">{currentYear}년 대회</a>
+            </div>
+            <div class="mobile-section">
+                <div class="arena-kicker mobile-kicker">By Sport</div>
+                {#each sportLinks as s (s.href)}
+                    <a href={s.href} class="mobile-link mobile-link-row">
+                        <span>{s.label}</span>
+                        <span class="mono-mini">{s.code}</span>
+                    </a>
+                {/each}
+            </div>
+            <div class="mobile-section">
+                <div class="arena-kicker mobile-kicker">Tools</div>
+                <a href="/tools/pace-calculator" class="mobile-link">페이스 계산기</a>
+                <a href="/tools/training-plan" class="mobile-link">훈련 플랜</a>
+                <a href="/tools/vo2max" class="mobile-link">VO2max</a>
+                <a href="/tools/race-predictor" class="mobile-link">기록 예측</a>
+                <a href="/running-terms" class="mobile-link">러닝 용어</a>
+            </div>
+            {#if user}
+                <div class="mobile-section">
+                    <div class="arena-kicker mobile-kicker">Account · {userLabel}</div>
+                    <a href="/mypage" class="mobile-link">마이페이지</a>
+                    <a href="/mypage/favorites" class="mobile-link">관심 대회</a>
+                    <form method="POST" action="/auth/logout">
+                        <button type="submit" class="mobile-link mobile-logout">로그아웃</button>
+                    </form>
                 </div>
             {:else}
-                <a href="/auth/login" class="btn btn-ghost btn-sm cursor-pointer">로그인</a>
+                <div class="mobile-section">
+                    <a href="/auth/login" class="mobile-link mobile-login">로그인</a>
+                </div>
             {/if}
         </div>
-    </div>
-</header>
+    {/if}
+</nav>
 
-{#if $navigating}
-    <div class="fixed top-16 left-0 right-0 z-50 h-0.5 bg-base-200">
-        <div class="h-full bg-primary animate-progress rounded-r-full"></div>
-    </div>
-{/if}
+<ProgressBar active={!!$navigating} />
 
-<main class="flex-1">
+<main class="arena-main">
     {@render children()}
 </main>
 
-<!-- Footer -->
-<footer class="bg-neutral text-neutral-content">
-    <div class="container mx-auto px-4">
-        <div class="py-10 grid grid-cols-1 md:grid-cols-4 gap-8">
-            <!-- Brand -->
-            <div class="md:col-span-2">
-                <a href="/" class="text-xl font-bold cursor-pointer flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                    <span><span class="text-primary">Enduro</span>Hub</span>
+<footer class="arena-footer">
+    <div class="footer-inner">
+        <div class="footer-top">
+            <div class="footer-brand">
+                <a href="/" class="footer-logo">
+                    <span class="logo-dot"></span>
+                    endurohub
                 </a>
-                <p class="mt-3 text-neutral-content/60 text-sm max-w-md">
-                    국내 마라톤, 수영, 자전거, 철인3종, 트레일러닝 대회 정보를 한곳에서 확인하세요.
-                </p>
+                <p class="footer-desc">국내 마라톤 · 수영 · 자전거 · 철인3종 · 트레일러닝 대회 정보를 한곳에서.</p>
             </div>
-
-            <!-- Quick Links -->
-            <div>
-                <h3 class="font-semibold text-sm mb-3">바로가기</h3>
-                <ul class="space-y-2 text-sm">
-                    <li><a href="/races" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">전체 대회</a></li>
-                    <li><a href="/calendar" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">캘린더</a></li>
-                    <li><a href="/running" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">마라톤</a></li>
-                    <li><a href="/swimming" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">수영</a></li>
-                    <li><a href="/cycling" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">자전거</a></li>
-                    <li><a href="/triathlon" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">철인3종</a></li>
-                    <li><a href="/trail-running" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">트레일러닝</a></li>
-                    <li><a href="/tools/pace-calculator" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">페이스 계산기</a></li>
-                    <li><a href="/tools/training-plan" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">훈련 플랜</a></li>
-                    <li><a href="/tools/vo2max" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">VO2max</a></li>
-                    <li><a href="/tools/race-predictor" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">기록 예측</a></li>
-                    <li><a href="/running-terms" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">러닝 용어</a></li>
-                </ul>
-            </div>
-
-            <!-- Support -->
-            <div>
-                <h3 class="font-semibold text-sm mb-3">지원</h3>
-                <ul class="space-y-2 text-sm">
-                    <li><a href="/about" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">서비스 소개</a></li>
-                    <li><a href="/privacy" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">개인정보처리방침</a></li>
-                    <li><a href="mailto:contact@endurohub.kr" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer">문의하기</a></li>
+            <div class="footer-cols">
+                <div class="footer-col">
+                    <div class="arena-kicker footer-kicker">Race</div>
+                    <a href="/races?reset=1">전체 대회</a>
+                    <a href={`/races/year/${currentYear}`}>{currentYear}년 대회</a>
+                    <a href="/calendar">캘린더</a>
+                </div>
+                <div class="footer-col">
+                    <div class="arena-kicker footer-kicker">Sport</div>
+                    <a href="/running">마라톤</a>
+                    <a href="/swimming">수영</a>
+                    <a href="/cycling">자전거</a>
+                    <a href="/triathlon">철인3종</a>
+                    <a href="/trail-running">트레일러닝</a>
+                </div>
+                <div class="footer-col">
+                    <div class="arena-kicker footer-kicker">Tools</div>
+                    <a href="/tools/pace-calculator">페이스 계산기</a>
+                    <a href="/tools/training-plan">훈련 플랜</a>
+                    <a href="/tools/vo2max">VO2max</a>
+                    <a href="/tools/race-predictor">기록 예측</a>
+                    <a href="/running-terms">러닝 용어</a>
+                </div>
+                <div class="footer-col">
+                    <div class="arena-kicker footer-kicker">Support</div>
+                    <a href="/about">서비스 소개</a>
+                    <a href="/privacy">개인정보처리방침</a>
+                    <a href="mailto:contact@endurohub.kr">문의하기</a>
                     {#if feedbackFormUrl}
-                    <li>
-                        <a href={feedbackFormUrl} target="_blank" rel="noopener" class="text-neutral-content/60 hover:text-neutral-content cursor-pointer inline-flex items-center gap-1">
-                            피드백 보내기
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                            </svg>
-                        </a>
-                    </li>
+                        <a href={feedbackFormUrl} target="_blank" rel="noopener">피드백 보내기 ↗</a>
                     {/if}
-                </ul>
+                </div>
             </div>
         </div>
-
-        <!-- Bottom Bar -->
-        <div class="py-4 border-t border-neutral-content/10 flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-neutral-content/40">
-            <p>&copy; {currentYear} EnduroHub</p>
-            <div class="flex items-center gap-4">
-                <a href="/privacy" class="hover:text-neutral-content cursor-pointer">개인정보처리방침</a>
-                <a href="/about" class="hover:text-neutral-content cursor-pointer">이용약관</a>
-            </div>
+        <div class="footer-bottom">
+            <span>© {currentYear} endurohub · 지구력 스포츠 대회 플랫폼</span>
+            <span class="footer-meta">KR · {currentYear}</span>
         </div>
     </div>
 </footer>
+
+<style>
+    /* ── Nav ─────────────────────────── */
+    .arena-nav {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        background: var(--arena-paper);
+        border-bottom: 1px solid var(--arena-line);
+    }
+    .nav-inner {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 14px 24px;
+        display: flex;
+        align-items: center;
+        gap: 24px;
+    }
+    @media (min-width: 1024px) {
+        .nav-inner {
+            padding: 14px 32px;
+            gap: 32px;
+        }
+    }
+    .nav-logo {
+        font-family: var(--arena-f-display);
+        font-weight: 700;
+        font-size: 18px;
+        letter-spacing: -0.5px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--arena-ink);
+        text-decoration: none;
+    }
+    .logo-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        background: var(--arena-accent);
+    }
+    .nav-links {
+        display: flex;
+        gap: 4px;
+    }
+    .nav-link {
+        padding: 6px 12px;
+        font-size: 13px;
+        font-weight: 500;
+        font-family: var(--arena-f-body);
+        color: var(--arena-ink-soft);
+        white-space: nowrap;
+        text-decoration: none;
+    }
+    .nav-link:hover {
+        color: var(--arena-ink);
+        background: var(--arena-paper-alt);
+    }
+    .nav-link.active {
+        color: var(--arena-ink);
+        background: var(--arena-paper-alt);
+        box-shadow: inset 0 -2px 0 var(--arena-ink);
+    }
+    .nav-spacer {
+        flex: 1;
+    }
+    .theme-toggle,
+    .user-icon,
+    .avatar-btn,
+    .hamburger {
+        background: transparent;
+        border: 1px solid transparent;
+        padding: 6px;
+        cursor: pointer;
+        color: var(--arena-ink-soft);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+    }
+    .theme-toggle:hover,
+    .user-icon:hover {
+        color: var(--arena-ink);
+        background: var(--arena-paper-alt);
+    }
+    .user-icon.active {
+        color: var(--arena-urgent);
+    }
+    .avatar-btn {
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        overflow: hidden;
+    }
+    .avatar-btn img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .avatar-fallback {
+        width: 32px;
+        height: 32px;
+        display: grid;
+        place-items: center;
+        background: var(--arena-paper-alt);
+        color: var(--arena-ink);
+        font-family: var(--arena-f-display);
+        font-weight: 700;
+        font-size: 13px;
+        border: 1px solid var(--arena-line);
+    }
+    .user-dropdown {
+        position: relative;
+    }
+    .user-menu {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        margin: 0;
+        padding: 6px 0;
+        list-style: none;
+        background: var(--arena-paper);
+        border: 1px solid var(--arena-line);
+        min-width: 200px;
+        z-index: 100;
+        box-shadow: 4px 4px 0 var(--arena-ink);
+    }
+    .user-menu li {
+        padding: 0;
+    }
+    .user-menu-label {
+        padding: 8px 14px;
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        letter-spacing: 1.5px;
+        color: var(--arena-ink-soft);
+        text-transform: uppercase;
+        border-bottom: 1px solid var(--arena-line-soft);
+    }
+    .user-menu a,
+    .user-menu button {
+        display: block;
+        width: 100%;
+        padding: 10px 14px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        text-align: left;
+        font-family: var(--arena-f-body);
+        font-size: 13px;
+        color: var(--arena-ink);
+        text-decoration: none;
+    }
+    .user-menu a:hover,
+    .user-menu button:hover {
+        background: var(--arena-paper-alt);
+    }
+    .login-btn {
+        font-size: 12px !important;
+        padding: 6px 12px !important;
+    }
+    .hamburger {
+        display: none;
+    }
+    .desktop {
+        display: none;
+    }
+    @media (min-width: 1024px) {
+        .desktop {
+            display: inline-flex;
+        }
+        .nav-links.desktop {
+            display: flex;
+        }
+    }
+    @media (max-width: 1023px) {
+        .hamburger {
+            display: inline-flex;
+        }
+        .login-btn {
+            display: none;
+        }
+    }
+
+    .mobile-panel {
+        border-top: 1px solid var(--arena-line);
+        background: var(--arena-paper);
+        padding: 12px 24px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .mobile-section {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--arena-line-soft);
+    }
+    .mobile-section:last-child {
+        border-bottom: none;
+    }
+    .mobile-kicker {
+        margin-bottom: 4px;
+    }
+    .mobile-link {
+        padding: 8px 0;
+        font-size: 14px;
+        font-family: var(--arena-f-body);
+        color: var(--arena-ink);
+        text-decoration: none;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        text-align: left;
+        width: 100%;
+    }
+    .mobile-link:hover {
+        color: var(--arena-accent-deep);
+    }
+    .mobile-link.active {
+        color: var(--arena-accent-deep);
+        font-weight: 600;
+    }
+    .mobile-link-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .mono-mini {
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        color: var(--arena-ink-soft);
+        letter-spacing: 1.5px;
+    }
+    .mobile-login,
+    .mobile-logout {
+        font-weight: 600;
+        color: var(--arena-accent-deep);
+    }
+
+    /* ── Main ─────────────────────────── */
+    :global(.arena-main) {
+        flex: 1;
+    }
+
+    /* ── Footer ─────────────────────────── */
+    .arena-footer {
+        margin-top: 60px;
+        border-top: 1px solid var(--arena-line);
+        background: var(--arena-paper);
+    }
+    .footer-inner {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 40px 32px 24px;
+    }
+    .footer-top {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 32px;
+    }
+    @media (min-width: 768px) {
+        .footer-top {
+            grid-template-columns: 280px 1fr;
+        }
+    }
+    .footer-brand {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .footer-logo {
+        font-family: var(--arena-f-display);
+        font-weight: 700;
+        font-size: 18px;
+        letter-spacing: -0.5px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--arena-ink);
+        text-decoration: none;
+    }
+    .footer-desc {
+        font-size: 12px;
+        color: var(--arena-ink-soft);
+        line-height: 1.6;
+        margin: 0;
+        text-wrap: balance;
+    }
+    .footer-cols {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 24px;
+    }
+    @media (min-width: 768px) {
+        .footer-cols {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+    .footer-col {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .footer-kicker {
+        margin-bottom: 4px;
+    }
+    .footer-col a {
+        font-family: var(--arena-f-body);
+        font-size: 12px;
+        color: var(--arena-ink-soft);
+        text-decoration: none;
+    }
+    .footer-col a:hover {
+        color: var(--arena-ink);
+    }
+    .footer-bottom {
+        margin-top: 40px;
+        padding-top: 16px;
+        border-top: 1px solid var(--arena-line-soft);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        letter-spacing: 1.2px;
+        color: var(--arena-ink-soft);
+        text-transform: uppercase;
+    }
+    .footer-meta {
+        opacity: 0.6;
+    }
+</style>

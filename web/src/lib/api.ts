@@ -81,7 +81,17 @@ export async function apiFetch<T>(
 		}
 	}
 
-	const response = await fetch(url, fetchOptions);
+	console.log(`[apiFetch] ${options.method || 'GET'} ${url}`);
+	let response: Response;
+	try {
+		response = await fetch(url, fetchOptions);
+	} catch (err) {
+		console.error(`[apiFetch] FETCH ERROR for ${url}:`, err);
+		if (err instanceof Error && 'cause' in err) {
+			console.error(`[apiFetch] cause:`, (err as { cause: unknown }).cause);
+		}
+		throw err;
+	}
 
 	if (!response.ok) {
 		if (response.status === 404) {
@@ -93,6 +103,7 @@ export async function apiFetch<T>(
 			const errorBody = await response.json();
 			return errorBody as T;
 		} catch {
+			console.error(`[apiFetch] HTTP ${response.status} for ${url}`);
 			error(response.status, { message: `API error: ${response.status}` });
 		}
 	}
