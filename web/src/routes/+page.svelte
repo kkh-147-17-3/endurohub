@@ -19,7 +19,7 @@
     const recentlyAddedCount = $derived(recentlyAdded.length);
 
     const upcomingTop8 = $derived(upcomingRaces.slice(0, 8));
-    const recommendedPicks = $derived((recommendations?.races ?? []).slice(0, 3));
+    const recommendedPicks = $derived((recommendations?.races ?? []).slice(0, 6));
 
     const sportRows = $derived([
         { key: 'running', label: sportLabels.running, count: sportCounts.running ?? 0, sub: '풀·하프·10K', href: '/running' },
@@ -142,7 +142,6 @@
                         <span class="sec-suffix mono">{recommendations?.type === 'personalized' ? '관심사 기반' : '이번 달'}</span>
                     </h2>
                 </div>
-                <a href="/races?reset=1" class="sec-link">더보기 →</a>
             </div>
             <div class="grid-3">
                 {#each recommendedPicks as race (race.id)}
@@ -184,12 +183,11 @@
                     <div class="sec-index">04</div>
                     <h2>방금 추가된 대회</h2>
                 </div>
-                <a href="/races?reset=1" class="sec-link">전체 →</a>
             </div>
             <div class="grid-4">
-                {#each recentlyAdded.slice(0, 4) as race (race.id)}
+                {#each recentlyAdded.slice(0, 8) as race (race.id)}
                     <div class="new-wrap">
-                        <div class="new-tag">신규</div>
+                        <div class="new-tag">NEW</div>
                         <RaceCard {race} />
                     </div>
                 {/each}

@@ -11,9 +11,9 @@ export const arenaSportCode: Record<Sport, string> = {
 export const arenaSportShort: Record<Sport, string> = {
     running: '러닝',
     swimming: '수영',
-    cycling: '자전거',
-    triathlon: '철인',
-    trail_running: '트레일',
+    cycling: '사이클',
+    triathlon: '철인3종',
+    trail_running: '트레일러닝',
 };
 
 const M = (n: number) => Math.round(n * 10) / 10;

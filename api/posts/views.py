@@ -272,9 +272,11 @@ class PostDetailUpdateDeleteView(APIView):
         ip_hash = hash_ip(request)
         has_liked = PostLike.objects.filter(post=post, ip_hash=ip_hash).exists()
 
-        # Previous and next posts
-        prev_post = Post.objects.filter(created_at__lt=post.created_at).order_by('-created_at').first()
-        next_post = Post.objects.filter(created_at__gt=post.created_at).order_by('created_at').first()
+        # Previous / next posts follow the post list ordering (-created_at):
+        # "이전 글" = the row above in the list (newer post),
+        # "다음 글" = the row below in the list (older post).
+        prev_post = Post.objects.filter(created_at__gt=post.created_at).order_by('created_at').first()
+        next_post = Post.objects.filter(created_at__lt=post.created_at).order_by('-created_at').first()
 
         # Sidebar data
         from datetime import timedelta

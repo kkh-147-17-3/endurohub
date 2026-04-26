@@ -46,7 +46,7 @@
 >
     <div class="strip" class:urgent={dday.urgent}>
         <span class="dday">{ddayLabel}</span>
-        <span class="sport">{sportKr}</span>
+        <span class="sport sport-{race.sport}">{sportKr}</span>
     </div>
     <div class="body">
         <div class="title">{race.title}</div>
@@ -87,13 +87,19 @@
         letter-spacing: 0.5px;
     }
     .sport {
-        opacity: 0.7;
         font-family: var(--arena-f-body);
         font-size: 11px;
         font-weight: 600;
         letter-spacing: 0;
     }
+    /* Sport-specific tinting — same palette as RaceRow */
+    .sport-running       { color: oklch(48% 0.18 280); }   /* violet */
+    .sport-swimming      { color: oklch(50% 0.14 220); }   /* cyan-blue */
+    .sport-cycling       { color: oklch(55% 0.16 60); }    /* amber */
+    .sport-triathlon     { color: oklch(48% 0.18 320); }   /* magenta */
+    .sport-trail_running { color: oklch(42% 0.14 145); }   /* deep green */
     .strip.urgent .sport {
+        color: var(--arena-paper);
         opacity: 0.9;
     }
     .body {

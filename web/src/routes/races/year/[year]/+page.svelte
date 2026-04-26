@@ -22,10 +22,10 @@
 
     const sports: { key: Sport; label: string }[] = [
         { key: 'running', label: '러닝' },
-        { key: 'trail_running', label: '트레일' },
-        { key: 'cycling', label: '자전거' },
+        { key: 'trail_running', label: '트레일러닝' },
+        { key: 'cycling', label: '사이클' },
         { key: 'swimming', label: '수영' },
-        { key: 'triathlon', label: '철인' },
+        { key: 'triathlon', label: '철인3종' },
     ];
 
     const STORAGE_KEY = 'yearly-filter';
