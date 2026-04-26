@@ -1,6 +1,5 @@
 <script lang="ts">
     import { enhance } from '$app/forms';
-    import StarRating from './StarRating.svelte';
 
     interface Props {
         raceSlug: string;
@@ -12,7 +11,15 @@
         errors?: Record<string, string[]>;
     }
 
-    let { raceSlug, hasReviewed, raceDate, raceEndDate, open = $bindable(false), onclose, errors = {} }: Props = $props();
+    let {
+        raceSlug,
+        hasReviewed,
+        raceDate,
+        raceEndDate,
+        open = $bindable(false),
+        onclose,
+        errors = {},
+    }: Props = $props();
 
     const isFinished = $derived.by(() => {
         const endDate = raceEndDate || raceDate;
@@ -21,13 +28,14 @@
         today.setHours(0, 0, 0, 0);
         return new Date(endDate + 'T00:00:00') <= today;
     });
-    const canReview = $derived(isFinished && !hasReviewed);
 
     let rating = $state(0);
+    let hoverRating = $state(0);
     let comment = $state('');
     let completionTime = $state('');
     let courseDifficulty = $state('');
     let operationSatisfaction = $state(0);
+    let operationHover = $state(0);
     let selectedTags = $state<string[]>([]);
     let isSubmitting = $state(false);
     let showOptional = $state(false);
@@ -47,12 +55,16 @@
         '코스 좋은', '접근성 좋은', '다시 참가하고 싶은',
     ];
 
+    const DIFFICULTY_OPTIONS: Array<[string, string]> = [
+        ['easy', '쉬움'],
+        ['normal', '보통'],
+        ['hard', '어려움'],
+    ];
+
     function toggleTag(tag: string) {
-        if (selectedTags.includes(tag)) {
-            selectedTags = selectedTags.filter(t => t !== tag);
-        } else {
-            selectedTags = [...selectedTags, tag];
-        }
+        selectedTags = selectedTags.includes(tag)
+            ? selectedTags.filter(t => t !== tag)
+            : [...selectedTags, tag];
     }
 
     function close() {
@@ -66,53 +78,52 @@
 
     function resetForm() {
         rating = 0;
+        hoverRating = 0;
         comment = '';
         completionTime = '';
         courseDifficulty = '';
         operationSatisfaction = 0;
+        operationHover = 0;
         selectedTags = [];
         showOptional = false;
     }
+
+    const optionalFilled = $derived(
+        !!completionTime
+        || !!courseDifficulty
+        || operationSatisfaction > 0
+        || selectedTags.length > 0,
+    );
 </script>
 
 {#if open}
     <div
-        class="modal modal-open modal-bottom sm:modal-middle"
+        class="rv-modal"
         role="dialog"
         aria-modal="true"
         aria-label="리뷰 작성"
+        onclick={(e) => { if (e.target === e.currentTarget) close(); }}
         onkeydown={handleKeydown}
+        tabindex="-1"
     >
-        <div class="modal-box sm:max-w-lg p-0 flex flex-col max-h-[90vh] sm:max-h-[85vh]">
-            <!-- Header -->
-            <div class="flex items-center justify-between px-5 py-4 border-b border-base-200 shrink-0">
-                <h3 class="font-bold text-lg">리뷰 작성</h3>
-                <button onclick={close} class="btn btn-sm btn-circle btn-ghost" aria-label="닫기">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
+        <div class="rv-box">
+            <div class="rv-head">
+                <span class="rv-kicker">리뷰 작성</span>
+                <button class="rv-close" onclick={close} aria-label="닫기">✕</button>
             </div>
 
-            <!-- Body -->
-            <div class="overflow-y-auto flex-1 overscroll-contain">
+            <div class="rv-body">
                 {#if !isFinished}
-                    <div class="p-5">
-                        <div class="flex flex-col items-center py-8 text-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-warning mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                            </svg>
-                            <p class="font-medium text-base-content/80">대회 종료 후 리뷰를 작성할 수 있습니다.</p>
-                            <p class="text-sm text-base-content/50 mt-1">대회가 끝나면 다시 방문해주세요!</p>
-                        </div>
+                    <div class="rv-state">
+                        <div class="rv-state-tag">작성 불가</div>
+                        <h3>대회가 끝난 뒤에 리뷰를 작성할 수 있어요.</h3>
+                        <p>대회가 종료되면 다시 방문해주세요.</p>
                     </div>
                 {:else if hasReviewed}
-                    <div class="p-5">
-                        <div class="flex flex-col items-center py-8 text-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-success mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <p class="font-medium text-base-content/80">이미 이 대회에 리뷰를 작성하셨습니다.</p>
-                            <p class="text-sm text-base-content/50 mt-1">소중한 후기 감사합니다!</p>
-                        </div>
+                    <div class="rv-state">
+                        <div class="rv-state-tag accent">작성 완료</div>
+                        <h3>이미 이 대회의 리뷰를 작성하셨어요.</h3>
+                        <p>소중한 후기 감사합니다.</p>
                     </div>
                 {:else}
                     <form
@@ -129,83 +140,91 @@
                                 await update();
                             };
                         }}
-                        class="p-5 space-y-5"
+                        class="rv-form"
                     >
-                        <!-- Rating (Required) -->
-                        <div class="form-control">
-                            <div class="label pb-1">
-                                <span class="label-text font-medium">별점 <span class="text-error">*</span></span>
+                        <!-- Rating -->
+                        <div class="rv-field">
+                            <div class="rv-label">
+                                <span class="rv-flabel">별점</span>
+                                <span class="rv-required">*</span>
                             </div>
-                            <div class="flex items-center gap-3">
-                                <StarRating bind:rating onchange={(value) => rating = value} size="lg" />
-                                {#if rating > 0}
-                                    <span class="text-sm font-medium text-warning">{RATING_LABELS[rating]}</span>
+                            <div class="rv-stars-input" role="radiogroup" aria-label="별점">
+                                {#each [1, 2, 3, 4, 5] as star}
+                                    <button
+                                        type="button"
+                                        class="rv-star {(hoverRating || rating) >= star ? 'on' : ''}"
+                                        onclick={() => (rating = star)}
+                                        onmouseenter={() => (hoverRating = star)}
+                                        onmouseleave={() => (hoverRating = 0)}
+                                        aria-label="{star}점"
+                                    >★</button>
+                                {/each}
+                                {#if (hoverRating || rating) > 0}
+                                    <span class="rv-rating-label">{RATING_LABELS[hoverRating || rating]}</span>
                                 {/if}
                             </div>
                             <input type="hidden" name="rating" value={rating} />
                             {#if errors.rating}
-                                <p class="text-error text-sm mt-1" role="alert">{errors.rating[0]}</p>
+                                <p class="rv-error" role="alert">{errors.rating[0]}</p>
                             {/if}
                         </div>
 
-                        <!-- Comment (Required) -->
-                        <div class="form-control">
-                            <label class="label pb-1" for="review-comment">
-                                <span class="label-text font-medium">한줄평 <span class="text-error">*</span></span>
-                                <span class="label-text-alt {commentLength > 180 ? 'text-warning' : commentLength >= 5 ? 'text-success' : ''}">{commentLength}/200</span>
-                            </label>
+                        <!-- Comment -->
+                        <div class="rv-field">
+                            <div class="rv-label">
+                                <span class="rv-flabel">한줄평</span>
+                                <span class="rv-required">*</span>
+                                <span class="rv-counter {commentLength > 180 ? 'warn' : ''}">{commentLength}/200</span>
+                            </div>
                             <textarea
                                 id="review-comment"
                                 name="comment"
                                 bind:value={comment}
-                                placeholder="대회에 대한 솔직한 후기를 남겨주세요 (5-200자)"
+                                placeholder="대회에 대한 솔직한 후기를 남겨주세요 (5–200자)"
                                 maxlength="200"
                                 rows="3"
-                                class="textarea textarea-bordered w-full focus:textarea-primary"
+                                class="rv-input"
                             ></textarea>
                             {#if errors.comment}
-                                <p class="text-error text-sm mt-1" role="alert">{errors.comment[0]}</p>
+                                <p class="rv-error" role="alert">{errors.comment[0]}</p>
                             {/if}
                         </div>
 
                         <!-- Nickname -->
-                        <div class="form-control">
-                            <label class="label pb-1" for="review-nickname">
-                                <span class="label-text font-medium">닉네임</span>
-                                <span class="label-text-alt">미입력 시 익명</span>
-                            </label>
+                        <div class="rv-field">
+                            <div class="rv-label">
+                                <span class="rv-flabel">닉네임</span>
+                                <span class="rv-hint">미입력 시 익명</span>
+                            </div>
                             <input
                                 type="text"
                                 id="review-nickname"
                                 name="nickname"
                                 placeholder="닉네임을 입력하세요"
                                 maxlength="50"
-                                class="input input-bordered w-full focus:input-primary"
+                                class="rv-input"
                             />
                         </div>
 
-                        <!-- Optional Fields Toggle -->
+                        <!-- Optional toggle -->
                         <button
                             type="button"
-                            class="flex items-center gap-2 text-sm text-base-content/60 hover:text-base-content transition-colors w-full cursor-pointer"
-                            onclick={() => showOptional = !showOptional}
+                            class="rv-toggle"
+                            onclick={() => (showOptional = !showOptional)}
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transition-transform duration-200 {showOptional ? 'rotate-90' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                            </svg>
-                            추가 정보 입력 (선택)
-                            {#if completionTime || courseDifficulty || operationSatisfaction > 0 || selectedTags.length > 0}
-                                <span class="badge badge-primary badge-sm text-xs">입력됨</span>
+                            <span class="rv-toggle-arrow {showOptional ? 'open' : ''}">▸</span>
+                            <span>추가 정보 입력 (선택)</span>
+                            {#if optionalFilled}
+                                <span class="rv-toggle-badge">입력됨</span>
                             {/if}
                         </button>
 
                         {#if showOptional}
-                            <div class="space-y-4 pl-1 border-l-2 border-base-200 ml-1.5 transition-all">
-                                <!-- Completion Time -->
-                                <div class="form-control pl-4">
-                                    <label class="label pb-1" for="review-completion-time">
-                                        <span class="label-text text-sm">완주 기록</span>
-                                    </label>
+                            <div class="rv-optional">
+                                <div class="rv-field">
+                                    <div class="rv-label">
+                                        <span class="rv-flabel">완주 기록</span>
+                                    </div>
                                     <input
                                         type="text"
                                         id="review-completion-time"
@@ -213,46 +232,60 @@
                                         bind:value={completionTime}
                                         placeholder="예: 4:30:00"
                                         maxlength="20"
-                                        class="input input-bordered input-sm w-full focus:input-primary"
+                                        class="rv-input rv-input-mono"
                                     />
                                 </div>
 
-                                <!-- Course Difficulty -->
-                                <div class="form-control pl-4">
-                                    <div class="label pb-1">
-                                        <span class="label-text text-sm">코스 난이도</span>
+                                <div class="rv-field">
+                                    <div class="rv-label">
+                                        <span class="rv-flabel">코스 난이도</span>
                                     </div>
-                                    <div class="flex gap-2">
-                                        <button type="button" class="btn btn-sm flex-1 {courseDifficulty === 'easy' ? 'btn-success' : 'btn-outline'}" onclick={() => courseDifficulty = courseDifficulty === 'easy' ? '' : 'easy'}>쉬움</button>
-                                        <button type="button" class="btn btn-sm flex-1 {courseDifficulty === 'normal' ? 'btn-warning' : 'btn-outline'}" onclick={() => courseDifficulty = courseDifficulty === 'normal' ? '' : 'normal'}>보통</button>
-                                        <button type="button" class="btn btn-sm flex-1 {courseDifficulty === 'hard' ? 'btn-error' : 'btn-outline'}" onclick={() => courseDifficulty = courseDifficulty === 'hard' ? '' : 'hard'}>어려움</button>
+                                    <div class="rv-diff">
+                                        {#each DIFFICULTY_OPTIONS as [val, label]}
+                                            <button
+                                                type="button"
+                                                class="rv-diff-btn {courseDifficulty === val ? 'on' : ''}"
+                                                onclick={() => (courseDifficulty = courseDifficulty === val ? '' : val)}
+                                            >
+                                                {label}
+                                            </button>
+                                        {/each}
                                     </div>
                                     <input type="hidden" name="course_difficulty" value={courseDifficulty} />
                                 </div>
 
-                                <!-- Operation Satisfaction -->
-                                <div class="form-control pl-4">
-                                    <div class="label pb-1">
-                                        <span class="label-text text-sm">운영 만족도</span>
+                                <div class="rv-field">
+                                    <div class="rv-label">
+                                        <span class="rv-flabel">운영 만족도</span>
                                     </div>
-                                    <StarRating bind:rating={operationSatisfaction} onchange={(value) => operationSatisfaction = value} size="md" />
+                                    <div class="rv-stars-input" role="radiogroup" aria-label="운영 만족도">
+                                        {#each [1, 2, 3, 4, 5] as star}
+                                            <button
+                                                type="button"
+                                                class="rv-star sm {(operationHover || operationSatisfaction) >= star ? 'on' : ''}"
+                                                onclick={() => (operationSatisfaction = star)}
+                                                onmouseenter={() => (operationHover = star)}
+                                                onmouseleave={() => (operationHover = 0)}
+                                                aria-label="{star}점"
+                                            >★</button>
+                                        {/each}
+                                    </div>
                                     <input type="hidden" name="operation_satisfaction" value={operationSatisfaction || ''} />
                                 </div>
 
-                                <!-- Recommendation Tags -->
-                                <div class="form-control pl-4">
-                                    <div class="label pb-1">
-                                        <span class="label-text text-sm">추천 태그</span>
+                                <div class="rv-field">
+                                    <div class="rv-label">
+                                        <span class="rv-flabel">추천 태그</span>
                                     </div>
-                                    <div class="flex flex-wrap gap-2">
+                                    <div class="rv-tags">
                                         {#each RECOMMENDATION_TAGS as tag}
                                             <button
                                                 type="button"
-                                                class="badge badge-lg cursor-pointer transition-all {selectedTags.includes(tag) ? 'badge-primary' : 'badge-outline hover:badge-ghost'}"
+                                                class="rv-tag {selectedTags.includes(tag) ? 'on' : ''}"
                                                 onclick={() => toggleTag(tag)}
                                             >
                                                 {#if selectedTags.includes(tag)}
-                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                                                    <span class="rv-tag-check">✓</span>
                                                 {/if}
                                                 {tag}
                                             </button>
@@ -266,31 +299,21 @@
                         {/if}
 
                         {#if errors.review}
-                            <div class="alert alert-error" role="alert">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-5 w-5" fill="none" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <span class="text-sm">{errors.review[0]}</span>
-                            </div>
+                            <div class="rv-alert" role="alert">! {errors.review[0]}</div>
                         {/if}
 
-                        <!-- Footer / Submit -->
-                        <div class="pt-2 pb-1">
+                        <div class="rv-submit">
                             <button
                                 type="submit"
                                 disabled={isSubmitting || rating === 0 || commentLength < 5}
-                                class="btn btn-primary w-full"
+                                class="rv-btn-primary"
                             >
-                                {#if isSubmitting}
-                                    <span class="loading loading-spinner loading-sm"></span>
-                                    등록 중...
-                                {:else}
-                                    리뷰 등록
-                                {/if}
+                                <span>{isSubmitting ? '등록 중…' : '리뷰 등록'}</span>
+                                <span class="rv-arrow">→</span>
                             </button>
                             {#if rating === 0 || commentLength < 5}
-                                <p class="text-center text-xs text-base-content/50 mt-2">
-                                    {#if rating === 0}별점을 선택해주세요{:else}한줄평을 5자 이상 입력해주세요{/if}
+                                <p class="rv-hint-center">
+                                    {rating === 0 ? '별점을 선택해주세요' : '한줄평을 5자 이상 입력해주세요'}
                                 </p>
                             {/if}
                         </div>
@@ -298,6 +321,384 @@
                 {/if}
             </div>
         </div>
-        <button class="modal-backdrop bg-black/50" onclick={close} aria-label="닫기"></button>
     </div>
 {/if}
+
+<style>
+    .rv-modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.85);
+        z-index: 200;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        cursor: pointer;
+    }
+
+    .rv-box {
+        background: var(--arena-paper);
+        border: 1px solid var(--arena-ink);
+        box-shadow: 6px 6px 0 var(--arena-ink);
+        max-width: 540px;
+        width: 100%;
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+        cursor: default;
+    }
+
+    .rv-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--arena-line);
+        background: var(--arena-paper-alt);
+        flex-shrink: 0;
+    }
+
+    .rv-kicker {
+        font-family: var(--arena-f-mono);
+        font-size: 12px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: var(--arena-ink);
+        font-weight: 600;
+    }
+
+    /* Form field label — readable, not a tiny instrumentation kicker */
+    .rv-flabel {
+        font-family: var(--arena-f-body);
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--arena-ink);
+    }
+
+    .rv-close {
+        background: transparent;
+        border: 1px solid var(--arena-line);
+        padding: 4px 10px;
+        font-size: 14px;
+        cursor: pointer;
+        line-height: 1;
+        color: var(--arena-ink);
+        font-family: var(--arena-f-mono);
+    }
+    .rv-close:hover {
+        background: var(--arena-ink);
+        color: var(--arena-paper);
+    }
+
+    .rv-body {
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        flex: 1;
+    }
+
+    /* States (unavailable / already reviewed) */
+    .rv-state {
+        padding: 48px 28px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+    .rv-state-tag {
+        display: inline-block;
+        padding: 5px 12px;
+        border: 1px solid var(--arena-ink);
+        font-family: var(--arena-f-body);
+        font-weight: 600;
+        font-size: 13px;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+        color: var(--arena-ink);
+    }
+    .rv-state-tag.accent {
+        background: var(--arena-accent);
+        border-color: var(--arena-accent);
+    }
+    .rv-state h3 {
+        font-family: var(--arena-f-display);
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: -0.4px;
+        margin: 0;
+        color: var(--arena-ink);
+        line-height: 1.4;
+    }
+    .rv-state p {
+        font-size: 14px;
+        color: var(--arena-ink-soft);
+        margin: 0;
+    }
+
+    /* Form */
+    .rv-form {
+        padding: 18px 22px 22px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
+    .rv-field {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .rv-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .rv-required {
+        color: var(--arena-urgent);
+        font-size: 14px;
+        font-weight: 700;
+        line-height: 1;
+    }
+    .rv-hint {
+        color: var(--arena-ink-soft);
+        font-family: var(--arena-f-body);
+        font-size: 12px;
+        margin-left: auto;
+    }
+    .rv-counter {
+        margin-left: auto;
+        font-family: var(--arena-f-mono);
+        font-size: 13px;
+        color: var(--arena-ink-soft);
+    }
+    .rv-counter.warn {
+        color: var(--arena-urgent);
+    }
+
+    .rv-input {
+        font-family: var(--arena-f-body);
+        font-size: 14px;
+        padding: 10px 12px;
+        border: 1px solid var(--arena-line);
+        background: var(--arena-paper);
+        color: var(--arena-ink);
+        outline: none;
+        width: 100%;
+        line-height: 1.5;
+        resize: vertical;
+        border-radius: 0;
+    }
+    .rv-input::placeholder {
+        color: var(--arena-ink-mute);
+    }
+    .rv-input:focus {
+        border-color: var(--arena-ink);
+        box-shadow: 2px 2px 0 var(--arena-ink);
+    }
+    .rv-input-mono {
+        font-family: var(--arena-f-mono);
+    }
+
+    /* Star rating input */
+    .rv-stars-input {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+    }
+    .rv-star {
+        background: transparent;
+        border: none;
+        padding: 0 3px;
+        font-size: 32px;
+        line-height: 1;
+        cursor: pointer;
+        color: var(--arena-line-soft);
+        font-family: var(--arena-f-mono);
+        transition: color 0.1s, transform 0.1s;
+    }
+    .rv-star:hover { transform: scale(1.1); }
+    .rv-star.on { color: var(--arena-ink); }
+    .rv-star.sm { font-size: 24px; }
+    .rv-rating-label {
+        margin-left: 12px;
+        font-family: var(--arena-f-body);
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--arena-ink);
+    }
+
+    /* Optional toggle */
+    .rv-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: transparent;
+        border: none;
+        padding: 6px 0;
+        font-family: var(--arena-f-body);
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--arena-ink-soft);
+        cursor: pointer;
+        text-align: left;
+    }
+    .rv-toggle:hover { color: var(--arena-ink); }
+    .rv-toggle-arrow {
+        font-size: 12px;
+        transition: transform 0.15s;
+        display: inline-block;
+    }
+    .rv-toggle-arrow.open { transform: rotate(90deg); }
+    .rv-toggle-badge {
+        margin-left: auto;
+        padding: 3px 8px;
+        background: var(--arena-accent);
+        color: var(--arena-ink);
+        font-family: var(--arena-f-body);
+        font-weight: 600;
+        font-size: 12px;
+    }
+
+    .rv-optional {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding-left: 14px;
+        border-left: 1px solid var(--arena-line);
+    }
+
+    /* Difficulty buttons */
+    .rv-diff {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+    }
+    .rv-diff-btn {
+        font-family: var(--arena-f-body);
+        font-size: 13px;
+        font-weight: 600;
+        padding: 9px 12px;
+        background: var(--arena-paper);
+        color: var(--arena-ink);
+        border: 1px solid var(--arena-line);
+        cursor: pointer;
+        transition: transform 0.1s;
+        border-radius: 0;
+    }
+    .rv-diff-btn:hover { background: var(--arena-paper-alt); }
+    .rv-diff-btn:active { transform: translateY(1px); }
+    .rv-diff-btn.on {
+        background: var(--arena-ink);
+        color: var(--arena-paper);
+        border-color: var(--arena-ink);
+    }
+
+    /* Tags */
+    .rv-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .rv-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 7px 12px;
+        border: 1px solid var(--arena-line);
+        background: var(--arena-paper);
+        color: var(--arena-ink);
+        font-family: var(--arena-f-body);
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        border-radius: 0;
+        transition: transform 0.1s;
+    }
+    .rv-tag:hover { background: var(--arena-paper-alt); }
+    .rv-tag:active { transform: translateY(1px); }
+    .rv-tag.on {
+        background: var(--arena-ink);
+        color: var(--arena-paper);
+        border-color: var(--arena-ink);
+    }
+    .rv-tag-check {
+        font-family: var(--arena-f-mono);
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    /* Errors */
+    .rv-error {
+        font-family: var(--arena-f-body);
+        font-size: 13px;
+        color: var(--arena-urgent);
+        margin: 0;
+    }
+    .rv-alert {
+        padding: 11px 14px;
+        border: 1px solid var(--arena-urgent);
+        color: var(--arena-urgent);
+        font-family: var(--arena-f-body);
+        font-size: 14px;
+        background: var(--arena-paper);
+    }
+
+    /* Submit */
+    .rv-submit {
+        padding-top: 4px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .rv-btn-primary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        width: 100%;
+        padding: 12px 14px;
+        font-family: var(--arena-f-body);
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        text-align: left;
+        transition: transform 0.1s;
+        background: var(--arena-ink);
+        color: var(--arena-paper);
+        border: 1px solid var(--arena-ink);
+        border-radius: 0;
+    }
+    .rv-btn-primary:hover:not(:disabled) {
+        background: var(--arena-accent-deep);
+        border-color: var(--arena-accent-deep);
+    }
+    .rv-btn-primary:active:not(:disabled) {
+        transform: translateY(1px);
+    }
+    .rv-btn-primary:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+    .rv-arrow {
+        font-family: var(--arena-f-mono);
+        font-size: 13px;
+        opacity: 0.7;
+    }
+    .rv-hint-center {
+        text-align: center;
+        font-family: var(--arena-f-body);
+        font-size: 13px;
+        color: var(--arena-ink-soft);
+        margin: 0;
+    }
+
+    @media (max-width: 480px) {
+        .rv-modal { padding: 0; }
+        .rv-box {
+            max-width: 100%;
+            max-height: 100vh;
+            box-shadow: none;
+            border: none;
+        }
+        .rv-form { padding: 16px 16px 18px; }
+    }
+</style>

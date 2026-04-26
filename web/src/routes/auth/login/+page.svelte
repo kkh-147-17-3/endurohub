@@ -61,9 +61,8 @@
         <header class="auth-head">
             <a class="auth-brand" href="/">
                 <span class="brand-mark"></span>
-                <span class="brand-name">EnduroHub</span>
+                <span class="brand-name">endurohub</span>
             </a>
-            <div class="kicker">SIGN IN · OAUTH</div>
             <h1 class="auth-title">로그인</h1>
             <p class="auth-sub">소셜 계정으로 간편 로그인</p>
         </header>

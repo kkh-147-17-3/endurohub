@@ -4,7 +4,6 @@
     import type { Race, Post, RecommendationsResponse } from '$lib/types';
     import { formatDistanceToNow } from '$lib/date';
     import { sportLabels } from '$lib/race';
-    import { arenaSportCode } from '$lib/arena';
 
     let { data } = $props();
 
@@ -23,11 +22,11 @@
     const recommendedPicks = $derived((recommendations?.races ?? []).slice(0, 3));
 
     const sportRows = $derived([
-        { key: 'running', code: arenaSportCode.running, label: sportLabels.running, count: sportCounts.running ?? 0, sub: '풀·하프·10K', href: '/running' },
-        { key: 'swimming', code: arenaSportCode.swimming, label: sportLabels.swimming, count: sportCounts.swimming ?? 0, sub: '오픈워터·마스터즈', href: '/swimming' },
-        { key: 'cycling', code: arenaSportCode.cycling, label: sportLabels.cycling, count: sportCounts.cycling ?? 0, sub: '로드·MTB·그란폰도', href: '/cycling' },
-        { key: 'triathlon', code: arenaSportCode.triathlon, label: sportLabels.triathlon, count: sportCounts.triathlon ?? 0, sub: '스프린트·올림픽·풀', href: '/triathlon' },
-        { key: 'trail_running', code: arenaSportCode.trail_running, label: sportLabels.trail_running, count: (sportCounts as any).trailRunning ?? sportCounts.trail_running ?? 0, sub: '산악·숲길·울트라', href: '/trail-running' },
+        { key: 'running', label: sportLabels.running, count: sportCounts.running ?? 0, sub: '풀·하프·10K', href: '/running' },
+        { key: 'swimming', label: sportLabels.swimming, count: sportCounts.swimming ?? 0, sub: '오픈워터·마스터즈', href: '/swimming' },
+        { key: 'cycling', label: sportLabels.cycling, count: sportCounts.cycling ?? 0, sub: '로드·MTB·그란폰도', href: '/cycling' },
+        { key: 'triathlon', label: sportLabels.triathlon, count: sportCounts.triathlon ?? 0, sub: '스프린트·올림픽·풀', href: '/triathlon' },
+        { key: 'trail_running', label: sportLabels.trail_running, count: (sportCounts as any).trailRunning ?? sportCounts.trail_running ?? 0, sub: '산악·숲길·울트라', href: '/trail-running' },
     ]);
 
     let appUrl = $derived(data.appUrl || 'https://www.endurohub.kr');
@@ -35,7 +34,7 @@
     let websiteSchema = $derived({
         '@context': 'https://schema.org',
         '@type': 'WebSite',
-        name: 'EnduroHub',
+        name: 'endurohub',
         url: appUrl,
         description:
             '국내 마라톤, 수영, 자전거, 철인3종, 트레일러닝 대회 일정과 접수 정보를 한곳에서 확인하세요.',
@@ -117,7 +116,7 @@
         <section class="sec">
             <div class="sec-head">
                 <div>
-                    <div class="sec-index">01 · CLOSING SOON</div>
+                    <div class="sec-index">01</div>
                     <h2>마감 임박 <span class="sec-suffix urgent">7일 이내</span></h2>
                 </div>
                 <a href="/races?status=closing_soon&reset=1" class="sec-link">전체 →</a>
@@ -137,7 +136,7 @@
         <div class="wrap inner-wrap">
             <div class="sec-head">
                 <div>
-                    <div class="sec-index">02 · PICKS FOR YOU</div>
+                    <div class="sec-index">02</div>
                     <h2>
                         {recommendations?.type === 'personalized' ? '맞춤 추천' : '인기 대회'}
                         <span class="sec-suffix mono">{recommendations?.type === 'personalized' ? '관심사 기반' : '이번 달'}</span>
@@ -159,15 +158,14 @@
     <section class="sec">
         <div class="sec-head">
             <div>
-                <div class="sec-index">03 · BY SPORT</div>
+                <div class="sec-index">03</div>
                 <h2>종목별 대회</h2>
             </div>
         </div>
         <div class="sports-strip">
             {#each sportRows as s (s.key)}
                 <a href={s.href} class="sport-tile">
-                    <div class="sport-icon">{s.code.slice(0, 2)}</div>
-                    <div>
+                    <div class="sport-text">
                         <div class="sport-name">{s.label}</div>
                         <div class="sport-sub">{s.sub}</div>
                     </div>
@@ -183,7 +181,7 @@
         <section class="sec">
             <div class="sec-head">
                 <div>
-                    <div class="sec-index">04 · NEW</div>
+                    <div class="sec-index">04</div>
                     <h2>방금 추가된 대회</h2>
                 </div>
                 <a href="/races?reset=1" class="sec-link">전체 →</a>
@@ -191,7 +189,7 @@
             <div class="grid-4">
                 {#each recentlyAdded.slice(0, 4) as race (race.id)}
                     <div class="new-wrap">
-                        <div class="new-tag">NEW</div>
+                        <div class="new-tag">신규</div>
                         <RaceCard {race} />
                     </div>
                 {/each}
@@ -204,7 +202,7 @@
         <section class="sec">
             <div class="sec-head">
                 <div>
-                    <div class="sec-index">05 · UPCOMING</div>
+                    <div class="sec-index">05</div>
                     <h2>다가오는 대회</h2>
                 </div>
                 <a href="/calendar" class="sec-link">캘린더에서 보기 →</a>
@@ -230,7 +228,7 @@
     <section class="sec sec-last">
         <div class="sec-head">
             <div>
-                <div class="sec-index">06 · COMMUNITY</div>
+                <div class="sec-index">06</div>
                 <h2>자유게시판</h2>
             </div>
             <a href="/posts" class="sec-link">전체 글 →</a>
@@ -529,14 +527,43 @@
         }
     }
     @media (max-width: 767px) {
-        .sport-tile:nth-child(2n) {
+        .sports-strip {
+            grid-template-columns: 1fr;
+        }
+        .sport-tile {
+            flex-direction: row;
+            align-items: center;
+            gap: 16px;
+            min-height: auto;
+            padding: 16px 20px;
             border-right: none;
         }
-        .sport-tile:nth-last-child(-n + 2) {
+        .sport-tile:last-child {
             border-bottom: none;
         }
-        .sport-tile:nth-child(5):nth-last-child(1) {
-            grid-column: span 2;
+        .sport-text {
+            flex: 1;
+            min-width: 0;
+        }
+        .sport-name {
+            font-size: 16px;
+        }
+        .sport-sub {
+            font-size: 10px;
+            margin-top: 2px;
+        }
+        .sport-count {
+            font-size: 22px;
+            letter-spacing: -0.5px;
+            margin-top: 0;
+            white-space: nowrap;
+        }
+        .sport-count small {
+            font-size: 10px;
+        }
+        .sport-arrow {
+            position: static;
+            margin-left: 4px;
         }
     }
     .sport-tile:hover {
@@ -544,16 +571,6 @@
     }
     .sport-tile:hover .sport-arrow {
         transform: translateX(4px);
-    }
-    .sport-icon {
-        width: 40px;
-        height: 40px;
-        border: 1.5px solid var(--arena-ink);
-        display: grid;
-        place-items: center;
-        font-family: var(--arena-f-mono);
-        font-weight: 700;
-        font-size: 12px;
     }
     .sport-name {
         font-family: var(--arena-f-display);

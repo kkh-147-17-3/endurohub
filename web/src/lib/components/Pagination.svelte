@@ -53,44 +53,42 @@
 </script>
 
 {#if meta.lastPage > 1}
-    <nav aria-label="페이지 네비게이션" class="flex flex-col items-center gap-4">
+    <nav aria-label="페이지 네비게이션" class="arena-pagination">
         {#if showInfo}
-            <div class="text-sm text-base-content/60">
+            <div class="pag-info">
                 {#if meta.from && meta.to}
-                    총 <span class="font-medium">{meta.total.toLocaleString()}</span>개 중
-                    <span class="font-medium">{meta.from.toLocaleString()}</span> -
-                    <span class="font-medium">{meta.to.toLocaleString()}</span>
+                    총 <strong>{meta.total.toLocaleString()}</strong>개 중
+                    <strong>{meta.from.toLocaleString()}</strong>–<strong>{meta.to.toLocaleString()}</strong>
                 {:else}
-                    총 <span class="font-medium">{meta.total.toLocaleString()}</span>개
+                    총 <strong>{meta.total.toLocaleString()}</strong>개
                 {/if}
             </div>
         {/if}
 
-        <div class="flex items-center gap-1">
+        <div class="pag-controls">
             <button
+                type="button"
                 onclick={() => goToPage(meta.currentPage - 1)}
                 disabled={meta.currentPage <= 1}
-                class="btn btn-sm btn-ghost cursor-pointer"
-                class:btn-disabled={meta.currentPage <= 1}
+                class="pag-btn pag-btn-nav"
                 aria-label="이전 페이지"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" class="pag-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                 </svg>
-                <span class="hidden sm:inline">이전</span>
+                <span>이전</span>
             </button>
 
-            <div class="hidden sm:flex join">
+            <div class="pag-pages">
                 {#each visiblePages() as p}
                     {#if p === 'ellipsis'}
-                        <span class="join-item btn btn-sm btn-ghost btn-disabled" aria-hidden="true">
-                            ...
-                        </span>
+                        <span class="pag-ellipsis" aria-hidden="true">···</span>
                     {:else}
                         <button
+                            type="button"
                             onclick={() => goToPage(p)}
-                            class="join-item btn btn-sm cursor-pointer"
-                            class:btn-active={p === meta.currentPage}
+                            class="pag-btn pag-btn-page"
+                            class:is-active={p === meta.currentPage}
                             aria-label="{p} 페이지"
                             aria-current={p === meta.currentPage ? 'page' : undefined}
                         >
@@ -100,26 +98,133 @@
                 {/each}
             </div>
 
-            <div class="flex sm:hidden items-center gap-2">
-                <span class="text-sm">
-                    <span class="font-medium">{meta.currentPage}</span>
-                    <span class="text-base-content/50"> / </span>
-                    <span class="text-base-content/70">{meta.lastPage}</span>
-                </span>
+            <div class="pag-mobile">
+                <strong>{meta.currentPage}</strong>
+                <span class="pag-mobile-sep">/</span>
+                <span>{meta.lastPage}</span>
             </div>
 
             <button
+                type="button"
                 onclick={() => goToPage(meta.currentPage + 1)}
                 disabled={meta.currentPage >= meta.lastPage}
-                class="btn btn-sm btn-ghost cursor-pointer"
-                class:btn-disabled={meta.currentPage >= meta.lastPage}
+                class="pag-btn pag-btn-nav"
                 aria-label="다음 페이지"
             >
-                <span class="hidden sm:inline">다음</span>
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <span>다음</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="pag-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                 </svg>
             </button>
         </div>
     </nav>
 {/if}
+
+<style>
+    .arena-pagination {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        font-family: var(--arena-f-body);
+    }
+    .pag-info {
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        letter-spacing: 0.5px;
+        color: var(--arena-ink-soft);
+    }
+    .pag-info strong {
+        color: var(--arena-ink);
+        font-weight: 500;
+    }
+    .pag-controls {
+        display: flex;
+        align-items: stretch;
+        gap: 4px;
+    }
+    .pag-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-width: 36px;
+        height: 36px;
+        padding: 0 10px;
+        border: 1px solid var(--arena-line);
+        background: var(--arena-paper);
+        color: var(--arena-ink);
+        font-family: var(--arena-f-mono);
+        font-size: 12px;
+        letter-spacing: 0.3px;
+        cursor: pointer;
+        transition: background 0.1s, border-color 0.1s, color 0.1s;
+    }
+    .pag-btn:hover:not(:disabled) {
+        border-color: var(--arena-ink);
+    }
+    .pag-btn:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+    }
+    .pag-btn.is-active {
+        background: var(--arena-ink);
+        color: var(--arena-paper);
+        border-color: var(--arena-ink);
+    }
+    .pag-btn-page {
+        min-width: 36px;
+        padding: 0;
+    }
+    .pag-icon {
+        width: 12px;
+        height: 12px;
+    }
+    .pag-btn-nav span {
+        display: none;
+    }
+    .pag-pages {
+        display: none;
+        gap: 4px;
+    }
+    .pag-mobile {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 14px;
+        font-family: var(--arena-f-mono);
+        font-size: 12px;
+        letter-spacing: 0.5px;
+        color: var(--arena-ink-soft);
+    }
+    .pag-mobile strong {
+        color: var(--arena-ink);
+        font-weight: 500;
+    }
+    .pag-mobile-sep {
+        color: var(--arena-ink-mute);
+    }
+    .pag-ellipsis {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 24px;
+        height: 36px;
+        font-family: var(--arena-f-mono);
+        font-size: 12px;
+        color: var(--arena-ink-mute);
+        letter-spacing: 1px;
+    }
+
+    @media (min-width: 640px) {
+        .pag-btn-nav span {
+            display: inline;
+        }
+        .pag-pages {
+            display: flex;
+        }
+        .pag-mobile {
+            display: none;
+        }
+    }
+</style>

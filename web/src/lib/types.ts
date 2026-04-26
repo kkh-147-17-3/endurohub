@@ -318,8 +318,8 @@ export interface CalendarResponse {
 	racesGrouped: Record<string, Race[]>;
 	previousMonth: { year: number; month: number };
 	nextMonth: { year: number; month: number };
-	sport: string | null;
-	region: string | null;
+	sport: string[];
+	region: string[];
 	sports: SportOption[];
 	regions: string[];
 }

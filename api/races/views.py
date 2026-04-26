@@ -589,8 +589,8 @@ class RaceCalendarView(APIView):
         now = timezone.now()
         year = int(request.query_params.get('year', now.year))
         month = int(request.query_params.get('month', now.month))
-        sport = request.query_params.get('sport')
-        region = request.query_params.get('region')
+        sport = request.query_params.getlist('sport')
+        region = request.query_params.getlist('region')
 
         import calendar
         _, last_day = calendar.monthrange(year, month)

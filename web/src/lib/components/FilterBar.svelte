@@ -343,7 +343,7 @@
 <div class="arena-filter">
     <form onsubmit={handleSubmit}>
         <header class="filter-head">
-            <div class="filter-kicker">FILTER · 검색</div>
+            <div class="filter-kicker">검색</div>
             <h1 class="filter-title">
                 {title}
                 <span class="filter-count">총 {totalCount.toLocaleString()}개</span>

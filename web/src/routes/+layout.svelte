@@ -29,6 +29,18 @@
     let lastTrackedPath = $state('');
     let mobileMenuOpen = $state(false);
     let userMenuOpen = $state(false);
+    let navHeight = $state(0);
+
+    $effect(() => {
+        if (typeof document === 'undefined') return;
+        if (mobileMenuOpen) {
+            const prev = document.body.style.overflow;
+            document.body.style.overflow = 'hidden';
+            return () => {
+                document.body.style.overflow = prev;
+            };
+        }
+    });
 
     onMount(() => {
         theme = getTheme();
@@ -106,15 +118,15 @@
 </script>
 
 <svelte:head>
-    <meta property="og:site_name" content="EnduroHub" />
+    <meta property="og:site_name" content="endurohub" />
     <meta property="og:url" content="{data.appUrl}{currentPath}" />
     <meta property="og:locale" content="ko_KR" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="canonical" href="{data.appUrl}{currentPath}" />
 </svelte:head>
 
-<nav class="arena-nav">
-    <div class="nav-inner">
+<nav class="arena-nav" style="--nav-height: {navHeight}px;">
+    <div class="nav-inner" bind:clientHeight={navHeight}>
         <a href="/" class="nav-logo">
             <span class="logo-dot"></span>
             endurohub
@@ -218,7 +230,7 @@
                 <a href={`/races/year/${currentYear}`} class="mobile-link">{currentYear}년 대회</a>
             </div>
             <div class="mobile-section">
-                <div class="arena-kicker mobile-kicker">By Sport</div>
+                <div class="arena-kicker mobile-kicker">종목별</div>
                 {#each sportLinks as s (s.href)}
                     <a href={s.href} class="mobile-link mobile-link-row">
                         <span>{s.label}</span>
@@ -227,7 +239,7 @@
                 {/each}
             </div>
             <div class="mobile-section">
-                <div class="arena-kicker mobile-kicker">Tools</div>
+                <div class="arena-kicker mobile-kicker">도구</div>
                 <a href="/tools/pace-calculator" class="mobile-link">페이스 계산기</a>
                 <a href="/tools/training-plan" class="mobile-link">훈련 플랜</a>
                 <a href="/tools/vo2max" class="mobile-link">VO2max</a>
@@ -236,7 +248,7 @@
             </div>
             {#if user}
                 <div class="mobile-section">
-                    <div class="arena-kicker mobile-kicker">Account · {userLabel}</div>
+                    <div class="arena-kicker mobile-kicker">계정 · {userLabel}</div>
                     <a href="/mypage" class="mobile-link">마이페이지</a>
                     <a href="/mypage/favorites" class="mobile-link">관심 대회</a>
                     <form method="POST" action="/auth/logout">
@@ -270,13 +282,13 @@
             </div>
             <div class="footer-cols">
                 <div class="footer-col">
-                    <div class="arena-kicker footer-kicker">Race</div>
+                    <div class="arena-kicker footer-kicker">대회</div>
                     <a href="/races?reset=1">전체 대회</a>
                     <a href={`/races/year/${currentYear}`}>{currentYear}년 대회</a>
                     <a href="/calendar">캘린더</a>
                 </div>
                 <div class="footer-col">
-                    <div class="arena-kicker footer-kicker">Sport</div>
+                    <div class="arena-kicker footer-kicker">종목</div>
                     <a href="/running">마라톤</a>
                     <a href="/swimming">수영</a>
                     <a href="/cycling">자전거</a>
@@ -284,7 +296,7 @@
                     <a href="/trail-running">트레일러닝</a>
                 </div>
                 <div class="footer-col">
-                    <div class="arena-kicker footer-kicker">Tools</div>
+                    <div class="arena-kicker footer-kicker">도구</div>
                     <a href="/tools/pace-calculator">페이스 계산기</a>
                     <a href="/tools/training-plan">훈련 플랜</a>
                     <a href="/tools/vo2max">VO2max</a>
@@ -292,7 +304,7 @@
                     <a href="/running-terms">러닝 용어</a>
                 </div>
                 <div class="footer-col">
-                    <div class="arena-kicker footer-kicker">Support</div>
+                    <div class="arena-kicker footer-kicker">고객지원</div>
                     <a href="/about">서비스 소개</a>
                     <a href="/privacy">개인정보처리방침</a>
                     <a href="mailto:contact@endurohub.kr">문의하기</a>
@@ -304,7 +316,6 @@
         </div>
         <div class="footer-bottom">
             <span>© {currentYear} endurohub · 지구력 스포츠 대회 플랫폼</span>
-            <span class="footer-meta">KR · {currentYear}</span>
         </div>
     </div>
 </footer>
@@ -499,6 +510,10 @@
         display: flex;
         flex-direction: column;
         gap: 12px;
+        max-height: calc(100vh - var(--nav-height, 60px));
+        max-height: calc(100dvh - var(--nav-height, 60px));
+        overflow-y: auto;
+        overscroll-behavior: contain;
     }
     .mobile-section {
         display: flex;
@@ -597,6 +612,7 @@
         line-height: 1.6;
         margin: 0;
         text-wrap: balance;
+        word-break: keep-all;
     }
     .footer-cols {
         display: grid;
@@ -637,8 +653,5 @@
         letter-spacing: 1.2px;
         color: var(--arena-ink-soft);
         text-transform: uppercase;
-    }
-    .footer-meta {
-        opacity: 0.6;
     }
 </style>

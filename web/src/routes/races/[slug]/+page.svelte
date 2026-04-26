@@ -277,7 +277,7 @@
         performer: { '@type': 'SportsTeam', name: race.organizer || '대회 주최측' },
         organizer: {
             '@type': 'Organization',
-            name: race.organizer || 'EnduroHub',
+            name: race.organizer || 'endurohub',
             url: validOfficialUrl || appUrl,
         },
     });
@@ -734,16 +734,11 @@
                 <div class="sec-head">
                     <span class="sec-n">{secN('reviews')} ·</span>
                     <h2 class="sec-title">지난 대회 후기</h2>
-                    <span class="sec-meta">
-                        {#if reviewStats.count > 0}
+                    {#if reviewStats.count > 0}
+                        <span class="sec-meta">
                             ★ {reviewStats.average.toFixed(1)} · {reviewStats.count}개
-                        {:else}
-                            아직 후기 없음
-                        {/if}
-                        {#if !hasReviewed}
-                            <button class="link link-btn" onclick={() => (reviewModalOpen = true)}>리뷰 작성 →</button>
-                        {/if}
-                    </span>
+                        </span>
+                    {/if}
                 </div>
                 {#if reviews.length === 0}
                     <div class="rv-empty">

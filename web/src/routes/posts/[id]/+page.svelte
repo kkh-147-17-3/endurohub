@@ -62,7 +62,7 @@
         dateModified: post.updatedAt,
         articleBody: contentText.substring(0, 500),
         image: post.imageSrcs && post.imageSrcs.length > 0 ? post.imageSrcs[0] : undefined,
-        publisher: { '@type': 'Organization', name: 'EnduroHub', url: appUrl },
+        publisher: { '@type': 'Organization', name: 'endurohub', url: appUrl },
         mainEntityOfPage: pageUrl,
     });
 
