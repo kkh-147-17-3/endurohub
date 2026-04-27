@@ -185,16 +185,43 @@
                     {/if}
                 </button>
                 {#if userMenuOpen}
-                    <ul class="user-menu">
-                        <li class="user-menu-label" title={user.email}>{userLabel}</li>
-                        <li><a href="/mypage" onclick={() => (userMenuOpen = false)}>마이페이지</a></li>
-                        <li><a href="/mypage/favorites" onclick={() => (userMenuOpen = false)}>관심 대회</a></li>
-                        <li>
-                            <form method="POST" action="/auth/logout">
-                                <button type="submit">로그아웃</button>
-                            </form>
-                        </li>
-                    </ul>
+                    <div class="user-menu" role="menu">
+                        <div class="user-menu-head">
+                            <div class="user-menu-avatar">
+                                {#if user.profileImage}
+                                    <img src={user.profileImage} alt="" />
+                                {:else}
+                                    <span>{userLabel.charAt(0).toUpperCase()}</span>
+                                {/if}
+                            </div>
+                            <div class="user-menu-id">
+                                <div class="user-menu-name">{userLabel}</div>
+                                <div class="user-menu-email" title={user.email}>{user.email}</div>
+                            </div>
+                        </div>
+                        <ul class="user-menu-list">
+                            <li>
+                                <a href="/mypage" onclick={() => (userMenuOpen = false)} role="menuitem">
+                                    <span class="user-menu-kicker">01</span>
+                                    <span class="user-menu-text">마이페이지</span>
+                                    <span class="user-menu-arrow" aria-hidden="true">→</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="/mypage/favorites" onclick={() => (userMenuOpen = false)} role="menuitem">
+                                    <span class="user-menu-kicker">02</span>
+                                    <span class="user-menu-text">관심 대회</span>
+                                    <span class="user-menu-arrow" aria-hidden="true">→</span>
+                                </a>
+                            </li>
+                        </ul>
+                        <form method="POST" action="/auth/logout" class="user-menu-logout">
+                            <button type="submit" role="menuitem">
+                                <span class="user-menu-text">로그아웃</span>
+                                <span class="user-menu-arrow" aria-hidden="true">↗</span>
+                            </button>
+                        </form>
+                    </div>
                 {/if}
             </div>
         {:else}
@@ -467,46 +494,149 @@
     }
     .user-menu {
         position: absolute;
-        top: calc(100% + 8px);
+        top: calc(100% + 10px);
         right: 0;
-        margin: 0;
-        padding: 6px 0;
-        list-style: none;
         background: var(--arena-paper);
-        border: 1px solid var(--arena-line);
-        min-width: 200px;
+        border: 1px solid var(--arena-ink);
+        min-width: 240px;
         z-index: 100;
         box-shadow: 4px 4px 0 var(--arena-ink);
+        animation: user-menu-in 140ms cubic-bezier(0.16, 1, 0.3, 1);
     }
-    .user-menu li {
-        padding: 0;
+    @keyframes user-menu-in {
+        from { opacity: 0; transform: translateY(-4px); }
+        to { opacity: 1; transform: translateY(0); }
     }
-    .user-menu-label {
-        padding: 8px 14px;
+    .user-menu-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        background: var(--arena-paper-alt);
+        border-bottom: 1px solid var(--arena-line);
+    }
+    .user-menu-avatar {
+        flex-shrink: 0;
+        width: 36px;
+        height: 36px;
+        border: 1px solid var(--arena-line);
+        background: var(--arena-paper);
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        font-family: var(--arena-f-display);
+        font-weight: 700;
+        font-size: 14px;
+        color: var(--arena-ink);
+    }
+    .user-menu-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .user-menu-id {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .user-menu-name {
+        font-family: var(--arena-f-display);
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: -0.3px;
+        color: var(--arena-ink);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .user-menu-email {
         font-family: var(--arena-f-mono);
         font-size: 10px;
-        letter-spacing: 1.5px;
         color: var(--arena-ink-soft);
-        text-transform: uppercase;
-        border-bottom: 1px solid var(--arena-line-soft);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
-    .user-menu a,
-    .user-menu button {
-        display: block;
-        width: 100%;
+    .user-menu-list {
+        list-style: none;
+        margin: 0;
+        padding: 4px 0;
+    }
+    .user-menu-list li {
+        padding: 0;
+    }
+    .user-menu-list a {
+        display: grid;
+        grid-template-columns: 22px 1fr auto;
+        align-items: center;
+        gap: 10px;
         padding: 10px 14px;
-        background: transparent;
-        border: none;
-        cursor: pointer;
-        text-align: left;
         font-family: var(--arena-f-body);
         font-size: 13px;
         color: var(--arena-ink);
         text-decoration: none;
+        border-left: 2px solid transparent;
+        transition: background 0.12s, border-color 0.12s, padding-left 0.12s;
     }
-    .user-menu a:hover,
-    .user-menu button:hover {
+    .user-menu-list a:hover,
+    .user-menu-list a:focus-visible {
         background: var(--arena-paper-alt);
+        border-left-color: var(--arena-accent-deep);
+        padding-left: 18px;
+        outline: none;
+    }
+    .user-menu-kicker {
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        letter-spacing: 1.5px;
+        color: var(--arena-ink-mute);
+    }
+    .user-menu-text {
+        font-weight: 500;
+    }
+    .user-menu-arrow {
+        font-family: var(--arena-f-mono);
+        font-size: 13px;
+        color: var(--arena-ink-mute);
+        transition: transform 0.12s, color 0.12s;
+    }
+    .user-menu-list a:hover .user-menu-arrow {
+        color: var(--arena-accent-deep);
+        transform: translateX(2px);
+    }
+    .user-menu-logout {
+        margin: 0;
+        border-top: 1px solid var(--arena-line-soft);
+    }
+    .user-menu-logout button {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        width: 100%;
+        padding: 11px 14px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        text-align: left;
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: var(--arena-ink-soft);
+        transition: background 0.12s, color 0.12s;
+    }
+    .user-menu-logout button:hover,
+    .user-menu-logout button:focus-visible {
+        background: var(--arena-urgent);
+        color: var(--arena-paper);
+        outline: none;
+    }
+    .user-menu-logout button:hover .user-menu-arrow,
+    .user-menu-logout button:focus-visible .user-menu-arrow {
+        color: var(--arena-paper);
     }
     .login-btn {
         font-size: 12px !important;
