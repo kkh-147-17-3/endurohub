@@ -36,142 +36,517 @@
     <meta name="robots" content="noindex" />
 </svelte:head>
 
-<div class="container mx-auto px-4 py-10">
-    <div class="max-w-lg mx-auto space-y-6">
+<div class="page-wrap">
+    <article class="page-shell">
 
-        <!-- Profile Header -->
-        <div class="flex items-center gap-4">
+        <header class="page-head">
+            <div class="arena-kicker">계정</div>
+            <h1 class="page-title">마이페이지</h1>
+            <p class="page-lead">계정 정보와 알림 설정을 한곳에서 관리합니다.</p>
+        </header>
+
+        <!-- Profile -->
+        <section class="profile-row">
             {#if user.profileImage}
-                <img
-                    src={user.profileImage}
-                    alt={user.nickname || '프로필'}
-                    class="w-16 h-16 rounded-full object-cover ring-2 ring-base-300"
-                />
+                <img src={user.profileImage} alt={user.nickname || '프로필'} class="avatar-img" />
             {:else}
-                <div class="w-16 h-16 rounded-full bg-primary text-primary-content flex items-center justify-center text-2xl font-bold ring-2 ring-primary/20">
-                    {initials}
-                </div>
+                <div class="avatar-fallback">{initials}</div>
             {/if}
-            <div class="min-w-0">
-                <h1 class="text-xl font-bold truncate">{user.nickname || '닉네임 미설정'}</h1>
-                <p class="text-sm text-base-content/50 truncate">{user.email || '이메일 미등록'}</p>
+            <div class="profile-meta">
+                <div class="profile-name">{user.nickname || '닉네임 미설정'}</div>
+                <div class="profile-email">{user.email || '이메일 미등록'}</div>
             </div>
-        </div>
+            {#if user.emailVerified}
+                <span class="arena-chip arena-chip-accent">인증됨</span>
+            {:else if user.email}
+                <span class="arena-chip arena-chip-urgent">미인증</span>
+            {/if}
+        </section>
+
+        <!-- Email Verification CTA -->
+        {#if !user.emailVerified}
+            <section class="alert">
+                <div class="alert-body">
+                    <div class="arena-kicker alert-kicker">필수 안내</div>
+                    <div class="alert-title">이메일 인증이 필요합니다</div>
+                    <p class="alert-desc">
+                        인증을 완료하면 계정 관련 안내와 알림을 받을 수 있습니다.
+                    </p>
+                </div>
+                <a href="/auth/verify-email" class="alert-btn">
+                    인증하기 <span class="arrow">→</span>
+                </a>
+            </section>
+        {/if}
 
         <!-- Account Info -->
-        <section class="card bg-base-100 shadow">
-            <div class="card-body p-5 space-y-0 divide-y divide-base-200">
-                <div class="flex items-center justify-between py-3 first:pt-0">
-                    <div class="text-sm text-base-content/60">닉네임</div>
-                    <div class="font-medium">{user.nickname || '미설정'}</div>
+        <section class="page-section">
+            <div class="arena-kicker">계정 정보</div>
+            <div class="info-grid">
+                <div class="info-row">
+                    <span class="info-label">닉네임</span>
+                    <span class="info-value">{user.nickname || '미설정'}</span>
                 </div>
-                <div class="flex items-center justify-between py-3">
-                    <div class="text-sm text-base-content/60">이메일</div>
-                    <div class="flex items-center gap-2">
-                        <span class="font-medium truncate max-w-[200px]">{user.email || '미등록'}</span>
-                        {#if user.emailVerified}
-                            <span class="badge badge-success badge-sm gap-1">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
-                                인증됨
-                            </span>
-                        {:else if user.email}
-                            <span class="badge badge-warning badge-sm">미인증</span>
-                        {/if}
-                    </div>
+                <div class="info-row">
+                    <span class="info-label">이메일</span>
+                    <span class="info-value email-value">{user.email || '미등록'}</span>
                 </div>
             </div>
         </section>
 
         <!-- Quick Links -->
-        <section class="card bg-base-100 shadow">
-            <div class="card-body p-5 space-y-0 divide-y divide-base-200">
-                <a href="/mypage/favorites" class="flex items-center justify-between py-3 first:pt-0 hover:text-primary transition-colors">
-                    <div class="flex items-center gap-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-error" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.35-10-9.5C.5 7 3 3 7 3c2.1 0 3.6 1 5 2.5C13.4 4 14.9 3 17 3c4 0 6.5 4 5 8.5-2.5 5.15-10 9.5-10 9.5z"/></svg>
-                        <div class="text-sm font-medium">관심 대회</div>
-                    </div>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-base-content/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-                </a>
-            </div>
+        <section class="page-section">
+            <div class="arena-kicker">바로가기</div>
+            <a href="/mypage/favorites" class="quick-link">
+                <span class="quick-label">관심 대회</span>
+                <span class="quick-desc">저장한 대회 보기</span>
+                <span class="quick-arrow">→</span>
+            </a>
         </section>
 
-        <!-- Email Verification CTA -->
-        {#if !user.emailVerified}
-            <div class="rounded-xl border border-warning/30 bg-warning/5 px-5 py-4">
-                <div class="flex items-start gap-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-warning shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium">이메일 인증이 필요합니다</p>
-                        <p class="text-xs text-base-content/50 mt-1">인증을 완료하면 계정 관련 안내와 알림을 받을 수 있습니다.</p>
+        <!-- Notifications -->
+        <section class="page-section">
+            <div class="arena-kicker">알림 설정</div>
+            <form
+                method="POST"
+                class="notif-form"
+                use:enhance={() => {
+                    isSubmitting = true;
+                    return async ({ update }) => {
+                        isSubmitting = false;
+                        await update();
+                    };
+                }}
+            >
+                <label class="notif-row">
+                    <div class="notif-text">
+                        <div class="notif-title">이메일 알림 수신</div>
+                        <div class="notif-desc">대회 소식 · 일정 업데이트 · 이벤트 안내</div>
                     </div>
-                    <a href="/auth/verify-email" class="btn btn-warning btn-sm shrink-0">인증하기</a>
-                </div>
-            </div>
-        {/if}
-
-        <!-- Email Notification Settings -->
-        <section class="card bg-base-100 shadow">
-            <div class="card-body p-5">
-                <h2 class="text-sm font-semibold text-base-content/70 uppercase tracking-wide">알림 설정</h2>
-
-                <form
-                    method="POST"
-                    class="mt-3 space-y-4"
-                    use:enhance={() => {
-                        isSubmitting = true;
-                        return async ({ update }) => {
-                            isSubmitting = false;
-                            await update();
-                        };
-                    }}
-                >
-                    <label class="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-base-300 px-4 py-3 transition-colors hover:bg-base-200/50">
-                        <div>
-                            <div class="text-sm font-medium">이메일 알림 수신</div>
-                            <div class="text-xs text-base-content/50 mt-0.5">대회 소식, 일정 업데이트, 이벤트 안내</div>
-                        </div>
+                    <span class="arena-toggle">
                         <input
                             type="checkbox"
                             name="email_updates_opt_in"
-                            class="toggle toggle-primary toggle-sm"
                             bind:checked={emailUpdatesOptIn}
                         />
-                    </label>
+                        <span class="arena-toggle-track">
+                            <span class="arena-toggle-thumb"></span>
+                        </span>
+                    </span>
+                </label>
 
-                    <p class="text-xs text-base-content/50">
-                        계정 보안, 인증 등 필수 안내는 동의 여부와 관계없이 발송됩니다.
-                    </p>
+                <p class="notif-fineprint">
+                    계정 보안 · 인증 등 필수 안내는 동의 여부와 관계없이 발송됩니다.
+                </p>
 
-                    {#if successMessage}
-                        <div class="flex items-center gap-2 text-sm text-success">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
-                            {successMessage}
-                        </div>
-                    {/if}
+                {#if successMessage}
+                    <div class="status status-ok">{successMessage}</div>
+                {/if}
 
-                    {#if errors.profile || errors.email_updates_opt_in}
-                        <div class="flex items-center gap-2 text-sm text-error">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
-                            {errors.profile || errors.email_updates_opt_in}
-                        </div>
-                    {/if}
+                {#if errors.profile || errors.email_updates_opt_in}
+                    <div class="status status-err">
+                        {errors.profile || errors.email_updates_opt_in}
+                    </div>
+                {/if}
 
-                    <button type="submit" class="btn btn-primary btn-sm btn-block" disabled={isSubmitting}>
-                        {#if isSubmitting}
-                            <span class="loading loading-spinner loading-xs"></span>
-                        {/if}
-                        저장
-                    </button>
-                </form>
-            </div>
+                <button type="submit" class="arena-btn arena-btn-primary save-btn" disabled={isSubmitting}>
+                    {#if isSubmitting}저장 중…{:else}저장{/if}
+                </button>
+            </form>
         </section>
 
         <!-- Logout -->
-        <form method="POST" action="/auth/logout">
-            <button type="submit" class="btn btn-ghost btn-sm btn-block text-base-content/50 hover:text-error cursor-pointer">
-                로그아웃
-            </button>
+        <form method="POST" action="/auth/logout" class="logout-form">
+            <button type="submit" class="logout-btn">로그아웃 →</button>
         </form>
 
-    </div>
+    </article>
 </div>
+
+<style>
+    .page-wrap {
+        background: var(--arena-paper);
+        padding: 56px 24px 80px;
+    }
+    .page-shell {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 40px;
+    }
+
+    .page-head {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding-bottom: 24px;
+        border-bottom: 1px solid var(--arena-line);
+    }
+    .page-title {
+        font-family: var(--arena-f-display);
+        font-size: 56px;
+        font-weight: 700;
+        letter-spacing: -2px;
+        line-height: 1;
+        margin: 0;
+        color: var(--arena-ink);
+    }
+    .page-lead {
+        font-family: var(--arena-f-body);
+        font-size: 15px;
+        line-height: 1.6;
+        color: var(--arena-ink-soft);
+        margin: 0;
+        word-break: keep-all;
+    }
+
+    /* Profile row */
+    .profile-row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 18px 18px;
+        background: var(--arena-paper-alt);
+        border: 1px solid var(--arena-line);
+    }
+    .avatar-img,
+    .avatar-fallback {
+        width: 56px;
+        height: 56px;
+        flex-shrink: 0;
+        border: 1px solid var(--arena-line);
+        background: var(--arena-paper);
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+    }
+    .avatar-img {
+        object-fit: cover;
+    }
+    .avatar-fallback {
+        font-family: var(--arena-f-display);
+        font-weight: 700;
+        font-size: 22px;
+        color: var(--arena-ink);
+    }
+    .profile-meta {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .profile-name {
+        font-family: var(--arena-f-display);
+        font-size: 18px;
+        font-weight: 600;
+        letter-spacing: -0.4px;
+        color: var(--arena-ink);
+        word-break: keep-all;
+    }
+    .profile-email {
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        color: var(--arena-ink-soft);
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Alert */
+    .alert {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 18px 18px 20px;
+        background: var(--arena-paper);
+        border: 1px solid var(--arena-urgent);
+        border-left-width: 4px;
+    }
+    @media (min-width: 600px) {
+        .alert {
+            flex-direction: row;
+            align-items: center;
+        }
+    }
+    .alert-body {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .alert-kicker {
+        color: var(--arena-urgent);
+        letter-spacing: 1.5px;
+    }
+    .alert-title {
+        font-family: var(--arena-f-display);
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--arena-ink);
+    }
+    .alert-desc {
+        font-family: var(--arena-f-body);
+        font-size: 13px;
+        color: var(--arena-ink-soft);
+        line-height: 1.6;
+        margin: 0;
+        word-break: keep-all;
+    }
+    .alert-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        background: var(--arena-urgent);
+        color: var(--arena-paper);
+        font-family: var(--arena-f-display);
+        font-weight: 600;
+        font-size: 13px;
+        letter-spacing: -0.2px;
+        text-decoration: none;
+        flex-shrink: 0;
+        align-self: flex-start;
+    }
+    @media (min-width: 600px) {
+        .alert-btn {
+            align-self: center;
+        }
+    }
+    .alert-btn .arrow {
+        font-family: var(--arena-f-mono);
+    }
+
+    /* Sections */
+    .page-section {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    /* Account info grid */
+    .info-grid {
+        border: 1px solid var(--arena-line);
+        background: var(--arena-paper);
+    }
+    .info-row {
+        display: grid;
+        grid-template-columns: 100px 1fr;
+        gap: 16px;
+        align-items: center;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--arena-line-soft);
+    }
+    .info-row:last-child {
+        border-bottom: none;
+    }
+    .info-label {
+        font-family: var(--arena-f-mono);
+        font-size: 10px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: var(--arena-ink-soft);
+    }
+    .info-value {
+        font-family: var(--arena-f-body);
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--arena-ink);
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .email-value {
+        font-family: var(--arena-f-mono);
+        font-size: 12px;
+    }
+
+    /* Quick link */
+    .quick-link {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-rows: auto auto;
+        align-items: center;
+        gap: 4px 14px;
+        padding: 16px 18px;
+        background: var(--arena-paper);
+        border: 1px solid var(--arena-line);
+        text-decoration: none;
+        color: var(--arena-ink);
+        transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .quick-link:hover {
+        transform: translate(-2px, -2px);
+        box-shadow: 4px 4px 0 var(--arena-ink);
+    }
+    .quick-label {
+        grid-column: 1;
+        grid-row: 1;
+        font-family: var(--arena-f-display);
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: -0.3px;
+    }
+    .quick-desc {
+        grid-column: 1;
+        grid-row: 2;
+        font-family: var(--arena-f-body);
+        font-size: 12px;
+        color: var(--arena-ink-soft);
+    }
+    .quick-arrow {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+        font-family: var(--arena-f-mono);
+        font-size: 16px;
+        color: var(--arena-ink-soft);
+    }
+
+    /* Notification form */
+    .notif-form {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+    .notif-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 16px 18px;
+        background: var(--arena-paper);
+        border: 1px solid var(--arena-line);
+        cursor: pointer;
+    }
+    .notif-row:hover {
+        background: var(--arena-paper-alt);
+    }
+    .notif-text {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+    }
+    .notif-title {
+        font-family: var(--arena-f-display);
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--arena-ink);
+    }
+    .notif-desc {
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        color: var(--arena-ink-soft);
+        letter-spacing: 0.3px;
+    }
+    .notif-fineprint {
+        margin: 0;
+        padding: 0 4px;
+        font-family: var(--arena-f-body);
+        font-size: 12px;
+        color: var(--arena-ink-mute);
+        line-height: 1.6;
+        word-break: keep-all;
+    }
+
+    /* Arena toggle */
+    .arena-toggle {
+        position: relative;
+        flex-shrink: 0;
+        display: inline-flex;
+    }
+    .arena-toggle input {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+    }
+    .arena-toggle-track {
+        width: 44px;
+        height: 22px;
+        background: var(--arena-paper-alt);
+        border: 1px solid var(--arena-line);
+        position: relative;
+        transition: background 0.15s;
+    }
+    .arena-toggle-thumb {
+        position: absolute;
+        top: 1px;
+        left: 1px;
+        width: 18px;
+        height: 18px;
+        background: var(--arena-ink);
+        transition: transform 0.15s;
+    }
+    .arena-toggle input:checked ~ .arena-toggle-track {
+        background: var(--arena-accent);
+        border-color: var(--arena-accent-deep);
+    }
+    .arena-toggle input:checked ~ .arena-toggle-track .arena-toggle-thumb {
+        transform: translateX(22px);
+        background: var(--arena-ink);
+    }
+
+    /* Status */
+    .status {
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        letter-spacing: 0.5px;
+        padding: 8px 12px;
+        border: 1px solid;
+    }
+    .status-ok {
+        color: var(--arena-accent-deep);
+        border-color: var(--arena-accent);
+        background: color-mix(in oklch, var(--arena-accent), transparent 88%);
+    }
+    .status-err {
+        color: var(--arena-urgent);
+        border-color: var(--arena-urgent);
+        background: color-mix(in oklch, var(--arena-urgent), transparent 90%);
+    }
+
+    .save-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 12px 16px;
+    }
+
+    /* Logout */
+    .logout-form {
+        margin: 0;
+        padding-top: 16px;
+        border-top: 1px solid var(--arena-line-soft);
+    }
+    .logout-btn {
+        width: 100%;
+        background: transparent;
+        border: 1px solid var(--arena-line-soft);
+        padding: 12px 16px;
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: var(--arena-ink-soft);
+        cursor: pointer;
+        transition: color 0.15s, border-color 0.15s, background 0.15s;
+    }
+    .logout-btn:hover {
+        color: var(--arena-urgent);
+        border-color: var(--arena-urgent);
+        background: var(--arena-paper);
+    }
+
+    @media (max-width: 640px) {
+        .page-title {
+            font-size: 40px;
+            letter-spacing: -1.5px;
+        }
+        .info-row {
+            grid-template-columns: 80px 1fr;
+            gap: 12px;
+            padding: 12px 14px;
+        }
+    }
+</style>

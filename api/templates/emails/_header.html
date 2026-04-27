@@ -1,14 +1,14 @@
 <tr>
-    <td class="header">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+    <td class="header" style="padding: 18px 32px; border-bottom: 1px solid #1A2520; background: #F4F4EE;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
             <tr>
-                <td align="left" valign="middle">
-                    <span class="header-logo">
-                        <span class="header-logo-dot"></span>endurohub
+                <td align="left" valign="middle" style="font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif;">
+                    <span style="font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif; font-weight: 700; font-size: 18px; letter-spacing: -0.5px; color: #1A2520;">
+                        <span style="display: inline-block; width: 8px; height: 8px; background: #5FB37A; margin-right: 8px; vertical-align: 1px;"></span>endurohub
                     </span>
                 </td>
                 <td align="right" valign="middle">
-                    <span class="header-meta">{% if header_meta %}{{ header_meta }}{% else %}{% now "Y.m.d" %}{% endif %}</span>
+                    <span style="font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5A6661;">{% if header_meta %}{{ header_meta }}{% else %}{% now "Y.m.d" %}{% endif %}</span>
                 </td>
             </tr>
         </table>

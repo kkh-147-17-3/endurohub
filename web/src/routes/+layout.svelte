@@ -51,19 +51,6 @@
         capturePostHogPageView($page.url.pathname, $page.url.search, document.referrer);
         lastTrackedPath = initialPath;
 
-        if (googleAnalyticsId && !document.querySelector('script[src*="googletagmanager"]')) {
-            window.dataLayer = window.dataLayer || [];
-            window.gtag = function () {
-                window.dataLayer.push(arguments);
-            };
-            window.gtag('js', new Date());
-            window.gtag('config', googleAnalyticsId);
-            const gaScript = document.createElement('script');
-            gaScript.src = `https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}`;
-            gaScript.async = true;
-            document.head.appendChild(gaScript);
-        }
-
         if (kakaoJsKey && !document.querySelector('script[src*="kakao_js_sdk"]')) {
             const script = document.createElement('script');
             script.src = 'https://t1.kakaocdn.net/kakao_js_sdk/2.7.4/kakao.min.js';
@@ -123,6 +110,15 @@
     <meta property="og:locale" content="ko_KR" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="canonical" href="{data.appUrl}{currentPath}" />
+    {#if googleAnalyticsId}
+        <script async src="https://www.googletagmanager.com/gtag/js?id={googleAnalyticsId}"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '{googleAnalyticsId}');
+        </script>
+    {/if}
 </svelte:head>
 
 <nav class="arena-nav" style="--nav-height: {navHeight}px;">
@@ -227,7 +223,6 @@
                 {#each links as l (l.href)}
                     <a href={l.href} class="mobile-link" class:active={l.match(currentPath)}>{l.label}</a>
                 {/each}
-                <a href={`/races/year/${currentYear}`} class="mobile-link">{currentYear}년 대회</a>
             </div>
             <div class="mobile-section">
                 <div class="arena-kicker mobile-kicker">종목별</div>
@@ -260,6 +255,25 @@
                     <a href="/auth/login" class="mobile-link mobile-login">로그인</a>
                 </div>
             {/if}
+            <div class="mobile-section mobile-section-theme">
+                <button
+                    type="button"
+                    class="mobile-theme-btn"
+                    onclick={handleToggleTheme}
+                    aria-label={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
+                    title="테마 전환"
+                >
+                    {#if theme === 'dark'}
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                    {:else}
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                        </svg>
+                    {/if}
+                </button>
+            </div>
         </div>
     {/if}
 </nav>
@@ -332,10 +346,16 @@
     .nav-inner {
         max-width: 1400px;
         margin: 0 auto;
-        padding: 14px 24px;
+        padding: 14px 16px;
         display: flex;
         align-items: center;
-        gap: 24px;
+        gap: 12px;
+    }
+    @media (min-width: 480px) {
+        .nav-inner {
+            padding: 14px 24px;
+            gap: 24px;
+        }
     }
     @media (min-width: 1024px) {
         .nav-inner {
@@ -353,6 +373,18 @@
         gap: 8px;
         color: var(--arena-ink);
         text-decoration: none;
+        min-width: 0;
+        flex-shrink: 1;
+        overflow: hidden;
+    }
+    @media (max-width: 359px) {
+        .nav-inner {
+            gap: 8px;
+            padding: 12px 12px;
+        }
+        .nav-logo {
+            font-size: 16px;
+        }
     }
     .logo-dot {
         display: inline-block;
@@ -501,6 +533,34 @@
         .login-btn {
             display: none;
         }
+        .theme-toggle {
+            display: none;
+        }
+    }
+
+    .mobile-section-theme {
+        margin-top: 4px;
+        align-items: flex-start;
+        padding-bottom: 0;
+        border-bottom: none;
+    }
+    .mobile-theme-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px;
+        width: 36px;
+        height: 36px;
+        border: 1px solid var(--arena-line-soft);
+        background: var(--arena-paper);
+        color: var(--arena-ink-soft);
+        cursor: pointer;
+        transition: color 0.15s, border-color 0.15s, background 0.15s;
+    }
+    .mobile-theme-btn:hover {
+        color: var(--arena-ink);
+        border-color: var(--arena-line);
+        background: var(--arena-paper-alt);
     }
 
     .mobile-panel {

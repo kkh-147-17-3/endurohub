@@ -9,39 +9,39 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     {% include "emails/_styles.html" %}
 </head>
-<body>
-    <div class="wrapper">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<body style="margin: 0; padding: 0; width: 100%; background: #F4F4EE; color: #1A2520; font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
+    <div style="width: 100%; background: #F4F4EE;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; background: #F4F4EE;">
             <tr>
                 <td align="center" style="padding: 32px 16px;">
-                    <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="border: 1px solid #1A2520;">
+                    <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="border: 1px solid #1A2520; max-width: 600px; margin: 0 auto; background: #F4F4EE; border-collapse: collapse;">
 
                         {% include "emails/_header.html" with header_meta="신규 알림" %}
 
                         <!-- Hero -->
                         <tr>
-                            <td class="hero" style="padding-bottom: 28px;">
-                                <div class="kicker">방금 등록 · {{ race_count }}건</div>
-                                <h1>새 대회<br><em>{{ race_count }}건 등록.</em></h1>
+                            <td class="hero" style="padding: 44px 32px 28px; border-bottom: 1px solid #1A2520; background: #F4F4EE;">
+                                <div style="font-family: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A6661;">방금 등록 · {{ race_count }}건</div>
+                                <h1 style="font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif; font-weight: 700; font-size: 36px; letter-spacing: -1.5px; line-height: 1.05; margin: 14px 0 0; color: #1A2520;">새 대회<br><em style="font-style: normal; color: #3A8556;">{{ race_count }}건 등록.</em></h1>
                             </td>
                         </tr>
 
                         <!-- Races -->
                         <tr>
-                            <td class="section">
-                                <div class="kicker">{{ nickname }}님 관심 종목 기준</div>
-                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="row-table simple-row-table" style="margin-top: 16px;">
+                            <td class="section" style="padding: 36px 32px 28px; border-bottom: 1px solid #1A2520; background: #F4F4EE;">
+                                <div style="font-family: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A6661;">{{ nickname }}님 관심 종목 기준</div>
+                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="row-table simple-row-table" style="margin-top: 16px; width: 100%; border-top: 1px solid #1A2520; border-bottom: 1px solid #1A2520; border-collapse: collapse;">
                                     <tr class="row-head">
-                                        <td>대회</td>
-                                        <td class="col-date" align="right">대회일</td>
+                                        <td style="background: #E8E9DD; padding: 8px 12px; font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5A6661; border-bottom: 1px solid #1A2520;">대회</td>
+                                        <td class="col-date" align="right" style="background: #E8E9DD; padding: 8px 12px; font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5A6661; border-bottom: 1px solid #1A2520; width: 64px; white-space: nowrap;">대회일</td>
                                     </tr>
                                     {% for race in new_races %}
                                     <tr class="row">
-                                        <td>
-                                            <div class="name"><a href="{{ app_url }}/races/{{ race.slug }}?utm_source=email&utm_medium=new_race">{{ race.title }}</a></div>
+                                        <td style="padding: 12px; border-bottom: 1px solid #C5C7BC; font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 12px; color: #5A6661; vertical-align: middle;">
+                                            <div style="font-family: 'Pretendard Variable', Pretendard, -apple-system, sans-serif; font-weight: 600; font-size: 13px; color: #1A2520;"><a href="{{ app_url }}/races/{{ race.slug }}?utm_source=email&utm_medium=new_race" style="color: #1A2520; text-decoration: none;">{{ race.title }}</a></div>
                                             <div style="margin-top: 4px;">{{ race.sport_label }} · {{ race.region }}{% if race.registration_end %} · 접수마감 {{ race.registration_end|date:"n.j" }}{% endif %}</div>
                                         </td>
-                                        <td class="col-date" align="right">{{ race.race_date|date:"n.j" }}</td>
+                                        <td class="col-date" align="right" style="padding: 12px; border-bottom: 1px solid #C5C7BC; font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 12px; color: #5A6661; vertical-align: middle; width: 64px; white-space: nowrap;">{{ race.race_date|date:"n.j" }}</td>
                                     </tr>
                                     {% endfor %}
                                 </table>
@@ -50,9 +50,9 @@
 
                         <!-- CTA -->
                         <tr>
-                            <td class="cta-wrapper">
-                                <a href="{{ app_url }}/races?utm_source=email&utm_medium=new_race" class="cta-btn">
-                                    전체 대회 보기 <span class="arrow">↗</span>
+                            <td class="cta-wrapper" style="text-align: center; padding: 28px 32px 36px; background: #F4F4EE; border-bottom: 1px solid #1A2520;">
+                                <a href="{{ app_url }}/races?utm_source=email&utm_medium=new_race" style="display: inline-block; background: #1A2520; color: #F4F4EE; font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif; font-weight: 600; font-size: 13px; letter-spacing: -0.2px; padding: 13px 22px; text-decoration: none; border: 1px solid #1A2520;">
+                                    전체 대회 보기 <span style="font-family: 'IBM Plex Mono', monospace; margin-left: 6px;">↗</span>
                                 </a>
                             </td>
                         </tr>
