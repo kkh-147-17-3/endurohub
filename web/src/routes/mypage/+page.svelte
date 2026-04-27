@@ -140,11 +140,11 @@
                 </p>
 
                 {#if successMessage}
-                    <div class="status status-ok">{successMessage}</div>
+                    <div class="notif-status notif-status-ok">{successMessage}</div>
                 {/if}
 
                 {#if errors.profile || errors.email_updates_opt_in}
-                    <div class="status status-err">
+                    <div class="notif-status notif-status-err">
                         {errors.profile || errors.email_updates_opt_in}
                     </div>
                 {/if}
@@ -488,20 +488,21 @@
         background: var(--arena-ink);
     }
 
-    /* Status */
-    .status {
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        letter-spacing: 0.5px;
-        padding: 8px 12px;
+    /* Status (renamed from .status to avoid daisyUI 5's bare .status rule) */
+    .notif-status {
+        font-family: var(--arena-f-body);
+        font-size: 13px;
+        line-height: 1.5;
+        padding: 10px 14px;
         border: 1px solid;
+        word-break: keep-all;
     }
-    .status-ok {
+    .notif-status-ok {
         color: var(--arena-accent-deep);
         border-color: var(--arena-accent);
         background: color-mix(in oklch, var(--arena-accent), transparent 88%);
     }
-    .status-err {
+    .notif-status-err {
         color: var(--arena-urgent);
         border-color: var(--arena-urgent);
         background: color-mix(in oklch, var(--arena-urgent), transparent 90%);
