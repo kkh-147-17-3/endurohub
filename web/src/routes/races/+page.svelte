@@ -17,13 +17,32 @@
 
     let title = $derived(closingSoon ? '마감 임박 대회' : sportTitle() ? `${sportTitle()} 대회 목록` : '전체 대회');
     let metaDescription = $derived(`국내 ${sportTitle() || '엔듀어런스'} 대회 일정을 확인하세요.`);
+
+    let ogImagePath = $derived.by(() => {
+        const sportArray = Array.isArray(data.applied.sport)
+            ? data.applied.sport
+            : data.applied.sport ? [data.applied.sport] : [];
+        if (sportArray.length === 1) {
+            const slug = String(sportArray[0]).replace('_', '-');
+            if (['running', 'swimming', 'cycling', 'triathlon', 'trail-running'].includes(slug)) {
+                return `/images/og-${slug}.png`;
+            }
+        }
+        return '/images/og-image.png';
+    });
+    let ogImage = $derived(`${data.appUrl}${ogImagePath}`);
 </script>
 
 <svelte:head>
     <title>{title} - 엔듀로허브</title>
     <meta name="description" content={metaDescription} />
+    <meta property="og:type" content="website" />
     <meta property="og:title" content="{title} - 엔듀로허브" />
     <meta property="og:description" content={metaDescription} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:image" content={ogImage} />
 </svelte:head>
 
 <div class="races-wrap">

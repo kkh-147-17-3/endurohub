@@ -218,6 +218,12 @@
     <meta property="og:description" content={contentText.substring(0, 160)} />
     {#if post.imageSrcs && post.imageSrcs.length > 0}
         <meta property="og:image" content={post.imageSrcs[0]} />
+        <meta name="twitter:image" content={post.imageSrcs[0]} />
+    {:else}
+        <meta property="og:image" content="{data.appUrl}/images/og-image.png" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta name="twitter:image" content="{data.appUrl}/images/og-image.png" />
     {/if}
     <meta property="article:published_time" content={post.createdAt} />
     <meta property="article:modified_time" content={post.updatedAt} />

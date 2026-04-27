@@ -1,4 +1,6 @@
 <script lang="ts">
+    let { data } = $props();
+
     const sports = [
         { code: '01', label: '마라톤', desc: '도로 · 5K~풀코스' },
         { code: '02', label: '트레일러닝', desc: '산악 · 오프로드' },
@@ -37,11 +39,16 @@
         name="description"
         content="엔듀로허브는 국내 마라톤, 수영, 자전거, 철인3종, 트레일러닝 대회 정보를 제공하는 플랫폼입니다."
     />
+    <meta property="og:type" content="website" />
     <meta property="og:title" content="소개 - 엔듀로허브" />
     <meta
         property="og:description"
         content="엔듀로허브는 국내 마라톤, 수영, 자전거, 철인3종, 트레일러닝 대회 정보를 제공하는 플랫폼입니다."
     />
+    <meta property="og:image" content="{data.appUrl}/images/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:image" content="{data.appUrl}/images/og-image.png" />
 </svelte:head>
 
 <div class="page-wrap">

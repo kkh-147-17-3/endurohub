@@ -141,6 +141,13 @@
         mobileFilterOpen = false;
         document.body.style.overflow = '';
     }
+
+    const SCHEDULE_OG_YEARS = [2025, 2026, 2027, 2028];
+    let ogImage = $derived(
+        SCHEDULE_OG_YEARS.includes(year)
+            ? `${data.appUrl}/images/og-schedule-${year}.png`
+            : `${data.appUrl}/images/og-image.png`
+    );
 </script>
 
 <svelte:head>
@@ -149,11 +156,16 @@
         name="description"
         content="{year}년 국내 마라톤, 수영, 자전거, 철인3종, 트레일러닝 대회 일정을 월별로 확인하세요. 총 {totalCount}개 대회"
     />
+    <meta property="og:type" content="website" />
     <meta property="og:title" content="{year}년 대회 일정 - 엔듀로허브" />
     <meta
         property="og:description"
         content="{year}년 국내 마라톤, 수영, 자전거, 철인3종, 트레일러닝 대회 일정을 월별로 확인하세요. 총 {totalCount}개 대회"
     />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:image" content={ogImage} />
 </svelte:head>
 
 <div class="year-wrap">
