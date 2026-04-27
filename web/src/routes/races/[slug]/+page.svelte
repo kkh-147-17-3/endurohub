@@ -1348,6 +1348,10 @@
         width: 140px;
         white-space: nowrap;
     }
+    .meta-table td:not(.mt-key) {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
     .data-table td.bold {
         font-weight: 700;
     }
@@ -1715,6 +1719,8 @@
         color: var(--arena-ink);
         text-decoration: none;
         border-bottom: 1px solid var(--arena-ink-soft);
+        overflow-wrap: anywhere;
+        word-break: break-all;
     }
 
     /* ── Aside ────────────────── */

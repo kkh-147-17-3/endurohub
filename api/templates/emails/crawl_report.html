@@ -8,109 +8,44 @@
     <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     {% include "emails/_styles.html" %}
-    <style>
-        .stats-4 td { width: 25%; }
-        .change-block {
-            border: 1px solid #1A2520;
-            background: #F4F4EE;
-            margin-bottom: 14px;
-        }
-        .change-block-head {
-            background: #E8E9DD;
-            border-bottom: 1px solid #1A2520;
-            padding: 10px 14px;
-        }
-        .change-block-title {
-            font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif;
-            font-weight: 700;
-            font-size: 14px;
-            letter-spacing: -0.3px;
-            color: #1A2520;
-            margin: 0 0 4px;
-        }
-        .change-block-meta {
-            font-family: 'IBM Plex Mono', Menlo, monospace;
-            font-size: 10px;
-            letter-spacing: 1.2px;
-            color: #5A6661;
-            text-transform: uppercase;
-        }
-        .change-table { width: 100%; }
-        .change-table td {
-            padding: 8px 14px;
-            font-family: 'IBM Plex Mono', Menlo, monospace;
-            font-size: 11px;
-            border-bottom: 1px solid #C5C7BC;
-            vertical-align: top;
-        }
-        .change-table tr:last-child td { border-bottom: none; }
-        .change-field {
-            width: 110px;
-            color: #5A6661;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-size: 10px;
-        }
-        .change-old { color: #D14E2C; text-decoration: line-through; }
-        .change-arrow { color: #5A6661; padding: 0 6px; }
-        .change-new { color: #3A8556; font-weight: 600; }
-        .pending-tag {
-            display: inline-block;
-            padding: 2px 6px;
-            background: #D14E2C;
-            color: #F4F4EE;
-            font-family: 'IBM Plex Mono', monospace;
-            font-size: 10px;
-            letter-spacing: 1px;
-            margin-left: 6px;
-        }
-        .empty-msg {
-            text-align: center;
-            padding: 40px 20px;
-            font-family: 'IBM Plex Mono', Menlo, monospace;
-            font-size: 12px;
-            color: #5A6661;
-            letter-spacing: 1px;
-        }
-    </style>
 </head>
-<body>
-    <div class="wrapper">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<body style="margin: 0; padding: 0; width: 100%; background: #F4F4EE; color: #1A2520; font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
+    <div style="width: 100%; background: #F4F4EE;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; background: #F4F4EE;">
             <tr>
                 <td align="center" style="padding: 32px 16px;">
-                    <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="border: 1px solid #1A2520;">
+                    <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="border: 1px solid #1A2520; max-width: 600px; margin: 0 auto; background: #F4F4EE; border-collapse: collapse;">
 
                         {% include "emails/_header.html" with header_meta="크롤링 리포트" %}
 
                         <!-- Hero -->
                         <tr>
-                            <td class="hero" style="padding-bottom: 28px;">
-                                <div class="kicker">{% now "Y.m.d H:i" %}</div>
-                                <h1>크롤링 <em>리포트</em></h1>
+                            <td class="hero" style="padding: 44px 32px 28px; border-bottom: 1px solid #1A2520; background: #F4F4EE;">
+                                <div style="font-family: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A6661;">{% now "Y.m.d H:i" %}</div>
+                                <h1 style="font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif; font-weight: 700; font-size: 36px; letter-spacing: -1.5px; line-height: 1.05; margin: 14px 0 0; color: #1A2520;">크롤링 <em style="font-style: normal; color: #3A8556;">리포트</em></h1>
                             </td>
                         </tr>
 
                         <!-- Stats -->
                         <tr>
                             <td>
-                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="stats stats-4">
+                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="stats" style="border-bottom: 1px solid #1A2520; background: #F4F4EE; border-collapse: collapse;">
                                     <tr>
-                                        <td>
-                                            <div class="stat-num">{{ result.total|default:0 }}</div>
-                                            <div class="stat-label">전체</div>
+                                        <td style="padding: 22px 16px; text-align: center; border-right: 1px solid #C5C7BC; vertical-align: middle; width: 25%;">
+                                            <div class="stat-num" style="font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif; font-weight: 700; font-size: 32px; letter-spacing: -1px; color: #1A2520; line-height: 1;">{{ result.total|default:0 }}</div>
+                                            <div style="font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5A6661; margin-top: 6px;">전체</div>
                                         </td>
-                                        <td>
-                                            <div class="stat-num">{{ result.created|default:0 }}</div>
-                                            <div class="stat-label">신규</div>
+                                        <td style="padding: 22px 16px; text-align: center; border-right: 1px solid #C5C7BC; vertical-align: middle; width: 25%;">
+                                            <div class="stat-num" style="font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif; font-weight: 700; font-size: 32px; letter-spacing: -1px; color: #1A2520; line-height: 1;">{{ result.created|default:0 }}</div>
+                                            <div style="font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5A6661; margin-top: 6px;">신규</div>
                                         </td>
-                                        <td>
-                                            <div class="stat-num">{{ result.updated|default:0 }}</div>
-                                            <div class="stat-label">업데이트</div>
+                                        <td style="padding: 22px 16px; text-align: center; border-right: 1px solid #C5C7BC; vertical-align: middle; width: 25%;">
+                                            <div class="stat-num" style="font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif; font-weight: 700; font-size: 32px; letter-spacing: -1px; color: #1A2520; line-height: 1;">{{ result.updated|default:0 }}</div>
+                                            <div style="font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5A6661; margin-top: 6px;">업데이트</div>
                                         </td>
-                                        <td>
-                                            <div class="stat-num" style="color: #5A6661;">{{ result.skipped|default:0 }}</div>
-                                            <div class="stat-label">스킵</div>
+                                        <td style="padding: 22px 16px; text-align: center; vertical-align: middle; width: 25%;">
+                                            <div class="stat-num" style="font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif; font-weight: 700; font-size: 32px; letter-spacing: -1px; color: #5A6661; line-height: 1;">{{ result.skipped|default:0 }}</div>
+                                            <div style="font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5A6661; margin-top: 6px;">스킵</div>
                                         </td>
                                     </tr>
                                 </table>
@@ -120,21 +55,21 @@
                         {% if result.createdRaces %}
                         <!-- Created Races -->
                         <tr>
-                            <td class="section">
-                                <div class="kicker">01 · 신규 등록</div>
-                                <div class="section-title">신규 등록 <span class="accent">{{ result.createdRaces|length }}건</span></div>
-                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="row-table simple-row-table">
+                            <td class="section" style="padding: 36px 32px 28px; border-bottom: 1px solid #1A2520; background: #F4F4EE;">
+                                <div style="font-family: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A6661;">01 · 신규 등록</div>
+                                <div class="section-title" style="font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif; font-weight: 700; font-size: 22px; letter-spacing: -0.5px; color: #1A2520; margin: 6px 0 22px;">신규 등록 <span style="font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 12px; letter-spacing: 1.5px; color: #D14E2C; margin-left: 10px;">{{ result.createdRaces|length }}건</span></div>
+                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="row-table simple-row-table" style="width: 100%; border-top: 1px solid #1A2520; border-bottom: 1px solid #1A2520; border-collapse: collapse;">
                                     <tr class="row-head">
-                                        <td>대회</td>
-                                        <td class="col-date" align="right">대회일</td>
+                                        <td style="background: #E8E9DD; padding: 8px 12px; font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5A6661; border-bottom: 1px solid #1A2520;">대회</td>
+                                        <td class="col-date" align="right" style="background: #E8E9DD; padding: 8px 12px; font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5A6661; border-bottom: 1px solid #1A2520; width: 64px; white-space: nowrap;">대회일</td>
                                     </tr>
                                     {% for race in result.createdRaces %}
                                     <tr class="row">
-                                        <td>
-                                            <div class="name">{% if race.official_url %}<a href="{{ race.official_url }}">{{ race.title }}</a>{% else %}{{ race.title }}{% endif %}</div>
+                                        <td style="padding: 12px; border-bottom: 1px solid #C5C7BC; font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 12px; color: #5A6661; vertical-align: middle;">
+                                            <div style="font-family: 'Pretendard Variable', Pretendard, -apple-system, sans-serif; font-weight: 600; font-size: 13px; color: #1A2520;">{% if race.official_url %}<a href="{{ race.official_url }}" style="color: #1A2520; text-decoration: none;">{{ race.title }}</a>{% else %}{{ race.title }}{% endif %}</div>
                                             <div style="margin-top: 4px;">{{ race.sport_label }} · {{ race.region }} · {{ race.location }}{% if race.distances %} · {% for d in race.distances %}{% if not forloop.first %}, {% endif %}{{ d.name }}{% endfor %}{% endif %}</div>
                                         </td>
-                                        <td class="col-date" align="right">{{ race.race_date|date:"n.j" }}</td>
+                                        <td class="col-date" align="right" style="padding: 12px; border-bottom: 1px solid #C5C7BC; font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 12px; color: #5A6661; vertical-align: middle; width: 64px; white-space: nowrap;">{{ race.race_date|date:"n.j" }}</td>
                                     </tr>
                                     {% endfor %}
                                 </table>
@@ -145,43 +80,43 @@
                         {% if updated_items %}
                         <!-- Updated Races -->
                         <tr>
-                            <td class="section">
-                                <div class="kicker">02 · 업데이트</div>
-                                <div class="section-title">업데이트 <span class="accent">{{ updated_items|length }}건</span></div>
+                            <td class="section" style="padding: 36px 32px 28px; border-bottom: 1px solid #1A2520; background: #F4F4EE;">
+                                <div style="font-family: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A6661;">02 · 업데이트</div>
+                                <div class="section-title" style="font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif; font-weight: 700; font-size: 22px; letter-spacing: -0.5px; color: #1A2520; margin: 6px 0 22px;">업데이트 <span style="font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 12px; letter-spacing: 1.5px; color: #D14E2C; margin-left: 10px;">{{ updated_items|length }}건</span></div>
                                 {% for item in updated_items %}
-                                <div class="change-block">
-                                    <div class="change-block-head">
-                                        <div class="change-block-title">{{ item.race.title }}</div>
-                                        <div class="change-block-meta">{{ item.race.sport_label }} · 대회일 {{ item.race.race_date|date:"Y.n.j" }} · {{ item.race.region }}</div>
+                                <div style="border: 1px solid #1A2520; background: #F4F4EE; margin-bottom: 14px;">
+                                    <div style="background: #E8E9DD; border-bottom: 1px solid #1A2520; padding: 10px 14px;">
+                                        <div style="font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif; font-weight: 700; font-size: 14px; letter-spacing: -0.3px; color: #1A2520; margin: 0 0 4px;">{{ item.race.title }}</div>
+                                        <div style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 10px; letter-spacing: 1.2px; color: #5A6661; text-transform: uppercase;">{{ item.race.sport_label }} · 대회일 {{ item.race.race_date|date:"Y.n.j" }} · {{ item.race.region }}</div>
                                     </div>
                                     {% if item.applied_changes %}
-                                    <table role="presentation" cellpadding="0" cellspacing="0" class="change-table">
+                                    <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
                                         {% for change in item.applied_changes %}
                                         <tr>
-                                            <td class="change-field">{{ change.field_label }}</td>
-                                            <td>
-                                                <span class="change-old">{{ change.old_value }}</span>
-                                                <span class="change-arrow">→</span>
-                                                <span class="change-new">{{ change.new_value }}</span>
+                                            <td style="padding: 8px 14px; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 10px; border-bottom: 1px solid #C5C7BC; vertical-align: top; width: 110px; color: #5A6661; text-transform: uppercase; letter-spacing: 1px;">{{ change.field_label }}</td>
+                                            <td style="padding: 8px 14px; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; border-bottom: 1px solid #C5C7BC; vertical-align: top;">
+                                                <span style="color: #D14E2C; text-decoration: line-through;">{{ change.old_value }}</span>
+                                                <span style="color: #5A6661; padding: 0 6px;">→</span>
+                                                <span style="color: #3A8556; font-weight: 600;">{{ change.new_value }}</span>
                                             </td>
                                         </tr>
                                         {% endfor %}
                                     </table>
                                     {% endif %}
                                     {% if item.pending_changes %}
-                                    <table role="presentation" cellpadding="0" cellspacing="0" class="change-table" style="border-top: 1px solid #1A2520;">
+                                    <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-top: 1px solid #1A2520; border-collapse: collapse;">
                                         <tr>
-                                            <td colspan="2" style="background: #E8E9DD; padding: 6px 14px; color: #1A2520;">
-                                                <span class="pending-tag" style="margin-left: 0;">검토 대기</span>
+                                            <td colspan="2" style="background: #E8E9DD; padding: 6px 14px; color: #1A2520; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px;">
+                                                <span style="display: inline-block; padding: 2px 6px; background: #D14E2C; color: #F4F4EE; font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 1px; margin-left: 0;">검토 대기</span>
                                             </td>
                                         </tr>
                                         {% for change in item.pending_changes %}
                                         <tr>
-                                            <td class="change-field">{{ change.field_label }}</td>
-                                            <td>
-                                                <span class="change-old">{{ change.old_value }}</span>
-                                                <span class="change-arrow">→</span>
-                                                <span class="change-new">{{ change.new_value }}</span>
+                                            <td style="padding: 8px 14px; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 10px; border-bottom: 1px solid #C5C7BC; vertical-align: top; width: 110px; color: #5A6661; text-transform: uppercase; letter-spacing: 1px;">{{ change.field_label }}</td>
+                                            <td style="padding: 8px 14px; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; border-bottom: 1px solid #C5C7BC; vertical-align: top;">
+                                                <span style="color: #D14E2C; text-decoration: line-through;">{{ change.old_value }}</span>
+                                                <span style="color: #5A6661; padding: 0 6px;">→</span>
+                                                <span style="color: #3A8556; font-weight: 600;">{{ change.new_value }}</span>
                                             </td>
                                         </tr>
                                         {% endfor %}
@@ -195,17 +130,17 @@
 
                         {% if not result.createdRaces and not updated_items %}
                         <tr>
-                            <td class="section">
-                                <div class="empty-msg">변경 없음</div>
+                            <td class="section" style="padding: 36px 32px 28px; border-bottom: 1px solid #1A2520; background: #F4F4EE;">
+                                <div style="text-align: center; padding: 40px 20px; font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 12px; color: #5A6661; letter-spacing: 1px;">변경 없음</div>
                             </td>
                         </tr>
                         {% endif %}
 
                         <tr>
-                            <td class="footer">
-                                <div class="footer-logo"><span class="header-logo-dot"></span>endurohub</div>
-                                <p>자동 발송 · 어드민 전용 리포트</p>
-                                <p style="margin-top: 12px; opacity: 0.7;">&copy; {% now "Y" %} endurohub</p>
+                            <td class="footer" style="padding: 24px 32px; background: #F4F4EE; font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 11px; color: #5A6661;">
+                                <div style="font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif; font-weight: 700; font-size: 14px; letter-spacing: -0.3px; color: #1A2520; margin-bottom: 8px;"><span style="display: inline-block; width: 8px; height: 8px; background: #5FB37A; margin-right: 8px; vertical-align: 1px;"></span>endurohub</div>
+                                <p style="margin: 4px 0; line-height: 1.6;">자동 발송 · 어드민 전용 리포트</p>
+                                <p style="margin: 12px 0 4px; line-height: 1.6; opacity: 0.7;">&copy; {% now "Y" %} endurohub</p>
                             </td>
                         </tr>
 

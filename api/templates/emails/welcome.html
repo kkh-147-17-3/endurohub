@@ -13,32 +13,32 @@
     <![endif]-->
     {% include "emails/_styles.html" %}
 </head>
-<body>
-    <div class="wrapper">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<body style="margin: 0; padding: 0; width: 100%; background: #F4F4EE; color: #1A2520; font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
+    <div style="width: 100%; background: #F4F4EE;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; background: #F4F4EE;">
             <tr>
                 <td align="center" style="padding: 32px 16px;">
-                    <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="border: 1px solid #1A2520;">
+                    <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="border: 1px solid #1A2520; max-width: 600px; margin: 0 auto; background: #F4F4EE; border-collapse: collapse;">
 
                         {% include "emails/_header.html" with header_meta="환영합니다" %}
 
                         <!-- Hero -->
                         <tr>
-                            <td class="hero">
-                                <div class="kicker">00 · 환영합니다</div>
-                                <h1>{{ nickname }}님,<br><em>환영합니다.</em></h1>
-                                <p>다음 레이스를 함께 찾아드립니다.<br>관심 종목·지역 기반으로 큐레이션한 대회입니다.</p>
+                            <td class="hero" style="padding: 44px 32px 36px; border-bottom: 1px solid #1A2520; background: #F4F4EE;">
+                                <div style="font-family: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A6661;">00 · 환영합니다</div>
+                                <h1 style="font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif; font-weight: 700; font-size: 36px; letter-spacing: -1.5px; line-height: 1.05; margin: 14px 0 0; color: #1A2520;">{{ nickname }}님,<br><em style="font-style: normal; color: #3A8556;">환영합니다.</em></h1>
+                                <p style="margin: 18px 0 0; font-size: 14px; line-height: 1.6; color: #5A6661; font-family: 'Pretendard Variable', Pretendard, -apple-system, sans-serif;">다음 레이스를 함께 찾아드립니다.<br>관심 종목·지역 기반으로 큐레이션한 대회입니다.</p>
                             </td>
                         </tr>
 
                         {% if preferred_sport_labels or preferred_regions %}
                         <!-- Preferences -->
                         <tr>
-                            <td class="section">
-                                <div class="kicker">관심 분야</div>
+                            <td class="section" style="padding: 36px 32px 28px; border-bottom: 1px solid #1A2520; background: #F4F4EE;">
+                                <div style="font-family: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A6661;">관심 분야</div>
                                 <div style="margin-top: 12px;">
-                                    {% for sport in preferred_sport_labels %}<span class="chip filled">{{ sport }}</span>{% endfor %}
-                                    {% for region in preferred_regions %}<span class="chip">{{ region }}</span>{% endfor %}
+                                    {% for sport in preferred_sport_labels %}<span style="display: inline-block; padding: 2px 8px; border: 1px solid #1A2520; font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 11px; line-height: 1.5; color: #F4F4EE; margin: 2px 4px 2px 0; background: #1A2520;">{{ sport }}</span>{% endfor %}
+                                    {% for region in preferred_regions %}<span style="display: inline-block; padding: 2px 8px; border: 1px solid #1A2520; font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 11px; line-height: 1.5; color: #1A2520; margin: 2px 4px 2px 0; background: transparent;">{{ region }}</span>{% endfor %}
                                 </div>
                             </td>
                         </tr>
@@ -47,18 +47,18 @@
                         {% if closing_soon_races %}
                         <!-- Closing Soon -->
                         <tr>
-                            <td class="section">
-                                <div class="kicker">01 · 마감 임박</div>
-                                <div class="section-title">마감 임박 <span class="accent">7일 이내</span></div>
-                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="row-table">
+                            <td class="section" style="padding: 36px 32px 28px; border-bottom: 1px solid #1A2520; background: #F4F4EE;">
+                                <div style="font-family: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A6661;">01 · 마감 임박</div>
+                                <div class="section-title" style="font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif; font-weight: 700; font-size: 22px; letter-spacing: -0.5px; color: #1A2520; margin: 6px 0 22px;">마감 임박 <span style="font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 12px; letter-spacing: 1.5px; color: #D14E2C; margin-left: 10px;">7일 이내</span></div>
+                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="row-table" style="width: 100%; border-top: 1px solid #1A2520; border-bottom: 1px solid #1A2520; border-collapse: collapse;">
                                     {% for race in closing_soon_races %}
                                     <tr class="row">
-                                        <td width="74" class="dday {% if race.days_until_registration_end is not None and race.days_until_registration_end <= 7 %}urgent{% endif %}">
-                                            <small>접수</small>
+                                        <td width="74" class="dday {% if race.days_until_registration_end is not None and race.days_until_registration_end <= 7 %}urgent{% endif %}" style="padding: 12px; border-bottom: 1px solid #C5C7BC; font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 12px; vertical-align: middle; font-weight: 700; line-height: 1.1; color: {% if race.days_until_registration_end is not None and race.days_until_registration_end <= 7 %}#D14E2C{% else %}#1A2520{% endif %};">
+                                            <small style="display: block; font-size: 9px; font-weight: 500; letter-spacing: 1.5px; margin-bottom: 2px; color: {% if race.days_until_registration_end is not None and race.days_until_registration_end <= 7 %}#D14E2C{% else %}#5A6661{% endif %}; {% if race.days_until_registration_end is not None and race.days_until_registration_end <= 7 %}opacity: 0.85;{% endif %}">접수</small>
                                             {% if race.days_until_registration_end is not None and race.days_until_registration_end >= 0 %}{% if race.days_until_registration_end == 0 %}오늘{% else %}D-{{ race.days_until_registration_end }}{% endif %}{% else %}&ndash;{% endif %}
                                         </td>
-                                        <td>
-                                            <div class="name"><a href="{{ app_url }}/races/{{ race.slug }}?utm_source=email&utm_medium=welcome">{{ race.title }}</a></div>
+                                        <td style="padding: 12px; border-bottom: 1px solid #C5C7BC; font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 12px; color: #5A6661; vertical-align: middle;">
+                                            <div style="font-family: 'Pretendard Variable', Pretendard, -apple-system, sans-serif; font-weight: 600; font-size: 13px; color: #1A2520;"><a href="{{ app_url }}/races/{{ race.slug }}?utm_source=email&utm_medium=welcome" style="color: #1A2520; text-decoration: none;">{{ race.title }}</a></div>
                                             <div style="margin-top: 4px;">대회일 {{ race.race_date|date:"n.j" }} · {{ race.location }} · 접수마감 {{ race.registration_end|date:"n.j" }}</div>
                                         </td>
                                     </tr>
@@ -70,32 +70,32 @@
 
                         <!-- Recommended Races -->
                         <tr>
-                            <td class="section">
-                                <div class="kicker">02 · 추천 대회</div>
-                                <div class="section-title">{{ nickname }}님을 위한 추천</div>
+                            <td class="section" style="padding: 36px 32px 28px; border-bottom: 1px solid #1A2520; background: #F4F4EE;">
+                                <div style="font-family: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A6661;">02 · 추천 대회</div>
+                                <div class="section-title" style="font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif; font-weight: 700; font-size: 22px; letter-spacing: -0.5px; color: #1A2520; margin: 6px 0 22px;">{{ nickname }}님을 위한 추천</div>
 
                                 {% for race in recommended_races %}
-                                <div class="race-card">
+                                <div style="border: 1px solid #1A2520; background: #F4F4EE; margin-bottom: 14px;">
                                     {% if race.email_image_src %}
-                                    <a href="{{ app_url }}/races/{{ race.slug }}?utm_source=email&utm_medium=welcome">
-                                        <img src="{{ race.email_image_src }}" alt="{{ race.title }}" class="race-card-img" />
+                                    <a href="{{ app_url }}/races/{{ race.slug }}?utm_source=email&utm_medium=welcome" style="text-decoration: none;">
+                                        <img src="{{ race.email_image_src }}" alt="{{ race.title }}" class="race-card-img" style="width: 100%; height: 140px; object-fit: cover; border-bottom: 1px solid #1A2520; display: block; border: 0; outline: none;" />
                                     </a>
                                     {% endif %}
-                                    <div class="race-card-head">
-                                        <span class="dday"><small>대회</small>{{ race.race_date|date:"n.j" }}{% if race.race_end_date and race.race_end_date != race.race_date %}~{{ race.race_end_date|date:"n.j" }}{% endif %}</span>
-                                        <span class="code">{{ race.sport_label }} · {{ race.region }}</span>
+                                    <div style="background: #E8E9DD; border-bottom: 1px solid #1A2520; padding: 8px 14px; font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 11px; color: #1A2520;">
+                                        <span style="font-weight: 700; letter-spacing: 0.5px;"><small style="font-size: 9px; font-weight: 500; letter-spacing: 1.5px; margin-right: 4px; opacity: 0.7;">대회</small>{{ race.race_date|date:"n.j" }}{% if race.race_end_date and race.race_end_date != race.race_date %}~{{ race.race_end_date|date:"n.j" }}{% endif %}</span>
+                                        <span style="float: right; font-size: 10px; letter-spacing: 1.5px; opacity: 0.8;">{{ race.sport_label }} · {{ race.region }}</span>
                                     </div>
-                                    <div class="race-card-body">
-                                        <div class="race-card-title">
-                                            <a href="{{ app_url }}/races/{{ race.slug }}?utm_source=email&utm_medium=welcome">{{ race.title }}</a>
+                                    <div style="padding: 18px 16px 14px;">
+                                        <div style="font-weight: 700; font-size: 16px; line-height: 1.3; letter-spacing: -0.3px; margin: 0 0 12px; color: #1A2520; font-family: 'Pretendard Variable', Pretendard, -apple-system, sans-serif;">
+                                            <a href="{{ app_url }}/races/{{ race.slug }}?utm_source=email&utm_medium=welcome" style="color: #1A2520; text-decoration: none;">{{ race.title }}</a>
                                         </div>
-                                        <div class="race-card-meta">
+                                        <div style="font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 11px; color: #5A6661; line-height: 1.7; margin: 0;">
                                             대회일&nbsp;&nbsp;{{ race.race_date|date:"Y.n.j" }}{% if race.race_end_date and race.race_end_date != race.race_date %}~{{ race.race_end_date|date:"n.j" }}{% endif %} · {{ race.location }}
                                             {% if race.registration_end %}<br>접수마감&nbsp;{{ race.registration_end|date:"Y.n.j" }}{% if race.days_until_registration_end is not None and race.days_until_registration_end >= 0 %} <span style="color: {% if race.days_until_registration_end <= 7 %}#D14E2C{% else %}#1A2520{% endif %}; font-weight: 600;">{% if race.days_until_registration_end == 0 %}(오늘){% else %}(D-{{ race.days_until_registration_end }}){% endif %}</span>{% endif %}{% endif %}
                                         </div>
                                         {% if race.distances %}
-                                        <div class="race-card-foot">
-                                            {% for d in race.distances|slice:":3" %}<span class="chip">{{ d.name }}</span>{% endfor %}
+                                        <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #C5C7BC;">
+                                            {% for d in race.distances|slice:":3" %}<span style="display: inline-block; padding: 2px 8px; border: 1px solid #1A2520; font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 11px; line-height: 1.5; color: #1A2520; margin: 2px 4px 2px 0; background: transparent;">{{ d.name }}</span>{% endfor %}
                                         </div>
                                         {% endif %}
                                     </div>
@@ -106,9 +106,9 @@
 
                         <!-- CTA -->
                         <tr>
-                            <td class="cta-wrapper">
-                                <a href="{{ app_url }}/races?utm_source=email&utm_medium=welcome" class="cta-btn">
-                                    전체 대회 둘러보기 <span class="arrow">↗</span>
+                            <td class="cta-wrapper" style="text-align: center; padding: 28px 32px 36px; background: #F4F4EE; border-bottom: 1px solid #1A2520;">
+                                <a href="{{ app_url }}/races?utm_source=email&utm_medium=welcome" style="display: inline-block; background: #1A2520; color: #F4F4EE; font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif; font-weight: 600; font-size: 13px; letter-spacing: -0.2px; padding: 13px 22px; text-decoration: none; border: 1px solid #1A2520;">
+                                    전체 대회 둘러보기 <span style="font-family: 'IBM Plex Mono', monospace; margin-left: 6px;">↗</span>
                                 </a>
                             </td>
                         </tr>

@@ -351,7 +351,6 @@
                                 title="{race.title}"
                                 onclick={(e) => e.stopPropagation()}
                             >
-                                <span class="race-bar"></span>
                                 <span class="race-name">{race.title}</span>
                             </a>
                         {/each}
@@ -752,7 +751,7 @@
     .cal-cell {
         min-height: 96px;
         min-width: 0;
-        padding: 5px 5px 7px;
+        padding: 0;
         border-right: 1px solid var(--arena-line-soft);
         border-bottom: 1px solid var(--arena-line-soft);
         background: var(--arena-paper);
@@ -763,7 +762,6 @@
     @media (min-width: 720px) {
         .cal-cell {
             min-height: 120px;
-            padding: 6px 6px 8px;
         }
     }
     .cal-cell:nth-child(7n) {
@@ -790,6 +788,12 @@
         justify-content: space-between;
         gap: 4px;
         min-height: 18px;
+        padding: 5px 5px 0;
+    }
+    @media (min-width: 720px) {
+        .cell-head {
+            padding: 6px 6px 0;
+        }
     }
     .day-num {
         font-size: 12px;
@@ -813,8 +817,10 @@
         font-weight: 600;
         color: var(--arena-ink-soft);
         background: var(--arena-paper);
-        padding: 1px 5px;
+        padding: 0 3px;
+        text-align: center;
         border: 1px solid var(--arena-line-soft);
+        flex-shrink: 0;
     }
 
     .cell-body {
@@ -826,11 +832,8 @@
         overflow: hidden;
     }
     .race-chip {
-        display: grid;
-        grid-template-columns: 3px minmax(0, 1fr);
-        align-items: center;
-        gap: 5px;
-        padding: 2px 4px 2px 0;
+        display: block;
+        padding: 0;
         font-family: var(--arena-f-body);
         font-size: 11px;
         line-height: 1.3;
@@ -841,13 +844,10 @@
         overflow: hidden;
     }
     .race-chip:hover {
-        border-color: var(--arena-ink);
         background: var(--arena-paper-alt);
     }
-    .race-bar {
-        align-self: stretch;
-    }
     .race-name {
+        display: block;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -859,26 +859,26 @@
     }
 
     /* Sport color mapping (matches RaceRow) */
-    .sport-running .race-bar,
     .sport-running .pill-dot {
         background: oklch(48% 0.18 280);
     }
-    .sport-swimming .race-bar,
     .sport-swimming .pill-dot {
         background: oklch(50% 0.14 220);
     }
-    .sport-cycling .race-bar,
     .sport-cycling .pill-dot {
         background: oklch(55% 0.16 60);
     }
-    .sport-triathlon .race-bar,
     .sport-triathlon .pill-dot {
         background: oklch(48% 0.18 320);
     }
-    .sport-trail_running .race-bar,
     .sport-trail_running .pill-dot {
         background: oklch(42% 0.14 145);
     }
+    .race-chip.sport-running { border-color: oklch(48% 0.18 280); }
+    .race-chip.sport-swimming { border-color: oklch(50% 0.14 220); }
+    .race-chip.sport-cycling { border-color: oklch(55% 0.16 60); }
+    .race-chip.sport-triathlon { border-color: oklch(48% 0.18 320); }
+    .race-chip.sport-trail_running { border-color: oklch(42% 0.14 145); }
     .pill.active .pill-dot {
         outline: 1px solid var(--arena-paper);
         outline-offset: 1px;

@@ -1,7 +1,12 @@
 import type { PageServerLoad, Actions } from './$types';
 import { apiFetch, isApiError } from '$lib/api';
 import { fail, redirect } from '@sveltejs/kit';
-import type { EmailVerifyResponse, PendingEmailVerifyResponse, ApiErrors } from '$lib/types';
+import type {
+	EmailVerifyResponse,
+	PendingEmailVerifyResponse,
+	ApiErrors,
+	MeResponse,
+} from '$lib/types';
 
 function parseCheckboxValue(value: FormDataEntryValue | null): boolean {
 	return value === 'on' || value === 'true' || value === '1';
@@ -9,9 +14,25 @@ function parseCheckboxValue(value: FormDataEntryValue | null): boolean {
 
 export const load: PageServerLoad = async ({ locals, cookies }) => {
 	const hasPendingSocialLogin = !!cookies.get('pending_social_token');
-	if (!locals.authToken && !hasPendingSocialLogin) {
-		redirect(303, '/auth/login');
+
+	let tokenIsValid = false;
+	if (locals.authToken) {
+		try {
+			const me = await apiFetch<MeResponse>('/auth/me/', { authToken: locals.authToken });
+			tokenIsValid = !!me.user;
+		} catch {
+			tokenIsValid = false;
+		}
+		if (!tokenIsValid) {
+			cookies.delete('auth_token', { path: '/' });
+			locals.authToken = '';
+		}
 	}
+
+	if (!tokenIsValid && !hasPendingSocialLogin) {
+		redirect(303, '/auth/login?next=/auth/verify-email');
+	}
+
 	return { hasPendingSocialLogin };
 };
 
