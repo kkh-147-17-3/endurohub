@@ -12,6 +12,7 @@
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
   },
   "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@sentry/sveltekit": "^10.43.0",
     "@tiptap/core": "^3.20.0",
     "@tiptap/extension-character-count": "^3.20.0",
@@ -25,6 +26,8 @@
     "@tiptap/pm": "^3.20.0",
     "@tiptap/starter-kit": "^3.20.0",
     "posthog-js": "^1.365.1",
+    "satori": "^0.26.0",
+    "satori-html": "^0.3.2",
     "svelte-range-slider-pips": "^4.1.0"
   },
   "devDependencies": {

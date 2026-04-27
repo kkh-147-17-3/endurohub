@@ -1,5 +1,15 @@
 /// <reference types="@sveltejs/kit" />
 
+declare module '*.otf' {
+	const url: string;
+	export default url;
+}
+
+declare module '*.ttf' {
+	const url: string;
+	export default url;
+}
+
 declare global {
 	function gtag(...args: unknown[]): void;
 	interface Window {

@@ -91,7 +91,7 @@
         return desc.substring(0, 160);
     });
 
-    const ogImage = $derived(race.imageSrc || `/images/og-${race.sport.replace('_', '-')}.png`);
+    const ogImage = $derived(`${appUrl}/og/races/${race.slug}`);
 
     let modalOpen = $state(false);
     let modalImageSrc = $state('');
@@ -413,6 +413,10 @@
     <meta property="og:title" content={race.title} />
     <meta property="og:description" content={metaDesc()} />
     <meta property="og:image" content={ogImage} />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="twitter:image" content={ogImage} />
     {@html `<script type="application/ld+json">${JSON.stringify(eventSchema)}</script>`}
     {@html `<script type="application/ld+json">${JSON.stringify(breadcrumbSchema)}</script>`}
 </svelte:head>
