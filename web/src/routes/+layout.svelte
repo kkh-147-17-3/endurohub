@@ -174,6 +174,7 @@
             <div class="user-dropdown">
                 <button
                     class="avatar-btn"
+                    class:open={userMenuOpen}
                     onclick={() => (userMenuOpen = !userMenuOpen)}
                     aria-expanded={userMenuOpen}
                     aria-label="계정 메뉴"
@@ -459,34 +460,31 @@
         text-decoration: none;
     }
     .theme-toggle:hover,
-    .user-icon:hover {
+    .user-icon:hover,
+    .avatar-btn:hover {
         color: var(--arena-ink);
         background: var(--arena-paper-alt);
     }
     .user-icon.active {
         color: var(--arena-urgent);
     }
-    .avatar-btn {
-        padding: 0;
-        width: 32px;
-        height: 32px;
-        overflow: hidden;
+    .avatar-btn.open {
+        background: var(--arena-paper-alt);
+        box-shadow: inset 0 -2px 0 var(--arena-ink);
     }
-    .avatar-btn img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
+    .avatar-btn img,
     .avatar-fallback {
-        width: 32px;
-        height: 32px;
+        width: 22px;
+        height: 22px;
         display: grid;
         place-items: center;
+        object-fit: cover;
         background: var(--arena-paper-alt);
         color: var(--arena-ink);
         font-family: var(--arena-f-display);
         font-weight: 700;
-        font-size: 13px;
+        font-size: 11px;
+        line-height: 1;
         border: 1px solid var(--arena-line);
     }
     .user-dropdown {
