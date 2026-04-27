@@ -2,6 +2,8 @@
     import ToolsSidebar from '$lib/components/Tools/ToolsSidebar.svelte';
     import { glossaryTerms, categoryLabels, type GlossaryCategory } from '$lib/tools/glossary-data';
 
+    let { data } = $props();
+
     let selectedCategory = $state<GlossaryCategory | 'all'>('all');
     let searchQuery = $state('');
 
@@ -110,11 +112,16 @@
         name="description"
         content="마라톤 러닝 용어 사전 - LSD, 인터벌, 템포런, VO2max, 네거티브 스플릿, 카보로딩 등 러닝 용어를 초보자도 이해하기 쉽게 설명합니다."
     />
+    <meta property="og:type" content="website" />
     <meta property="og:title" content="러닝 용어 사전 - 엔듀로허브" />
     <meta
         property="og:description"
         content="LSD, 인터벌, 템포런, VO2max, 네거티브 스플릿 등 러닝 용어를 쉽게 알아보세요."
     />
+    <meta property="og:image" content="{data.appUrl}/images/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:image" content="{data.appUrl}/images/og-image.png" />
     {@html `<script type="application/ld+json">${JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'WebPage',

@@ -1,4 +1,6 @@
 <script lang="ts">
+    let { data } = $props();
+
     const today = new Date();
     const dateStr = `${today.getFullYear()}.${String(today.getMonth() + 1).padStart(2, '0')}.${String(today.getDate()).padStart(2, '0')}`;
 
@@ -72,8 +74,13 @@
 <svelte:head>
     <title>개인정보처리방침 - 엔듀로허브</title>
     <meta name="description" content="엔듀로허브의 개인정보처리방침" />
+    <meta property="og:type" content="website" />
     <meta property="og:title" content="개인정보처리방침 - 엔듀로허브" />
     <meta property="og:description" content="엔듀로허브의 개인정보처리방침" />
+    <meta property="og:image" content="{data.appUrl}/images/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:image" content="{data.appUrl}/images/og-image.png" />
     <meta name="robots" content="noindex" />
 </svelte:head>
 

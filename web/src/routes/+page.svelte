@@ -69,11 +69,17 @@
         name="description"
         content="엔듀로허브에서 국내 마라톤, 수영, 자전거, 철인3종, 트레일러닝 대회 일정과 접수 정보를 한곳에서 확인하세요."
     />
+    <meta property="og:type" content="website" />
     <meta property="og:title" content="엔듀로허브 - 국내 지구력 스포츠 대회 정보 플랫폼" />
     <meta
         property="og:description"
         content="엔듀로허브에서 국내 마라톤, 수영, 자전거, 철인3종, 트레일러닝 대회 일정과 접수 정보를 한곳에서 확인하세요."
     />
+    <meta property="og:image" content="{appUrl}/images/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="엔듀로허브 - 국내 지구력 대회 인덱스" />
+    <meta name="twitter:image" content="{appUrl}/images/og-image.png" />
     {@html `<script type="application/ld+json">${JSON.stringify(websiteSchema)}</script>`}
     {@html `<script type="application/ld+json">${JSON.stringify(itemListSchema)}</script>`}
 </svelte:head>
