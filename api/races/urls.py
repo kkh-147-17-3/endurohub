@@ -1,8 +1,13 @@
 from django.urls import path
 
-from . import views
+from . import admin_api, views
 
 urlpatterns = [
+    # Admin (bearer-token, separate from Django admin UI)
+    path('admin/races/', admin_api.RaceAdminListView.as_view(), name='admin-race-list'),
+    path('admin/races/<str:slug>/', admin_api.RaceAdminDetailView.as_view(), name='admin-race-detail'),
+    path('admin/races/<str:slug>/images/', admin_api.RaceAdminImageView.as_view(), name='admin-race-images'),
+
     # Home
     path('home/', views.HomeView.as_view(), name='home'),
 

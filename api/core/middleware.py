@@ -77,6 +77,9 @@ class AdminTokenCookieMiddleware:
     Django Admin에 로그인한 staff 유저에게 admin_token 쿠키를 설정한다.
     SvelteKit이 이 쿠키를 읽어 isAdmin 여부를 판별한다.
     로그아웃하면 쿠키를 삭제한다.
+
+    스태프 세션으로 처리되는 Django 응답마다 쿠키를 다시 발급한다(슬라이딩 만료).
+    그래서 dj-admin 을 주기적으로 쓰면 SvelteKit /admin 접근이 중간에 끊기지 않는다.
     """
 
     def __init__(self, get_response):
@@ -93,16 +96,18 @@ class AdminTokenCookieMiddleware:
         has_cookie = cookie_name in request.COOKIES
 
         if request.user.is_authenticated and request.user.is_staff:
-            if not has_cookie or request.COOKIES[cookie_name] != admin_secret:
-                response.set_cookie(
-                    cookie_name,
-                    admin_secret,
-                    path='/',
-                    httponly=True,
-                    samesite='Lax',
-                    secure=not settings.DEBUG,
-                    max_age=60 * 60 * 24 * 7,  # 7 days
-                )
+            # 스태프 세션이 살아 있는 동안 매 응답마다 쿠키를 다시 보낸다.
+            # (기존에는 값이 같으면 set_cookie 를 생략해서 Max-Age 가 연장되지 않았고,
+            #  정확히 7일 후 admin_token 만료 → SvelteKit /admin 이 403 으로 끊겼다.)
+            response.set_cookie(
+                cookie_name,
+                admin_secret,
+                path='/',
+                httponly=True,
+                samesite='Lax',
+                secure=not settings.DEBUG,
+                max_age=60 * 60 * 24 * 30,  # 30 days (dj-admin 방문 시마다 연장)
+            )
         else:
             if has_cookie:
                 response.delete_cookie(cookie_name, path='/')

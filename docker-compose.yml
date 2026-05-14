@@ -107,6 +107,8 @@ services:
       ADMIN_SECRET: ${ADMIN_SECRET:-}
       SENTRY_DSN: ${SENTRY_DSN_WEB:-}
       PUBLIC_SENTRY_DSN: ${SENTRY_DSN_WEB:-}
+      # adapter-node body limit (default 512KB) — admin image uploads up to 20MB; matches nginx client_max_body_size.
+      BODY_SIZE_LIMIT: "20971520"
     ports:
       - "3000:3000"
     depends_on:

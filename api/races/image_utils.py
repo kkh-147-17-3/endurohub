@@ -1,4 +1,5 @@
 import os
+import uuid
 from pathlib import Path
 
 from django.conf import settings
@@ -6,6 +7,33 @@ from PIL import Image
 
 THUMB_WIDTH = 600
 WEBP_QUALITY = 82
+
+
+def save_upload(uploaded_file, subdir='races'):
+    """Save an uploaded file under MEDIA_ROOT/<subdir>/ and return its relative path."""
+    ext = os.path.splitext(uploaded_file.name)[1].lower() or '.bin'
+    filename = f'{uuid.uuid4().hex}{ext}'
+    rel_path = f'{subdir}/{filename}'
+    abs_path = os.path.join(settings.MEDIA_ROOT, rel_path)
+    os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+    with open(abs_path, 'wb+') as dest:
+        for chunk in uploaded_file.chunks():
+            dest.write(chunk)
+    return rel_path
+
+
+def delete_upload(rel_path):
+    """Delete the uploaded original and its derived WebP/thumb files (best-effort)."""
+    if not rel_path:
+        return
+    src = Path(settings.MEDIA_ROOT) / rel_path
+    stem = src.stem
+    parent = src.parent
+    for target in (src, parent / f'{stem}.webp', parent / 'thumbs' / f'{stem}.webp'):
+        try:
+            target.unlink()
+        except (OSError, FileNotFoundError):
+            pass
 
 
 def process_image(rel_path):

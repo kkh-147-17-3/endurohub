@@ -923,7 +923,7 @@
             {/if}
 
             {#if isAdmin}
-                <a class="admin-link" href="/admin/races/race/{race.id}/change/" target="_blank" rel="noopener">
+                <a class="admin-link" href="/admin/races/{race.slug}">
                     🔧 관리자 페이지에서 수정 →
                 </a>
             {/if}

@@ -117,7 +117,7 @@ class PostCommentAdmin(ModelAdmin):
     @admin.display(description='게시글')
     def post_link(self, obj):
         return format_html(
-            '<a href="/admin/posts/post/{}/change/">{}</a>',
+            '<a href="/dj-admin/posts/post/{}/change/">{}</a>',
             obj.post_id, obj.post.title[:20],
         )
 

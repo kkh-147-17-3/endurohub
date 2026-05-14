@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import * as Sentry from '@sentry/sveltekit';
 import { env } from '$env/dynamic/private';
 import { sequence } from '@sveltejs/kit/hooks';
+import { ADMIN_SECRET } from '$lib/env';
 
 if (env.SENTRY_DSN) {
 	Sentry.init({
@@ -32,12 +33,16 @@ const appHandle: Handle = async ({ event, resolve }) => {
 	// Extract auth token from cookie
 	event.locals.authToken = event.cookies.get('auth_token') || '';
 
-	// Extract session ID for forwarding to Django API
-	event.locals.sessionId = event.cookies.get(SESSION_COOKIE) || '';
+	const adminToken = event.cookies.get('admin_token') || '';
+	event.locals.isAdmin = !!(ADMIN_SECRET && adminToken && adminToken === ADMIN_SECRET);
 
-	// Ensure anonymous session ID exists for analytics
-	if (!event.cookies.get(SESSION_COOKIE)) {
-		event.cookies.set(SESSION_COOKIE, crypto.randomUUID(), {
+	// Ensure anonymous session ID exists for analytics, and forward it to Django API
+	// on the same request (Set-Cookie reaches the browser only after the response,
+	// so we must populate locals.sessionId synchronously when minting a new ID).
+	let sessionId = event.cookies.get(SESSION_COOKIE);
+	if (!sessionId) {
+		sessionId = crypto.randomUUID();
+		event.cookies.set(SESSION_COOKIE, sessionId, {
 			path: '/',
 			httpOnly: false,
 			secure: false,
@@ -45,6 +50,7 @@ const appHandle: Handle = async ({ event, resolve }) => {
 			maxAge: SESSION_MAX_AGE_SECONDS,
 		});
 	}
+	event.locals.sessionId = sessionId;
 
 	return resolve(event);
 };

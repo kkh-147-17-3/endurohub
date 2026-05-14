@@ -1,9 +1,24 @@
 <script lang="ts">
+    import { onMount } from 'svelte';
+    import { get } from 'svelte/store';
     import { page } from '$app/stores';
     import { goto } from '$app/navigation';
 
     let status = $derived($page.status);
     let message = $derived($page.error?.message || '');
+
+    onMount(() => {
+        const p = get(page);
+        if (
+            p.status === 403 &&
+            p.url.pathname.startsWith('/admin') &&
+            p.url.pathname !== '/admin/login' &&
+            !p.url.pathname.startsWith('/admin/login/')
+        ) {
+            const next = p.url.pathname + p.url.search;
+            goto(`/admin/login?redirect=${encodeURIComponent(next)}`, { replaceState: true });
+        }
+    });
 
     type ErrorMeta = { kicker: string; title: string; sub: string };
 

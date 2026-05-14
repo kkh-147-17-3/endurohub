@@ -28,6 +28,7 @@
     "posthog-js": "^1.365.1",
     "satori": "^0.26.0",
     "satori-html": "^0.3.2",
+    "svelte-dnd-action": "^0.9.69",
     "svelte-range-slider-pips": "^4.1.0"
   },
   "devDependencies": {
