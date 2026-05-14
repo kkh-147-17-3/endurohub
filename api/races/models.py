@@ -253,6 +253,16 @@ class Race(models.Model):
 
     objects = RaceQuerySet.as_manager()
 
+    # 크롤러가 갱신 대상으로 삼는 필드들 (marathon_crawler._get_changes 와 동기화).
+    # 어드민에서 이 중 하나를 직접 편집하면 자동으로 locked_fields 에 추가된다.
+    CRAWLER_TRACKED_FIELDS = (
+        'title', 'race_date', 'race_end_date', 'start_time',
+        'location', 'address', 'latitude', 'longitude', 'region',
+        'distances', 'registration_start', 'registration_end',
+        'official_url', 'description', 'organizer',
+        'organizer_contact', 'organizer_email',
+    )
+
     class Meta:
         db_table = 'races'
         ordering = ['race_date']
@@ -382,6 +392,24 @@ class Race(models.Model):
 
     def is_field_locked(self, field):
         return field in (self.locked_fields or [])
+
+    def lock_fields_for_edit(self, field_names):
+        """편집된 필드 중 크롤러 추적 대상을 locked_fields 에 추가.
+
+        Returns:
+            새로 추가된 필드명 리스트 (이미 잠겨 있던 필드 / 비추적 필드는 제외).
+
+        호출자는 반환값이 비어있지 않을 때 race.save(update_fields=[..., 'locked_fields'])
+        에 'locked_fields' 를 포함시켜야 한다.
+        """
+        trackable = [f for f in field_names if f in self.CRAWLER_TRACKED_FIELDS]
+        if not trackable:
+            return []
+        current = list(self.locked_fields or [])
+        newly = [f for f in trackable if f not in current]
+        if newly:
+            self.locked_fields = current + newly
+        return newly
 
     @staticmethod
     def parse_distance_km(distance_string):

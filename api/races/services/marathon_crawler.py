@@ -180,7 +180,7 @@ class MarathonCrawlerService:
                 'source_url': f'{self.DETAIL_URL}{race_no}',
             })
 
-        return races
+        return self._dedupe_by_title(races)
 
     def parse_detail_html(self, html, race_no):
         data = {
@@ -381,6 +381,8 @@ class MarathonCrawlerService:
 
     def save_race(self, data):
         existing = Race.objects.filter(source_url=data['source_url']).first()
+        if not existing:
+            existing = self._find_by_title(data.get('title'))
         race_data = {
             'title': data['title'],
             'sport': 'running',
@@ -402,6 +404,8 @@ class MarathonCrawlerService:
             existing = Race.objects.filter(external_id=str(external_id)).first()
         if not existing and data.get('source_url'):
             existing = Race.objects.filter(source_url=data['source_url']).first()
+        if not existing:
+            existing = self._find_by_title(data.get('title'))
 
         if data.get('_detail_failed') and existing:
             return {'status': 'skipped', 'race': existing, 'reason': 'detail_crawl_failed'}
@@ -613,6 +617,40 @@ class MarathonCrawlerService:
         text = re.sub(r'<[^>]+>', '', text)
         text = text.replace('&nbsp;', ' ')
         return re.sub(r'\s+', ' ', text).strip()
+
+    def _dedupe_by_title(self, races):
+        last_index_by_title = {}
+        for idx, race in enumerate(races):
+            norm = self._normalize_title(race.get('title'))
+            if norm:
+                last_index_by_title[norm] = idx
+        keep_indices = set(last_index_by_title.values())
+        deduped = []
+        for idx, race in enumerate(races):
+            norm = self._normalize_title(race.get('title'))
+            if not norm or idx in keep_indices:
+                deduped.append(race)
+            else:
+                logger.info(
+                    'Marathon crawl deduped duplicate title',
+                    extra={'race_no': race.get('race_no'), 'title': race.get('title')},
+                )
+        return deduped
+
+    def _find_by_title(self, title):
+        norm = self._normalize_title(title)
+        if not norm:
+            return None
+        for race in Race.objects.only('id', 'title').iterator():
+            if self._normalize_title(race.title) == norm:
+                return Race.objects.filter(pk=race.pk).first()
+        return None
+
+    @staticmethod
+    def _normalize_title(title):
+        if not title:
+            return ''
+        return re.sub(r'\s+', '', str(title)).lower()
 
     def _normalize_for_compare(self, value):
         if isinstance(value, datetime):

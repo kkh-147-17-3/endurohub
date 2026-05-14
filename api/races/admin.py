@@ -2,7 +2,7 @@ import os
 import uuid
 
 from django.conf import settings
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.db.models import IntegerField, OuterRef, Subquery, Value
 from django.db.models.functions import Coalesce
 from django.http import HttpResponseRedirect
@@ -315,7 +315,12 @@ class RaceAdmin(ModelAdmin):
                 'auto_update_enabled', 'verified_at', 'verified_by', 'locked_fields',
                 'pending_changes_link',
             ),
-            'description': '검증된 정보가 크롤러에 의해 덮어쓰기 되는 것을 방지합니다.',
+            'description': (
+                '검증된 정보가 크롤러에 의해 덮어쓰기 되는 것을 방지합니다. '
+                '어드민에서 어떤 필드든 직접 편집하면 자동으로 locked_fields 에 추가되어 '
+                '이후 크롤링에서 보호됩니다. 보호를 해제하려면 위 locked_fields 에서 '
+                '해당 필드명을 직접 제거하세요.'
+            ),
         }),
         ('메타 정보', {
             'fields': ('view_count', 'created_at', 'updated_at'),
@@ -491,7 +496,32 @@ class RaceAdmin(ModelAdmin):
             setattr(obj, f'{kind}_images', new_ext or None)
             setattr(obj, f'{kind}_image_uploads', new_up or None)
 
+        self._auto_lock_edited_fields(request, obj, form, change)
+
         super().save_model(request, obj, form, change)
+
+    def _auto_lock_edited_fields(self, request, obj, form, change):
+        """편집된 크롤러 추적 필드를 locked_fields 에 자동 추가.
+
+        - 신규 생성(change=False)에는 적용하지 않는다 (어차피 처음 만드는 값).
+        - 사용자가 locked_fields 자체를 직접 편집한 경우는 의도를 존중하여 건너뛴다.
+        """
+        if not change or not form.changed_data:
+            return
+        if 'locked_fields' in form.changed_data:
+            return
+
+        newly_locked = obj.lock_fields_for_edit(form.changed_data)
+        if not newly_locked:
+            return
+
+        labels = ', '.join(
+            RacePendingChange.FIELD_LABELS.get(f, f) for f in newly_locked
+        )
+        messages.info(
+            request,
+            f'편집한 필드를 크롤러 자동 갱신에서 보호 처리했습니다: {labels}',
+        )
 
     # --- List display ---
 
