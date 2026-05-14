@@ -26,6 +26,8 @@ declare global {
 			clientIp: string;
 			authToken: string;
 			sessionId: string;
+			/** Set in hooks from admin_token cookie vs ADMIN_SECRET (fresh every request; do not rely on cached parent() data for guards). */
+			isAdmin: boolean;
 		}
 		interface PageData {
 			appName: string;
@@ -35,6 +37,7 @@ declare global {
 			naverMapClientId: string;
 			googleAnalyticsId: string;
 			feedbackFormUrl: string;
+			isAdmin: boolean;
 			user: import('$lib/types').AuthUser | null;
 		}
 		// interface PageState {}

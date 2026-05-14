@@ -6,14 +6,12 @@ import {
 	NAVER_MAP_CLIENT_ID,
 	GOOGLE_ANALYTICS_ID,
 	FEEDBACK_FORM_URL,
-	ADMIN_SECRET
 } from '$lib/env';
 import { apiFetch } from '$lib/api';
 import type { MeResponse, AuthUser } from '$lib/types';
 
-export const load: LayoutServerLoad = async ({ cookies, locals }) => {
-	const adminToken = cookies.get('admin_token') || '';
-	const isAdmin = !!(ADMIN_SECRET && adminToken && adminToken === ADMIN_SECRET);
+export const load: LayoutServerLoad = async ({ locals }) => {
+	const { isAdmin } = locals;
 
 	let user: AuthUser | null = null;
 	if (locals.authToken) {
