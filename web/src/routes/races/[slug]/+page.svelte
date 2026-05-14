@@ -479,19 +479,54 @@
                 </div>
                 {#if race.weatherForecast}
                     {@const w = race.weatherForecast}
+                    {@const rw = w.race_window}
                     <div class="meta-cell">
-                        <div class="meta-label">날씨 예보</div>
+                        <div class="meta-label">
+                            날씨 예보
+                            {#if rw}<span class="weather-badge">대회시간 기준</span>{/if}
+                        </div>
                         <div class="meta-value">
-                            {#if w.temp_low != null && w.temp_high != null}
-                                {w.temp_low}° / {w.temp_high}°
+                            {#if rw}
+                                {#if rw.condition_icon || rw.condition}
+                                    <span class="weather-cond">
+                                        {#if rw.condition_icon}<span class="weather-icon">{rw.condition_icon}</span>{/if}
+                                        {#if rw.condition}{rw.condition}{/if}
+                                    </span>
+                                {/if}
+                                {#if rw.temp_min != null && rw.temp_max != null}
+                                    <span class="weather-temp">{rw.temp_min}° / {rw.temp_max}°</span>
+                                {/if}
                             {:else}
-                                —
-                            {/if}
-                            {#if w.rain_prob != null}
-                                <span class="weather-rain">· 비 {w.rain_prob}%</span>
+                                {#if w.condition_icon || w.condition}
+                                    <span class="weather-cond">
+                                        {#if w.condition_icon}<span class="weather-icon">{w.condition_icon}</span>{/if}
+                                        {#if w.condition}{w.condition}{/if}
+                                    </span>
+                                {/if}
+                                {#if w.temp_low != null && w.temp_high != null}
+                                    <span class="weather-temp">{w.temp_low}° / {w.temp_high}°</span>
+                                {:else if !(w.condition_icon || w.condition)}
+                                    —
+                                {/if}
                             {/if}
                         </div>
-                        <div class="meta-sub">{w.wind ?? ''}</div>
+                        <div class="meta-sub">
+                            {#if rw}
+                                {#if rw.apparent_temp_min != null && rw.apparent_temp_max != null}체감 {rw.apparent_temp_min}~{rw.apparent_temp_max}°{/if}
+                                {#if rw.rain_prob_max != null} · 비 {rw.rain_prob_max}%{/if}
+                                {#if rw.wind} · {rw.wind}{/if}
+                            {:else}
+                                {#if w.rain_prob != null}비 {w.rain_prob}%{/if}
+                                {#if w.rain_prob != null && w.wind} · {/if}
+                                {w.wind ?? ''}
+                            {/if}
+                        </div>
+                        {#if rw && w.temp_low != null && w.temp_high != null}
+                            <div class="meta-sub weather-day">
+                                하루 전체 {w.temp_low}° / {w.temp_high}°
+                                {#if w.rain_prob != null} · 비 {w.rain_prob}%{/if}
+                            </div>
+                        {/if}
                     </div>
                 {:else}
                     <div class="meta-cell">
@@ -1180,6 +1215,38 @@
         font-weight: 500;
         letter-spacing: 0;
         margin-left: 4px;
+    }
+    .weather-cond {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-right: 6px;
+    }
+    .weather-icon {
+        font-size: 1.1em;
+        line-height: 1;
+    }
+    .weather-temp {
+        color: var(--arena-ink-soft);
+        font-weight: 500;
+    }
+    .weather-badge {
+        display: inline-block;
+        margin-left: 6px;
+        padding: 1px 6px;
+        font-size: 10px;
+        font-weight: 600;
+        line-height: 1.4;
+        color: var(--arena-accent, #2563eb);
+        background: rgba(37, 99, 235, 0.1);
+        border-radius: 999px;
+        letter-spacing: 0;
+        vertical-align: 1px;
+    }
+    .weather-day {
+        margin-top: 2px;
+        opacity: 0.7;
+        font-size: 12px;
     }
 
     /* ── Main 3-col grid ────────────────── */

@@ -113,11 +113,41 @@ export interface Race {
 	updatedAt: string;
 }
 
+export interface WeatherHourSample {
+	time: string | null;
+	temperature: number | null;
+	apparent_temperature: number | null;
+	rain_prob: number | null;
+	wind: string | null;
+	condition: string | null;
+	condition_icon: string | null;
+	weather_code: number | null;
+}
+
+export interface WeatherWindow {
+	start_time: string | null;
+	end_time: string | null;
+	condition: string | null;
+	condition_icon: string | null;
+	weather_code: number | null;
+	temp_min: number | null;
+	temp_max: number | null;
+	apparent_temp_min: number | null;
+	apparent_temp_max: number | null;
+	rain_prob_max: number | null;
+	wind: string | null;
+}
+
 export interface WeatherForecast {
 	temp_high: number | null;
 	temp_low: number | null;
 	rain_prob: number | null;
 	wind: string | null;
+	condition: string | null;
+	condition_icon: string | null;
+	weather_code: number | null;
+	race_window?: WeatherWindow | null;
+	race_hours?: WeatherHourSample[] | null;
 	fetched_at: string;
 }
 
