@@ -1,7 +1,7 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
     import { onMount } from 'svelte';
-    import type { Race, SportOption } from '$lib/types';
+    import type { Race, Sport, SportOption } from '$lib/types';
     import { track } from '$lib/analytics';
     import { arenaSportShort } from '$lib/arena';
     import RaceRow from '$lib/components/arena/RaceRow.svelte';
@@ -45,6 +45,22 @@
     }
 
     const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+    const dayNamesEn = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+
+    // Sport encoding order for the per-cell color strip (most common first).
+    const sportOrder: Sport[] = ['running', 'trail_running', 'cycling', 'swimming', 'triathlon'];
+
+    function sportSegments(races: Race[]): { sport: Sport; count: number }[] {
+        const counts = new Map<Sport, number>();
+        for (const r of races) counts.set(r.sport, (counts.get(r.sport) ?? 0) + 1);
+        return sportOrder
+            .filter((s) => counts.has(s))
+            .map((s) => ({ sport: s, count: counts.get(s) as number }));
+    }
+
+    function openCount(races: Race[]): number {
+        return races.filter((r) => r.status === 'registration_open').length;
+    }
 
     const startDate = $derived(new Date(startOfMonth));
     const firstDayOfMonth = $derived(startDate.getDay());
@@ -303,7 +319,7 @@
         <div class="cal-dow">
             {#each dayNames as dayName, index}
                 <div class="dow-cell" class:sun={index === 0} class:sat={index === 6}>
-                    {dayName}
+                    {dayName}<span class="dow-en mono">{dayNamesEn[index]}</span>
                 </div>
             {/each}
         </div>
@@ -320,13 +336,16 @@
                 {@const isToday = dateStr === today}
                 {@const dayOfWeek = (firstDayOfMonth + i) % 7}
                 {@const hasRaces = dayRaces.length > 0}
-                {@const visible = dayRaces.slice(0, 2)}
+                {@const visible = dayRaces.slice(0, 4)}
                 {@const overflow = dayRaces.length - visible.length}
+                {@const segments = sportSegments(dayRaces)}
+                {@const openN = openCount(dayRaces)}
 
                 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
                 <div
                     class="cal-cell"
                     class:today={isToday}
+                    class:has-races={hasRaces}
                     class:clickable={hasRaces}
                     onclick={() => hasRaces && openDayModal(`${month}월 ${day}일`, dayRaces)}
                     onkeydown={(e) => {
@@ -343,22 +362,41 @@
                         <span class="day-num mono" class:sun={dayOfWeek === 0 && !isToday} class:sat={dayOfWeek === 6 && !isToday}>
                             {String(day).padStart(2, '0')}
                         </span>
-                        {#if overflow > 0}
-                            <span class="overflow mono">+{overflow}</span>
+                        {#if hasRaces}
+                            <span class="cell-count mono">
+                                {#if openN > 0}
+                                    <span class="open-dot" title="접수중 {openN}개"></span>
+                                {/if}
+                                ×{dayRaces.length}
+                            </span>
                         {/if}
                     </div>
 
+                    {#if hasRaces}
+                        <div class="sport-strip" aria-hidden="true">
+                            {#each segments as seg}
+                                <span class="strip-seg sport-{seg.sport}" style="flex: {seg.count}"></span>
+                            {/each}
+                        </div>
+                    {/if}
+
                     <div class="cell-body">
                         {#each visible as race}
+                            {@const state =
+                                isToday ? 'today' : race.status === 'finished' ? 'closed' : 'open'}
                             <a
-                                class="race-chip sport-{race.sport}"
+                                class="race-line state-{state} sport-{race.sport}"
                                 href={race.url}
                                 title="{race.title}"
                                 onclick={(e) => e.stopPropagation()}
                             >
+                                <span class="race-swatch"></span>
                                 <span class="race-name">{race.title}</span>
                             </a>
                         {/each}
+                        {#if overflow > 0}
+                            <span class="more mono">+{overflow} more</span>
+                        {/if}
                     </div>
                 </div>
             {/each}
@@ -748,13 +786,23 @@
     .dow-cell.sat {
         color: oklch(50% 0.14 220);
     }
+    .dow-en {
+        margin-left: 4px;
+        opacity: 0.5;
+        font-size: 10px;
+    }
+    @media (max-width: 640px) {
+        .dow-en {
+            display: none;
+        }
+    }
 
     .cal-cells {
         display: grid;
         grid-template-columns: repeat(7, minmax(0, 1fr));
     }
     .cal-cell {
-        min-height: 96px;
+        min-height: 116px;
         min-width: 0;
         padding: 0;
         border-right: 1px solid var(--arena-line-soft);
@@ -766,20 +814,24 @@
     }
     @media (min-width: 720px) {
         .cal-cell {
-            min-height: 120px;
+            min-height: 144px;
         }
     }
     .cal-cell:nth-child(7n) {
         border-right: none;
     }
     .cal-cell.empty {
+        background: var(--arena-paper);
+    }
+    /* Cells holding races get a subtle tint so race days pop out of the grid. */
+    .cal-cell.has-races {
         background: var(--arena-paper-alt);
     }
     .cal-cell.clickable {
         cursor: pointer;
     }
-    .cal-cell.clickable:hover {
-        background: var(--arena-paper-alt);
+    .cal-cell.has-races.clickable:hover {
+        background: var(--arena-paper-deep);
     }
     .cal-cell.today {
         outline: 1.5px solid var(--arena-accent-deep);
@@ -817,15 +869,37 @@
         color: var(--arena-paper);
         padding: 1px 5px;
     }
-    .overflow {
+    .cell-count {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
         font-size: 10px;
         font-weight: 600;
-        color: var(--arena-ink-soft);
-        background: var(--arena-paper);
-        padding: 0 3px;
-        text-align: center;
-        border: 1px solid var(--arena-line-soft);
+        color: var(--arena-ink);
         flex-shrink: 0;
+    }
+    .open-dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--arena-accent-deep);
+    }
+
+    /* ── Sport count strip ─────────────────────────── */
+    .sport-strip {
+        display: flex;
+        gap: 2px;
+        height: 3px;
+        margin: 0 5px 1px;
+    }
+    @media (min-width: 720px) {
+        .sport-strip {
+            margin: 0 6px 2px;
+        }
+    }
+    .strip-seg {
+        display: block;
+        opacity: 0.9;
     }
 
     .cell-body {
@@ -835,55 +909,92 @@
         flex: 1;
         min-height: 0;
         overflow: hidden;
+        padding: 0 5px 5px;
     }
-    .race-chip {
-        display: block;
-        padding: 0;
-        font-family: var(--arena-f-body);
-        font-size: 11px;
-        line-height: 1.3;
-        background: var(--arena-paper);
-        color: var(--arena-ink);
+    @media (min-width: 720px) {
+        .cell-body {
+            padding: 0 6px 6px;
+        }
+    }
+    /* Compact monospace race line: sport swatch + truncated name. */
+    .race-line {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 1px 0;
         text-decoration: none;
-        border: 1px solid var(--arena-line-soft);
-        overflow: hidden;
+        font-family: var(--arena-f-mono);
+        font-size: 10.5px;
+        line-height: 1.3;
     }
-    .race-chip:hover {
-        background: var(--arena-paper-alt);
+    .race-swatch {
+        display: block;
+        width: 6px;
+        height: 6px;
+        flex-shrink: 0;
     }
     .race-name {
-        display: block;
+        flex: 1;
+        min-width: 0;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        color: var(--arena-ink);
+    }
+    .race-line.state-today .race-name {
+        color: var(--arena-accent-deep);
+        font-weight: 600;
+    }
+    .race-line.state-closed .race-name {
+        color: var(--arena-ink-mute);
+        text-decoration: line-through;
+        text-decoration-color: var(--arena-line-soft);
+    }
+    .race-line.state-closed .race-swatch {
+        opacity: 0.45;
+    }
+    .race-line:hover .race-name {
+        text-decoration: underline;
     }
     @media (max-width: 640px) {
-        .race-name {
-            font-size: 10px;
+        .race-line {
+            font-size: 9.5px;
         }
+    }
+    .more {
+        font-size: 10px;
+        letter-spacing: 0.3px;
+        color: var(--arena-ink-mute);
+        padding-left: 11px;
+        margin-top: 1px;
     }
 
     /* Sport color mapping (matches RaceRow) */
-    .sport-running .pill-dot {
+    .sport-running .pill-dot,
+    .race-line.sport-running .race-swatch,
+    .strip-seg.sport-running {
         background: oklch(48% 0.18 280);
     }
-    .sport-swimming .pill-dot {
+    .sport-swimming .pill-dot,
+    .race-line.sport-swimming .race-swatch,
+    .strip-seg.sport-swimming {
         background: oklch(50% 0.14 220);
     }
-    .sport-cycling .pill-dot {
+    .sport-cycling .pill-dot,
+    .race-line.sport-cycling .race-swatch,
+    .strip-seg.sport-cycling {
         background: oklch(55% 0.16 60);
     }
-    .sport-triathlon .pill-dot {
+    .sport-triathlon .pill-dot,
+    .race-line.sport-triathlon .race-swatch,
+    .strip-seg.sport-triathlon {
         background: oklch(48% 0.18 320);
     }
-    .sport-trail_running .pill-dot {
+    .sport-trail_running .pill-dot,
+    .race-line.sport-trail_running .race-swatch,
+    .strip-seg.sport-trail_running {
         background: oklch(42% 0.14 145);
     }
-    .race-chip.sport-running { border-color: oklch(48% 0.18 280); }
-    .race-chip.sport-swimming { border-color: oklch(50% 0.14 220); }
-    .race-chip.sport-cycling { border-color: oklch(55% 0.16 60); }
-    .race-chip.sport-triathlon { border-color: oklch(48% 0.18 320); }
-    .race-chip.sport-trail_running { border-color: oklch(42% 0.14 145); }
     .pill.active .pill-dot {
         outline: 1px solid var(--arena-paper);
         outline-offset: 1px;
