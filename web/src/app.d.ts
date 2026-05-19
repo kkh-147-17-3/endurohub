@@ -26,6 +26,7 @@ declare global {
 			clientIp: string;
 			authToken: string;
 			sessionId: string;
+			userAgent: string;
 			/** Set in hooks from admin_token cookie vs ADMIN_SECRET (fresh every request; do not rely on cached parent() data for guards). */
 			isAdmin: boolean;
 		}

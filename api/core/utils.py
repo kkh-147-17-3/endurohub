@@ -1,9 +1,29 @@
 import hashlib
+import re
 
 from django.conf import settings
 from django.core.cache import cache
 from django.db.models import IntegerField, OuterRef, Subquery, Value
 from django.db.models.functions import Coalesce
+
+# 검색엔진/AI 크롤러 User-Agent 패턴. 'bot'은 bingbot/Googlebot/ClaudeBot/
+# GPTBot/AhrefsBot/SemrushBot/PetalBot/DuckDuckBot 등을 한 번에 잡는다.
+_BOT_UA_RE = re.compile(
+    r'bot|crawl|spider|slurp|yeti|daum|facebookexternalhit|mediapartners|'
+    r'embedly|bingpreview|google web preview|archive\.org|headlesschrome',
+    re.IGNORECASE,
+)
+
+
+def is_bot_request(request):
+    """크롤러/봇 요청이면 True. SSR이 포워딩한 원본 UA를 우선 확인한다."""
+    if request is None:
+        return False
+    ua = (
+        request.META.get('HTTP_X_FORWARDED_USER_AGENT', '')
+        or request.META.get('HTTP_USER_AGENT', '')
+    )
+    return bool(ua) and bool(_BOT_UA_RE.search(ua))
 
 
 def get_client_ip(request):

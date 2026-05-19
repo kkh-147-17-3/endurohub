@@ -35,6 +35,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	const data = await apiFetch<RaceListResponse>('/races/', {
 		sessionId: locals.sessionId || undefined,
 		authToken: locals.authToken || undefined,
+		userAgent: locals.userAgent || undefined,
 	}, params);
 	return { ...data };
 };

@@ -30,6 +30,10 @@ const appHandle: Handle = async ({ event, resolve }) => {
 	const realIp = event.request.headers.get('x-real-ip');
 	event.locals.clientIp = forwardedFor?.split(',')[0]?.trim() || realIp || safeClientAddress(event);
 
+	// Forward the original User-Agent to the API so server-side analytics can
+	// distinguish crawlers (the API otherwise only sees the SSR fetch's UA).
+	event.locals.userAgent = event.request.headers.get('user-agent') || '';
+
 	// Extract auth token from cookie
 	event.locals.authToken = event.cookies.get('auth_token') || '';
 

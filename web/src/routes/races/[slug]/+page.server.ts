@@ -8,6 +8,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		clientIp: locals.clientIp,
 		authToken: locals.authToken || undefined,
 		sessionId: locals.sessionId || undefined,
+		userAgent: locals.userAgent || undefined,
 	});
 
 	// ID로 접근한 경우 slug URL로 301 리다이렉트 (SEO)
