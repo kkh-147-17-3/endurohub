@@ -33,6 +33,7 @@ export interface FetchOptions {
 	clientIp?: string;
 	authToken?: string;
 	sessionId?: string;
+	userAgent?: string;
 }
 
 /**
@@ -64,6 +65,10 @@ export async function apiFetch<T>(
 
 	if (options.sessionId) {
 		headers['X-Session-Id'] = options.sessionId;
+	}
+
+	if (options.userAgent) {
+		headers['X-Forwarded-User-Agent'] = options.userAgent;
 	}
 
 	const fetchOptions: RequestInit = {
