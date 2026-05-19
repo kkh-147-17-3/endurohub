@@ -100,6 +100,64 @@ class RaceSerializer(serializers.ModelSerializer):
         return obj.id in favorite_ids
 
 
+class RaceListSerializer(serializers.ModelSerializer):
+    """Slim serializer for list/card views.
+
+    Drops heavy fields (description, ai_summary, weather_forecast,
+    image/course/giveaway uploads, organizer, registration_phases, etc.)
+    and avoids any filesystem-checking image properties. Keeps only what
+    list pages (yearly, calendar, races list, home cards/rows) actually use.
+    """
+
+    days_until_race = serializers.SerializerMethodField()
+    days_until_registration_end = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    url = serializers.SerializerMethodField()
+    entry_fee = serializers.SerializerMethodField()
+    is_favorited = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Race
+        fields = [
+            'id', 'slug', 'title', 'sport',
+            'race_date', 'region',
+            'distances', 'entry_fee',
+            'status', 'url',
+            'days_until_race', 'days_until_registration_end',
+            'is_favorited',
+        ]
+
+    def get_days_until_race(self, obj):
+        return obj.days_until_race
+
+    def get_days_until_registration_end(self, obj):
+        return obj.days_until_registration_end
+
+    def get_status(self, obj):
+        return obj.computed_status
+
+    def get_url(self, obj):
+        return obj.url
+
+    def get_entry_fee(self, obj):
+        if not obj.distances or not isinstance(obj.distances, list):
+            return None
+        result = []
+        for d in obj.distances:
+            if isinstance(d, dict) and d.get('fee') is not None:
+                result.append({
+                    'distance': d.get('name', ''),
+                    'fee': str(d['fee']),
+                })
+        return result or None
+
+    def get_is_favorited(self, obj):
+        favorite_ids = self.context.get('favorite_race_ids')
+        if favorite_ids is None:
+            return False
+        return obj.id in favorite_ids
+
+
 class TaggedRaceSerializer(serializers.ModelSerializer):
     sport_label = serializers.SerializerMethodField()
 
