@@ -1,8 +1,9 @@
+import copy
 import os
 import random
 import uuid
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from django.conf import settings
 from django.core.cache import cache
@@ -60,6 +61,7 @@ from .serializers import (
     DeviceTokenCreateSerializer,
     DeviceTokenSerializer,
     DeviceTokenUpdateSerializer,
+    RaceListSerializer,
     RaceSerializer,
     ReviewCreateSerializer,
     ReviewSerializer,
@@ -559,26 +561,46 @@ class RaceDetailView(APIView):
 class RaceYearlyView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [AllowAny]
+    CACHE_TTL = 300  # 5 minutes
+
+    @staticmethod
+    def _cache_key(year):
+        return f'races_yearly_{year}'
 
     def get(self, request, year):
         year = int(year)
+        cache_key = self._cache_key(year)
+
+        cached = cache.get(cache_key)
+        if cached:
+            data = copy.deepcopy(cached)
+            for races_in_month in (data.get('races') or {}).values():
+                _inject_is_favorited(request, races_in_month)
+            return Response(data)
+
         races = list(Race.objects.filter(
-            race_date__year=year,
+            race_date__gte=date(year, 1, 1),
+            race_date__lte=date(year, 12, 31),
         ).order_by('race_date'))
 
-        favorite_ids = _favorite_race_ids(request, [r.id for r in races])
-        ctx = {'favorite_race_ids': favorite_ids}
+        serialized = RaceListSerializer(races, many=True).data
 
         grouped = defaultdict(list)
-        for race in races:
+        for race, race_data in zip(races, serialized):
             month = str(race.race_date.month)
-            grouped[month].append(RaceSerializer(race, context=ctx).data)
+            grouped[month].append(race_data)
 
-        return Response({
+        data = {
             'races': dict(grouped),
             'year': year,
             'totalCount': len(races),
-        })
+        }
+        cache.set(cache_key, data, self.CACHE_TTL)
+
+        response_data = copy.deepcopy(data)
+        for races_in_month in response_data['races'].values():
+            _inject_is_favorited(request, races_in_month)
+        return Response(response_data)
 
 
 class RaceCalendarView(APIView):
