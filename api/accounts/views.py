@@ -15,13 +15,15 @@ from rest_framework.views import APIView
 
 from core.analytics import track
 
-from .models import EmailVerification, PendingSocialLogin, SocialAccount, UserProfile
+from .models import EmailVerification, PendingSocialLogin, RaceRecord, SocialAccount, UserProfile
 from .providers import OAuthError, get_provider
 from .serializers import (
     EmailSendSerializer,
     NicknameSetupSerializer,
     OnboardingSerializer,
     ProfilePreferencesSerializer,
+    RaceRecordCreateSerializer,
+    RaceRecordSerializer,
     UserMeSerializer,
 )
 from .tokens import create_access_token
@@ -81,7 +83,6 @@ def ensure_profile(
     profile, created = UserProfile.objects.get_or_create(
         user=user,
         defaults={
-            'nickname': '',
             'profile_image': user_info.get('profile_image', ''),
             'email_verified': mark_email_verified,
             'email_updates_opt_in': email_updates_opt_in if email_updates_opt_in is not None else False,
@@ -332,10 +333,7 @@ class EmailSendView(APIView):
             )
 
         email = serializer.validated_data['email']
-        profile, _ = UserProfile.objects.get_or_create(
-            user=user,
-            defaults={'nickname': ''},
-        )
+        profile, _ = UserProfile.objects.get_or_create(user=user)
 
         if user.email != email:
             user.email = email
@@ -668,6 +666,60 @@ class OnboardingView(APIView):
             'message': '관심사가 저장되었습니다.',
             'user': UserMeSerializer(profile).data,
         })
+
+
+class RaceRecordListCreateView(APIView):
+    """GET/POST /api/v1/me/records/ — list or add the current user's race records.
+
+    POST accepts a single record object or a list of records (bulk create from
+    the onboarding records step).
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        records = RaceRecord.objects.filter(user=request.user)
+        return Response({'records': RaceRecordSerializer(records, many=True).data})
+
+    def post(self, request):
+        payload = request.data
+        items = payload if isinstance(payload, list) else [payload]
+
+        created: list[RaceRecord] = []
+        first_error = None
+        for item in items:
+            serializer = RaceRecordCreateSerializer(data=item, context={'user': request.user})
+            if not serializer.is_valid():
+                if first_error is None:
+                    first_error = serializer.errors
+                continue
+            created.append(serializer.save())
+
+        if not created:
+            return Response(
+                {'errors': first_error or {'records': ['저장할 기록이 없습니다.']}},
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+
+        return Response(
+            {'records': RaceRecordSerializer(created, many=True).data},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class RaceRecordDetailView(APIView):
+    """DELETE /api/v1/me/records/{id}/ — remove one of the current user's records."""
+
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        deleted, _ = RaceRecord.objects.filter(user=request.user, pk=pk).delete()
+        if not deleted:
+            return Response(
+                {'error': '기록을 찾을 수 없습니다.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response({'success': True})
 
 
 class LogoutView(APIView):

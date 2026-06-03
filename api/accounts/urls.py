@@ -15,4 +15,6 @@ urlpatterns = [
     path('auth/onboarding/', views.OnboardingView.as_view()),
     path('auth/logout/', views.LogoutView.as_view()),
     path('me/favorites/races/', views.MyFavoriteRacesView.as_view()),
+    path('me/records/', views.RaceRecordListCreateView.as_view()),
+    path('me/records/<int:pk>/', views.RaceRecordDetailView.as_view()),
 ]
