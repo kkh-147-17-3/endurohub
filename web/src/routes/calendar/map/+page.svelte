@@ -447,8 +447,7 @@
         <div class="head-controls">
             <div class="view-toggle" role="group" aria-label="보기 모드">
                 <a class="vt-item" href="/calendar?{navQuery(year, month)}">캘린더</a>
-                <span class="vt-item active" aria-current="page">지도 SVG</span>
-                <a class="vt-item" href="/calendar/kakaomap?{navQuery(year, month)}">지도 Kakao</a>
+                <span class="vt-item active" aria-current="page">지도</span>
             </div>
             <nav class="month-nav" aria-label="월 이동">
                 <a
