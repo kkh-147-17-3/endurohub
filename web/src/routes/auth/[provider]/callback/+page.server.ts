@@ -44,7 +44,7 @@ export const load: PageServerLoad = async ({ params, url, cookies }) => {
 				sameSite: 'lax',
 				maxAge: 60 * 30, // 30 minutes
 			});
-			redirect(303, '/auth/verify-email');
+			redirect(303, '/auth/onboarding');
 		}
 
 		const data = result as OAuthCallbackResponse;
@@ -59,14 +59,13 @@ export const load: PageServerLoad = async ({ params, url, cookies }) => {
 		});
 		cookies.delete('pending_social_token', { path: '/' });
 
-		// Redirect based on user state
-		if (data.user.needsNickname) {
-			redirect(303, '/auth/nickname');
-		}
-		if (data.user.needsEmailVerification) {
-			redirect(303, '/auth/verify-email');
-		}
-		if (data.user.needsOnboarding) {
+		// Any incomplete signup state funnels into the unified onboarding flow.
+		if (
+			data.user.needsNickname ||
+			data.user.needsEmailVerification ||
+			data.user.needsOnboarding ||
+			!data.user.emailVerified
+		) {
 			redirect(303, '/auth/onboarding');
 		}
 

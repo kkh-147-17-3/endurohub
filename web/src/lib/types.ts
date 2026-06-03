@@ -113,42 +113,45 @@ export interface Race {
 	updatedAt: string;
 }
 
+// All nested JSONField keys are recursively converted to camelCase by
+// djangorestframework_camel_case on the server, so these interfaces use
+// camelCase even though the Python source stores snake_case.
 export interface WeatherHourSample {
 	time: string | null;
 	temperature: number | null;
-	apparent_temperature: number | null;
-	rain_prob: number | null;
+	apparentTemperature: number | null;
+	rainProb: number | null;
 	wind: string | null;
 	condition: string | null;
-	condition_icon: string | null;
-	weather_code: number | null;
+	conditionIcon: string | null;
+	weatherCode: number | null;
 }
 
 export interface WeatherWindow {
-	start_time: string | null;
-	end_time: string | null;
+	startTime: string | null;
+	endTime: string | null;
 	condition: string | null;
-	condition_icon: string | null;
-	weather_code: number | null;
-	temp_min: number | null;
-	temp_max: number | null;
-	apparent_temp_min: number | null;
-	apparent_temp_max: number | null;
-	rain_prob_max: number | null;
+	conditionIcon: string | null;
+	weatherCode: number | null;
+	tempMin: number | null;
+	tempMax: number | null;
+	apparentTempMin: number | null;
+	apparentTempMax: number | null;
+	rainProbMax: number | null;
 	wind: string | null;
 }
 
 export interface WeatherForecast {
-	temp_high: number | null;
-	temp_low: number | null;
-	rain_prob: number | null;
+	tempHigh: number | null;
+	tempLow: number | null;
+	rainProb: number | null;
 	wind: string | null;
 	condition: string | null;
-	condition_icon: string | null;
-	weather_code: number | null;
-	race_window?: WeatherWindow | null;
-	race_hours?: WeatherHourSample[] | null;
-	fetched_at: string;
+	conditionIcon: string | null;
+	weatherCode: number | null;
+	raceWindow?: WeatherWindow | null;
+	raceHours?: WeatherHourSample[] | null;
+	fetchedAt: string;
 }
 
 export interface FavoriteToggleResponse {
@@ -222,6 +225,23 @@ export interface OnboardingResponse {
 	success: boolean;
 	message: string;
 	user: AuthUser;
+}
+
+export interface RaceRecord {
+	id: number;
+	sport: string;
+	sportLabel: string;
+	distance: string;
+	name: string;
+	recordDate: string;
+	durationSeconds: number;
+	time: string;
+	isPublic: boolean;
+	createdAt: string;
+}
+
+export interface RaceRecordListResponse {
+	records: RaceRecord[];
 }
 
 // === Post ===
