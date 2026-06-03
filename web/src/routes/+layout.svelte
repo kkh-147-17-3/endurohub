@@ -4,9 +4,8 @@
 
 <script lang="ts">
     import '../app.css';
-    import { page } from '$app/stores';
-    import { navigating } from '$app/stores';
-    import { afterNavigate } from '$app/navigation';
+    import { page, navigating, updated } from '$app/stores';
+    import { afterNavigate, beforeNavigate } from '$app/navigation';
     import { onMount } from 'svelte';
     import { capturePostHogPageView, initPostHog, syncPostHogUser } from '$lib/posthog';
     import { getTheme, toggleTheme, type Theme } from '$lib/theme';
@@ -30,6 +29,18 @@
     let mobileMenuOpen = $state(false);
     let userMenuOpen = $state(false);
     let navHeight = $state(0);
+
+    // After a deploy, a tab opened against the old build references JS chunks
+    // whose hashed filenames no longer exist. A client-side navigation would
+    // then stall forever (the loading bar spins but the page never arrives).
+    // When SvelteKit's version poll flags a new deployment, fall back to a full
+    // page load so the navigation always resolves against fresh assets.
+    beforeNavigate((nav) => {
+        if ($updated && !nav.willUnload && nav.to?.url) {
+            nav.cancel();
+            location.href = nav.to.url.href;
+        }
+    });
 
     $effect(() => {
         if (typeof document === 'undefined') return;
