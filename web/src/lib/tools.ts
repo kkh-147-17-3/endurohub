@@ -13,6 +13,58 @@ export const STD_DISTANCES: DistancePreset[] = [
     { code: 'FM', km: 42.195, label: '풀코스' },
 ];
 
+// Map a stored race-record distance label to kilometres for the running tools.
+// Handles the onboarding presets plus free-form custom text ("21.0975K", "100마일", "10–30K").
+const RECORD_DIST_KM: Record<string, number> = {
+    '5K': 5,
+    '10K': 10,
+    '하프': 21.0975,
+    '풀코스': 42.195,
+    '울트라': 50,
+};
+
+export function recordDistanceToKm(distance: string): number {
+    if (!distance) return 0;
+    const d = distance.trim();
+    if (RECORD_DIST_KM[d] != null) return RECORD_DIST_KM[d];
+    // Take the first number in the string (e.g. "10–30K" → 10, "21.0975K" → 21.0975).
+    const match = d.replace(',', '.').match(/\d+(?:\.\d+)?/);
+    if (!match) return 0;
+    let n = parseFloat(match[0]);
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    const lower = d.toLowerCase();
+    if (lower.includes('마일') || lower.includes('mi')) n *= 1.60934;
+    return n;
+}
+
+export interface RecordPrefill {
+    distKm: number;
+    timeSec: number;
+    timeStr: string;
+    label: string;
+}
+
+interface PrefillRecord {
+    sport: string;
+    distance: string;
+    durationSeconds: number;
+    time: string;
+}
+
+// Pick the most recent running/trail record that maps to a usable distance + time.
+// `records` is expected newest-first (the API orders by -created_at).
+export function pickRunningRecordPrefill(records: PrefillRecord[] | null | undefined): RecordPrefill | null {
+    if (!records) return null;
+    for (const r of records) {
+        if (r.sport !== 'running' && r.sport !== 'trail_running') continue;
+        const km = recordDistanceToKm(r.distance);
+        if (km > 0 && r.durationSeconds > 0) {
+            return { distKm: km, timeSec: r.durationSeconds, timeStr: r.time, label: `${r.distance} · ${r.time}` };
+        }
+    }
+    return null;
+}
+
 export const ZONE_INK = {
     E: 'var(--arena-zone-e)',
     M: 'var(--arena-zone-m)',

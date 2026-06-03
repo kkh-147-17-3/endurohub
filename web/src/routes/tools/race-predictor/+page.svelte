@@ -3,8 +3,11 @@
     import ToolsShell from '$lib/components/arena/ToolsShell.svelte';
     import { STD_DISTANCES, fmtPace, fmtTime, parseTime, riegel } from '$lib/tools';
 
-    let distKm = $state(21.0975);
-    let timeStr = $state('1:42:15');
+    let { data } = $props();
+    const pf = data.prefill;
+
+    let distKm = $state(pf?.distKm ?? 21.0975);
+    let timeStr = $state(pf?.timeStr ?? '1:42:15');
 
     const baseTimeSec = $derived(parseTime(timeStr));
 
@@ -38,6 +41,10 @@
             <h2>대회 기록 예측</h2>
             <p>최근 기록을 입력하면 다른 거리의 예상 완주 시간을 산출합니다 (Riegel 모델, k=1.06).</p>
         </header>
+
+        {#if pf}
+            <div class="prefill-note">최근 기록 <b>{pf.label}</b> 을(를) 불러왔어요</div>
+        {/if}
 
         <!-- Inputs -->
         <div class="inputs">
@@ -124,6 +131,21 @@
         margin: 0;
         font-size: 13px;
         color: var(--arena-ink-soft);
+    }
+
+    .prefill-note {
+        margin: 0 0 20px;
+        padding: 8px 12px;
+        border: 1px solid var(--arena-line-soft);
+        background: var(--arena-paper-alt);
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        letter-spacing: 0.3px;
+        color: var(--arena-ink-soft);
+    }
+    .prefill-note b {
+        color: var(--arena-ink);
+        font-weight: 700;
     }
 
     .inputs {

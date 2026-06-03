@@ -11,10 +11,13 @@
         vdot,
     } from '$lib/tools';
 
+    let { data } = $props();
+    const pf = data.prefill;
+
     let weeks = $state(12);
     let openWeek = $state(3);
-    let baseDistKm = $state(21.0975);
-    let baseTimeStr = $state('1:42:15');
+    let baseDistKm = $state(pf?.distKm ?? 21.0975);
+    let baseTimeStr = $state(pf?.timeStr ?? '1:42:15');
 
     const baseTimeSec = $derived(parseTime(baseTimeStr));
     const v = $derived(vdot(baseDistKm, baseTimeSec));
@@ -92,6 +95,10 @@
                 {/each}
             </div>
         </header>
+
+        {#if pf}
+            <div class="prefill-note">최근 기록 <b>{pf.label}</b> 을(를) 불러왔어요</div>
+        {/if}
 
         <!-- Base inputs -->
         <div class="base-row">
@@ -252,6 +259,20 @@
         letter-spacing: -0.8px;
         margin: 8px 0 6px;
         color: var(--arena-ink);
+    }
+    .prefill-note {
+        margin: 0 0 20px;
+        padding: 8px 12px;
+        border: 1px solid var(--arena-line-soft);
+        background: var(--arena-paper-alt);
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        letter-spacing: 0.3px;
+        color: var(--arena-ink-soft);
+    }
+    .prefill-note b {
+        color: var(--arena-ink);
+        font-weight: 700;
     }
     .head p {
         margin: 0;
