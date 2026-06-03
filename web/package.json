@@ -9,7 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "build:geo": "node scripts/build-korea-geo.mjs"
   },
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",
@@ -36,6 +37,8 @@
     "@sveltejs/kit": "^2.21.1",
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
     "@tailwindcss/vite": "^4.0.0",
+    "@types/d3-geo": "^3.1.0",
+    "d3-geo": "^3.1.1",
     "daisyui": "^5.5.14",
     "svelte": "^5.49.1",
     "svelte-check": "^4.3.6",

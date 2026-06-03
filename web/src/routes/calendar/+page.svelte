@@ -201,23 +201,29 @@
             <div class="head-meta mono">대회 {totalRacesThisMonth}개</div>
         </div>
 
-        <nav class="month-nav" aria-label="월 이동">
-            <a
-                class="nav-btn"
-                href="/calendar?{buildNavQuery(previousMonth.year, previousMonth.month)}"
-                aria-label="이전 달"
-            >← {previousMonth.month}월</a>
-            <a
-                class="nav-btn nav-today"
-                class:active={year === currentYear && month === currentMonth}
-                href={todayHref()}
-            >{currentMonth}월</a>
-            <a
-                class="nav-btn"
-                href="/calendar?{buildNavQuery(nextMonth.year, nextMonth.month)}"
-                aria-label="다음 달"
-            >{nextMonth.month}월 →</a>
-        </nav>
+        <div class="head-controls">
+            <div class="view-toggle" role="group" aria-label="보기 모드">
+                <span class="vt-item active" aria-current="page">캘린더</span>
+                <a class="vt-item" href="/calendar/map?{buildNavQuery(year, month)}">지도</a>
+            </div>
+            <nav class="month-nav" aria-label="월 이동">
+                <a
+                    class="nav-btn"
+                    href="/calendar?{buildNavQuery(previousMonth.year, previousMonth.month)}"
+                    aria-label="이전 달"
+                >← {previousMonth.month}월</a>
+                <a
+                    class="nav-btn nav-today"
+                    class:active={year === currentYear && month === currentMonth}
+                    href={todayHref()}
+                >{currentMonth}월</a>
+                <a
+                    class="nav-btn"
+                    href="/calendar?{buildNavQuery(nextMonth.year, nextMonth.month)}"
+                    aria-label="다음 달"
+                >{nextMonth.month}월 →</a>
+            </nav>
+        </div>
     </header>
 
     <div class="cal-filter-mobile">
@@ -597,6 +603,39 @@
         color: var(--arena-ink-soft);
     }
 
+    .head-controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: flex-end;
+    }
+    .view-toggle {
+        display: inline-flex;
+        border: 1px solid var(--arena-line);
+        background: var(--arena-paper);
+    }
+    .vt-item {
+        padding: 9px 14px;
+        font-family: var(--arena-f-mono);
+        font-size: 12px;
+        letter-spacing: 0.5px;
+        color: var(--arena-ink-soft);
+        text-decoration: none;
+        border-right: 1px solid var(--arena-line-soft);
+        white-space: nowrap;
+    }
+    .vt-item:last-child {
+        border-right: none;
+    }
+    .vt-item:hover {
+        background: var(--arena-paper-alt);
+        color: var(--arena-ink);
+    }
+    .vt-item.active {
+        background: var(--arena-ink);
+        color: var(--arena-paper);
+        font-weight: 600;
+    }
     .month-nav {
         display: inline-flex;
         border: 1px solid var(--arena-line);

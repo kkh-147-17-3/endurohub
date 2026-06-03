@@ -7,6 +7,7 @@
     import { page } from '$app/stores';
     import { goto } from '$app/navigation';
     import RaceCard from '$lib/components/arena/RaceCard.svelte';
+    import WeatherIcon from '$lib/components/arena/WeatherIcon.svelte';
     import ReviewForm from '$lib/components/ReviewForm.svelte';
     import type { Race, Review, ReviewStats, Post, Distance, FavoriteToggleResponse } from '$lib/types';
     import { formatDateFull, formatDateDay, formatDateShort, formatDateSlash, formatDistanceToNow } from '$lib/date';
@@ -479,7 +480,7 @@
                 </div>
                 {#if race.weatherForecast}
                     {@const w = race.weatherForecast}
-                    {@const rw = w.race_window}
+                    {@const rw = w.raceWindow}
                     <div class="meta-cell">
                         <div class="meta-label">
                             날씨 예보
@@ -487,44 +488,56 @@
                         </div>
                         <div class="meta-value">
                             {#if rw}
-                                {#if rw.condition_icon || rw.condition}
+                                {#if rw.weatherCode != null || rw.condition}
                                     <span class="weather-cond">
-                                        {#if rw.condition_icon}<span class="weather-icon">{rw.condition_icon}</span>{/if}
+                                        <span class="weather-icon">
+                                            <WeatherIcon
+                                                weatherCode={rw.weatherCode}
+                                                label={rw.condition}
+                                                size={20}
+                                            />
+                                        </span>
                                         {#if rw.condition}{rw.condition}{/if}
                                     </span>
                                 {/if}
-                                {#if rw.temp_min != null && rw.temp_max != null}
-                                    <span class="weather-temp">{rw.temp_min}° / {rw.temp_max}°</span>
+                                {#if rw.tempMin != null && rw.tempMax != null}
+                                    <span class="weather-temp">{rw.tempMin}° / {rw.tempMax}°</span>
                                 {/if}
                             {:else}
-                                {#if w.condition_icon || w.condition}
+                                {#if w.weatherCode != null || w.condition}
                                     <span class="weather-cond">
-                                        {#if w.condition_icon}<span class="weather-icon">{w.condition_icon}</span>{/if}
+                                        <span class="weather-icon">
+                                            <WeatherIcon
+                                                weatherCode={w.weatherCode}
+                                                label={w.condition}
+                                                size={20}
+                                            />
+                                        </span>
                                         {#if w.condition}{w.condition}{/if}
                                     </span>
                                 {/if}
-                                {#if w.temp_low != null && w.temp_high != null}
-                                    <span class="weather-temp">{w.temp_low}° / {w.temp_high}°</span>
-                                {:else if !(w.condition_icon || w.condition)}
+                                {#if w.tempLow != null && w.tempHigh != null}
+                                    <span class="weather-temp">{w.tempLow}° / {w.tempHigh}°</span>
+                                {:else if !(w.weatherCode != null || w.condition)}
                                     —
                                 {/if}
                             {/if}
                         </div>
                         <div class="meta-sub">
                             {#if rw}
-                                {#if rw.apparent_temp_min != null && rw.apparent_temp_max != null}체감 {rw.apparent_temp_min}~{rw.apparent_temp_max}°{/if}
-                                {#if rw.rain_prob_max != null} · 비 {rw.rain_prob_max}%{/if}
+                                {#if rw.apparentTempMin != null && rw.apparentTempMax != null}체감 {rw.apparentTempMin}~{rw.apparentTempMax}°{/if}
+                                {#if rw.rainProbMax != null} · 비 {rw.rainProbMax}%{/if}
                                 {#if rw.wind} · {rw.wind}{/if}
                             {:else}
-                                {#if w.rain_prob != null}비 {w.rain_prob}%{/if}
-                                {#if w.rain_prob != null && w.wind} · {/if}
+                                {#if w.rainProb != null}비 {w.rainProb}%{/if}
+                                {#if w.rainProb != null && w.wind} · {/if}
                                 {w.wind ?? ''}
                             {/if}
                         </div>
-                        {#if rw && w.temp_low != null && w.temp_high != null}
+                        {#if rw && w.tempLow != null && w.tempHigh != null}
                             <div class="meta-sub weather-day">
-                                하루 전체 {w.temp_low}° / {w.temp_high}°
-                                {#if w.rain_prob != null} · 비 {w.rain_prob}%{/if}
+                                하루 전체 {w.tempLow}° / {w.tempHigh}°
+                                {#if w.rainProb != null} · 비 {w.rainProb}%{/if}
                             </div>
                         {/if}
                     </div>
@@ -1223,7 +1236,9 @@
         margin-right: 6px;
     }
     .weather-icon {
-        font-size: 1.1em;
+        display: inline-flex;
+        align-items: center;
+        color: var(--arena-accent-deep, #1f2937);
         line-height: 1;
     }
     .weather-temp {
