@@ -73,7 +73,7 @@
                         인증을 완료하면 계정 관련 안내와 알림을 받을 수 있습니다.
                     </p>
                 </div>
-                <a href="/auth/verify-email" class="alert-btn">
+                <a href="/auth/onboarding" class="alert-btn">
                     인증하기 <span class="arrow">→</span>
                 </a>
             </section>

@@ -8,7 +8,7 @@ class UserProfile(models.Model):
         on_delete=models.CASCADE,
         related_name='profile',
     )
-    nickname = models.CharField(max_length=50, unique=True)
+    nickname = models.CharField(max_length=50, unique=True, null=True, blank=True)
     profile_image = models.URLField(blank=True, default='')
     email_verified = models.BooleanField(default=False)
     email_updates_opt_in = models.BooleanField(default=False)
@@ -23,7 +23,7 @@ class UserProfile(models.Model):
         db_table = 'user_profiles'
 
     def __str__(self):
-        return self.nickname
+        return self.nickname or f'user:{self.user_id}'
 
     @property
     def needs_onboarding(self):
@@ -32,6 +32,38 @@ class UserProfile(models.Model):
             and self.email_verified
             and not self.onboarding_completed
         )
+
+
+class RaceRecord(models.Model):
+    """A user's recent race result, collected during onboarding.
+
+    Private by default (본인만 열람). Stored under the accounts app since it
+    belongs to the user profile, not the public race catalogue.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='race_records',
+    )
+    # Sport key matching races.constants.SPORT_LABELS (running, trail_running, ...)
+    sport = models.CharField(max_length=20)
+    # Distance / category — a preset label (e.g. '풀코스') or free-form custom text.
+    distance = models.CharField(max_length=80)
+    name = models.CharField(max_length=200, blank=True, default='')
+    # Free-form race date as entered (e.g. '2025-03-16'); blank when skipped.
+    record_date = models.CharField(max_length=20, blank=True, default='')
+    duration_seconds = models.PositiveIntegerField()
+    is_public = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'race_records'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.sport}:{self.distance} ({self.duration_seconds}s)'
 
 
 class SocialAccount(models.Model):

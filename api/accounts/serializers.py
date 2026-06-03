@@ -3,7 +3,7 @@ import re
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from .models import SocialAccount, UserProfile
+from .models import RaceRecord, SocialAccount, UserProfile
 
 User = get_user_model()
 
@@ -11,7 +11,7 @@ User = get_user_model()
 class UserMeSerializer(serializers.Serializer):
     id = serializers.IntegerField(source='user.id')
     email = serializers.CharField(source='user.email', allow_blank=True)
-    nickname = serializers.CharField()
+    nickname = serializers.CharField(allow_null=True, allow_blank=True)
     profile_image = serializers.URLField(allow_blank=True)
     email_verified = serializers.BooleanField()
     email_updates_opt_in = serializers.BooleanField()
@@ -103,3 +103,70 @@ class OnboardingSerializer(serializers.Serializer):
             if region not in REGIONS:
                 raise serializers.ValidationError(f'유효하지 않은 지역입니다: {region}')
         return value
+
+
+class RaceRecordSerializer(serializers.ModelSerializer):
+    """Read serializer for a stored race record."""
+
+    sport_label = serializers.SerializerMethodField()
+    time = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RaceRecord
+        fields = [
+            'id', 'sport', 'sport_label', 'distance', 'name',
+            'record_date', 'duration_seconds', 'time', 'is_public', 'created_at',
+        ]
+
+    def get_sport_label(self, obj):
+        from races.constants import SPORT_LABELS
+        return SPORT_LABELS.get(obj.sport, obj.sport)
+
+    def get_time(self, obj):
+        total = obj.duration_seconds or 0
+        hours, remainder = divmod(total, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        return f'{hours:02d}:{minutes:02d}:{seconds:02d}'
+
+
+class RaceRecordCreateSerializer(serializers.Serializer):
+    """Write serializer accepting a sport, distance, and HH/MM/SS time parts."""
+
+    sport = serializers.CharField(max_length=20)
+    distance = serializers.CharField(max_length=80)
+    name = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
+    record_date = serializers.CharField(max_length=20, required=False, allow_blank=True, default='')
+    hours = serializers.IntegerField(required=False, min_value=0, max_value=99, default=0)
+    minutes = serializers.IntegerField(required=False, min_value=0, max_value=59, default=0)
+    seconds = serializers.IntegerField(required=False, min_value=0, max_value=59, default=0)
+    is_public = serializers.BooleanField(required=False, default=False)
+
+    def validate_sport(self, value):
+        from races.constants import SPORT_LABELS
+        if value not in SPORT_LABELS:
+            raise serializers.ValidationError(f'유효하지 않은 종목입니다: {value}')
+        return value
+
+    def validate_distance(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError('거리 / 종목 카테고리를 입력해주세요.')
+        return value
+
+    def validate(self, attrs):
+        total = attrs.get('hours', 0) * 3600 + attrs.get('minutes', 0) * 60 + attrs.get('seconds', 0)
+        if total <= 0:
+            raise serializers.ValidationError({'time': ['기록 시간을 입력해주세요.']})
+        attrs['duration_seconds'] = total
+        return attrs
+
+    def create(self, validated_data):
+        return RaceRecord.objects.create(
+            user=self.context['user'],
+            sport=validated_data['sport'],
+            distance=validated_data['distance'].strip(),
+            name=(validated_data.get('name') or '').strip(),
+            record_date=(validated_data.get('record_date') or '').strip(),
+            duration_seconds=validated_data['duration_seconds'],
+            is_public=validated_data.get('is_public', False),
+        )
