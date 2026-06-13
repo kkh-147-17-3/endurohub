@@ -184,6 +184,36 @@ class RaceQuerySet(models.QuerySet):
 
         return self.filter(pk__in=matching_ids)
 
+    def by_fee_max(self, max_fee):
+        """참가비 상한 필터 (Python 기반, by_distance_category 패턴 미러링).
+
+        각 대회의 distances[].fee 중 파싱 가능한 최소 참가비가 max_fee 이하인 대회만 남긴다.
+        참가비 정보가 전혀 없는 대회는 제외한다(검색 의도가 '저렴한 대회'이므로).
+        """
+        try:
+            max_fee = int(max_fee)
+        except (ValueError, TypeError):
+            return self
+        if max_fee <= 0:
+            return self
+
+        candidates = self.filter(distances__isnull=False)
+        matching_ids = []
+        for race in candidates.only('id', 'distances'):
+            dists = race.distances
+            if not isinstance(dists, list) or not dists:
+                continue
+            fees = []
+            for d in dists:
+                if isinstance(d, dict) and d.get('fee') is not None:
+                    fee = Race.parse_fee(d['fee'])
+                    if fee is not None:
+                        fees.append(fee)
+            if fees and min(fees) <= max_fee:
+                matching_ids.append(race.id)
+
+        return self.filter(pk__in=matching_ids)
+
     def registration_open(self):
         from django.db.models import Q
         today = timezone.now().date()
@@ -436,6 +466,39 @@ class Race(models.Model):
         if bare_match:
             try:
                 return float(bare_match.group(1).replace(',', ''))
+            except (ValueError, TypeError):
+                return None
+        return None
+
+    @staticmethod
+    def parse_fee(value):
+        """참가비 값에서 원 단위 정수 추출. '30,000', '30000원', '3만원', 30000 등 지원."""
+        if value is None:
+            return None
+        if isinstance(value, (int, float)):
+            return int(value) if value > 0 else None
+        if not isinstance(value, str):
+            return None
+        s = value.strip().replace(',', '')
+        if not s:
+            return None
+        # '3만원', '3만5천' 같은 만/천 단위 표기
+        man_match = re.search(r'(\d+(?:\.\d+)?)\s*만', s)
+        if man_match:
+            try:
+                total = float(man_match.group(1)) * 10000
+                cheon_match = re.search(r'만\s*(\d+)\s*천', s)
+                if cheon_match:
+                    total += float(cheon_match.group(1)) * 1000
+                return int(total) if total > 0 else None
+            except (ValueError, TypeError):
+                pass
+        # 일반 숫자 (원/KRW 등 단위 접미사 무시)
+        num_match = re.search(r'(\d+)', s)
+        if num_match:
+            try:
+                n = int(num_match.group(1))
+                return n if n > 0 else None
             except (ValueError, TypeError):
                 return None
         return None
@@ -703,3 +766,46 @@ class RaceFavorite(models.Model):
 
     def __str__(self):
         return f'{self.user_id} -> Race#{self.race_id}'
+
+
+class RaceParticipation(models.Model):
+    """A user's planning state for a curated race ("내 시즌" 타임라인).
+
+    Distinct from RaceFavorite (단순 관심/북마크): this carries intent —
+    참가 예정 여부, 뛰려는 종목(planned_codes), 시즌 메인 목표 여부.
+    완주 결과는 별도(accounts.RaceRecord, race FK)로 기록한다.
+    """
+
+    STATUS_MAYBE = 'maybe'              # 관심 — 고민 중, 종목 미정
+    STATUS_GOING = 'confirmed_going'    # 참가 예정 — 종목까지 확정
+    STATUS_CHOICES = [
+        (STATUS_MAYBE, '관심'),
+        (STATUS_GOING, '참가 예정'),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='race_participations',
+    )
+    race = models.ForeignKey(
+        Race,
+        on_delete=models.CASCADE,
+        related_name='participations',
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_MAYBE)
+    # Course codes the user intends to run (e.g. ['HM', '10K']); the frontend
+    # derives these the same way it renders course labels.
+    planned_codes = models.JSONField(default=list, blank=True)
+    main_goal = models.BooleanField(default=False)
+    note = models.CharField(max_length=200, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'race_participations'
+        unique_together = [('user', 'race')]
+        indexes = [models.Index(fields=['user', '-updated_at'])]
+
+    def __str__(self):
+        return f'{self.user_id} -> Race#{self.race_id} ({self.status})'

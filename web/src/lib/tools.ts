@@ -1,5 +1,7 @@
 // Running formulas + helpers used by /tools (Pace, Training Plan, VO2max, Race Predictor)
 
+import type { Race } from '$lib/types';
+
 export interface DistancePreset {
     code: string;
     km: number;
@@ -171,94 +173,240 @@ export function parsePace(str: string): number {
 }
 
 // ── Training plan periodization ─────────────────────────────────
+// Daniels-style 4-phase periodization. Ported 1:1 from the Claude Design
+// handoff (v2/Tools.html · PlanTool): phase weeks distributed by %, weekly
+// volume ramps within each phase, every 4th non-taper week is a -18% cutback.
 export type PhaseName = 'BASE' | 'BUILD' | 'PEAK' | 'TAPER';
 
+export interface PhaseDef {
+    name: PhaseName;
+    pct: number;
+    color: string;
+    ink: string;
+    focus: ZoneKey;
+    desc: string;
+}
+
+export const PHASE_DEFS: PhaseDef[] = [
+    { name: 'BASE', pct: 0.34, color: 'var(--signal-100)', ink: 'var(--signal-700)', focus: 'E', desc: '유산소 베이스 · 주간 볼륨 점증' },
+    { name: 'BUILD', pct: 0.3, color: 'var(--info-bg)', ink: 'var(--info)', focus: 'T', desc: '역치 템포 + LSD 거리 연장' },
+    { name: 'PEAK', pct: 0.23, color: 'var(--caution-bg)', ink: 'var(--caution)', focus: 'I', desc: 'VO₂max 인터벌 + 레이스 페이스' },
+    { name: 'TAPER', pct: 0.13, color: 'var(--danger-bg)', ink: 'var(--danger)', focus: 'M', desc: '볼륨 감축 · 강도 유지 · 회복' },
+];
+
+export type PlanZone = 'E' | 'LONG' | 'T' | 'I' | 'M' | 'REST' | 'RACE';
+export type RunDays = 5 | 6;
+
+// phase → 7-day pattern (MON…SUN), 5- and 6-day-per-week variants
+const DAY_PATTERNS: Record<RunDays, Record<PhaseName, PlanZone[]>> = {
+    5: {
+        BASE: ['E', 'REST', 'E', 'REST', 'E', 'LONG', 'REST'],
+        BUILD: ['E', 'T', 'REST', 'E', 'REST', 'LONG', 'REST'],
+        PEAK: ['E', 'I', 'REST', 'T', 'REST', 'LONG', 'REST'],
+        TAPER: ['E', 'M', 'REST', 'E', 'REST', 'RACE', 'REST'],
+    },
+    6: {
+        BASE: ['E', 'E', 'REST', 'E', 'E', 'LONG', 'REST'],
+        BUILD: ['E', 'T', 'E', 'REST', 'E', 'LONG', 'REST'],
+        PEAK: ['E', 'I', 'E', 'T', 'REST', 'LONG', 'REST'],
+        TAPER: ['E', 'M', 'E', 'REST', 'E', 'RACE', 'REST'],
+    },
+};
+
+export const DOW = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const;
+
+// Spread `weeks` total across the four phases by their pct, never below 1 each.
+export function distributeWeeks(weeks: number): number[] {
+    const alloc = PHASE_DEFS.map((p) => Math.max(1, Math.round(weeks * p.pct)));
+    let sum = alloc.reduce((a, b) => a + b, 0);
+    while (sum > weeks) {
+        const i = alloc.indexOf(Math.max(...alloc));
+        alloc[i]--;
+        sum--;
+    }
+    while (sum < weeks) {
+        alloc[0]++;
+        sum++;
+    }
+    return alloc;
+}
+
 export interface PlanDay {
-    day: 'MON' | 'TUE' | 'WED' | 'THU' | 'FRI' | 'SAT' | 'SUN';
-    zone: string;
+    dow: string;
+    zone: PlanZone;
 }
 
 export interface PlanWeek {
-    weekNum: number;
+    wk: number;
     phase: PhaseName;
-    phaseColor: string;
-    focus: ZoneKey;
-    days: PlanDay[];
-    weekKm: number;
-}
-
-interface PhaseSpec {
-    name: PhaseName;
-    pct: number;
-    focus: ZoneKey;
     color: string;
+    ink: string;
+    weekKm: number;
+    days: PlanDay[];
+    cutback: boolean;
+    monday: Date;
 }
-
-const PHASE_SPECS: PhaseSpec[] = [
-    { name: 'BASE', pct: 0.4, focus: 'E', color: 'oklch(55% 0.10 145)' },
-    { name: 'BUILD', pct: 0.3, focus: 'T', color: 'oklch(58% 0.13 80)' },
-    { name: 'PEAK', pct: 0.2, focus: 'I', color: 'oklch(60% 0.16 40)' },
-    { name: 'TAPER', pct: 0.1, focus: 'M', color: 'oklch(62% 0.10 250)' },
-];
-
-const DAY_NAMES: PlanDay['day'][] = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-
-const WEEK_PATTERNS: Record<PhaseName, string[]> = {
-    BASE: ['E', 'REST', 'E', 'E', 'REST', 'LONG E', 'REST'],
-    BUILD: ['E', 'T', 'E', 'REST', 'E', 'LONG E', 'REST'],
-    PEAK: ['E', 'I', 'E', 'T', 'REST', 'LONG E', 'REST'],
-    TAPER: ['E', 'M', 'REST', 'E', 'REST', 'RACE/E', 'REST'],
-};
 
 export interface BuiltPlan {
     plan: PlanWeek[];
-    paces: Record<ZoneKey, TrainingPace>;
+    alloc: number[];
+    peak: PlanWeek;
+    totalKm: number;
+    longMax: number;
+    peakKm: number;
+    raceName: string;
 }
 
-export function buildPlan(weeks: number, v: number): BuiltPlan {
-    const paces = trainingPaces(v);
+export function buildPlan(
+    weeks: number,
+    v: number,
+    daysPerWeek: RunDays,
+    raceDate: string,
+    raceName: string
+): BuiltPlan {
+    const alloc = distributeWeeks(weeks);
+    const peakKm = Math.round(48 + Math.max(0, v - 38) * 2.3); // weekly peak volume
     const plan: PlanWeek[] = [];
-    let weekIdx = 0;
-    for (const ph of PHASE_SPECS) {
-        const n = Math.max(1, Math.round(weeks * ph.pct));
-        for (let i = 0; i < n && plan.length < weeks; i++) {
-            const days: PlanDay[] = DAY_NAMES.map((dn, di) => ({
-                day: dn,
-                zone: WEEK_PATTERNS[ph.name][di],
-            }));
-            const baseKm = 30 + (Math.max(30, v) - 40) * 1.2;
-            const intensity =
+    let wk = 0;
+    PHASE_DEFS.forEach((ph, pi) => {
+        const n = alloc[pi];
+        for (let i = 0; i < n; i++) {
+            wk++;
+            const prog = n > 1 ? i / (n - 1) : 1;
+            let mult =
                 ph.name === 'BASE'
-                    ? 0.7 + (i / Math.max(1, n - 1)) * 0.3
+                    ? 0.6 + prog * 0.28
                     : ph.name === 'BUILD'
-                        ? 1.0 + (i / Math.max(1, n - 1)) * 0.2
+                        ? 0.88 + prog * 0.12
                         : ph.name === 'PEAK'
-                            ? 1.2 + (i / Math.max(1, n - 1)) * 0.1
-                            : 0.7 - (i / Math.max(1, n - 1)) * 0.4;
-            plan.push({
-                weekNum: ++weekIdx,
-                phase: ph.name,
-                phaseColor: ph.color,
-                focus: ph.focus,
-                days,
-                weekKm: Math.max(8, Math.round(baseKm * intensity)),
-            });
+                            ? 1.0 + prog * 0.15
+                            : 0.85 - prog * 0.42; // TAPER descends
+            const cutback = ph.name !== 'TAPER' && wk % 4 === 0;
+            if (cutback) mult *= 0.82;
+            const weekKm = Math.round(peakKm * mult);
+            const pattern = DAY_PATTERNS[daysPerWeek][ph.name];
+            const days: PlanDay[] = pattern.map((z, di) => ({ dow: DOW[di], zone: z }));
+            const monday = new Date(`${raceDate}T00:00:00`);
+            monday.setDate(monday.getDate() - (weeks - wk + 1) * 7);
+            plan.push({ wk, phase: ph.name, color: ph.color, ink: ph.ink, weekKm, days, cutback, monday });
         }
-    }
-    return { plan, paces };
+    });
+    const peak = plan.reduce((m, w) => (w.weekKm > m.weekKm ? w : m), plan[0]);
+    const totalKm = plan.reduce((a, w) => a + w.weekKm, 0);
+    const longMax = Math.max(...plan.map((w) => Math.round(w.weekKm * 0.36)));
+    return { plan, alloc, peak, totalKm, longMax, peakKm, raceName };
 }
 
-// Intensity score 0..5 for heatmap rendering
-export function zoneIntensity(zone: string): number {
-    const map: Record<string, number> = {
-        REST: 0,
-        E: 1,
-        'LONG E': 2,
-        M: 3,
-        T: 4,
-        I: 5,
-        R: 5,
-        'RACE/E': 2,
-    };
-    return map[zone] ?? 1;
+// Per-day workout detail for the focused-week grid.
+interface ZoneSpec {
+    label: string;
+    sub: string;
+    zone: ZoneKey;
+    frac?: number;
+    km?: number;
+}
+
+const ZSPEC: Record<'E' | 'LONG' | 'T' | 'I' | 'M', ZoneSpec> = {
+    E: { label: 'Easy', sub: '회복 · 베이스', zone: 'E', frac: 0.16 },
+    LONG: { label: 'LSD', sub: 'Easy 페이스 장거리', zone: 'E', frac: 0.36 },
+    T: { label: 'Threshold', sub: '템포 지속주', zone: 'T', km: 8 },
+    I: { label: 'Interval', sub: '5×1K · R 90s', zone: 'I', km: 5 },
+    M: { label: 'Marathon', sub: '레이스 페이스', zone: 'M', km: 6 },
+};
+
+export interface DayDetail {
+    label: string;
+    sub: string;
+    rest?: boolean;
+    race?: boolean;
+    km?: number;
+    pace?: number;
+    zoneInk?: string;
+}
+
+export function dayDetail(
+    zone: PlanZone,
+    weekKm: number,
+    paces: Record<ZoneKey, TrainingPace>,
+    raceName: string
+): DayDetail {
+    if (zone === 'REST') return { label: '휴식', sub: '완전 휴식 · 크로스', rest: true };
+    if (zone === 'RACE') return { label: 'RACE', sub: raceName, race: true };
+    const s = ZSPEC[zone];
+    const km = s.km != null ? s.km : Math.round(weekKm * (s.frac ?? 0));
+    return { label: s.label, sub: s.sub, km, pace: paces[s.zone].sec, zoneInk: ZONE_INK[s.zone] };
+}
+
+// ── Tools "season" demo data ─────────────────────────────────
+// The app has no per-user goal/season store yet, so the Race Predictor's
+// "main goal" card and the Training Plan's target-race picker use this sample
+// data (mirrors the Claude Design handoff). Swap for real goal data once a
+// season backend exists.
+export interface GoalRace {
+    id: string;
+    name: string;
+    date: string; // ISO yyyy-mm-dd
+    distKm: number;
+}
+
+export const GOAL_RACE_OPTIONS: GoalRace[] = [
+    { id: 'seoul-int-half', name: '서울국제 하프', date: '2026-05-12', distKm: 21.0975 },
+    { id: 'jeonju-half', name: '전주 하프', date: '2026-08-12', distKm: 21.0975 },
+    { id: 'chuncheon', name: '춘천 마라톤', date: '2026-10-25', distKm: 42.195 },
+    { id: 'jiri-trail', name: '지리산 트레일런', date: '2026-07-25', distKm: 52 },
+];
+
+export const MAIN_GOAL = {
+    raceId: 'chuncheon',
+    raceName: '춘천 마라톤',
+    date: '2026-10-25',
+    distKm: 42.195,
+    targetTimeStr: '3:30:00',
+    targetTimeSec: 3 * 3600 + 30 * 60,
+};
+
+// A target-race option for the Training Plan, derived from the signed-in user's
+// 관심대회 (favorite races) for the season.
+export interface GoalRaceOption {
+    id: string; // race slug — stable + unique
+    name: string;
+    date: string; // ISO yyyy-mm-dd
+    distKm: number | null; // longest distance on offer, for the RACE-day label
+}
+
+// Longest distance (km) offered by a race, from its distances JSON.
+function longestDistanceKm(race: Race): number | null {
+    const meters = (race.distances ?? [])
+        .map((d) => d.distanceMeter ?? 0)
+        .filter((m) => m > 0);
+    return meters.length ? Math.max(...meters) / 1000 : null;
+}
+
+// Minimum lead time for a race to be a viable training goal: at least a month
+// out (한 달 이상 남은 대회만). Anything closer can't be meaningfully periodized.
+export const MIN_GOAL_LEAD_DAYS = 30;
+
+// Turn the user's favorite races into target-race options, keeping only races
+// that are far enough ahead to plan for (마감되지 않은 + 한 달 이상 남음) and
+// ordering them by race date so the nearest goal comes first.
+export function favoriteRacesToGoals(races: Race[]): GoalRaceOption[] {
+    return races
+        .filter(
+            (r) => !!r.raceDate && r.status !== 'finished' && r.daysUntilRace >= MIN_GOAL_LEAD_DAYS
+        )
+        .map((r) => ({
+            id: r.slug,
+            name: r.title,
+            date: r.raceDate as string,
+            distKm: longestDistanceKm(r)
+        }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// Whole days from today (local) until an ISO date, floored at 0.
+export function daysUntil(isoDate: string): number {
+    const target = new Date(`${isoDate}T00:00:00`);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.max(0, Math.round((target.getTime() - today.getTime()) / 86400000));
 }

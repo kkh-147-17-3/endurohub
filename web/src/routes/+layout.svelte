@@ -20,6 +20,19 @@
     let user = $derived(data.user);
     let currentPath = $derived($page.url.pathname);
 
+    // Full-bleed routes render their own chrome (e.g. the split-screen login).
+    const BARE_ROUTES = new Set(['/auth/login']);
+    let bare = $derived(BARE_ROUTES.has(currentPath));
+
+    // The 404 error page is a full-bleed photo hero with its own bottom rule —
+    // drop the footer's top margin so it sits flush against it.
+    let errorHero = $derived(!!$page.error && $page.status === 404);
+
+    // Race detail pages (/races/{slug}) carry their own sticky bottom CTA
+    // (참가비 + 접수하기), so the global mobile tab bar steps aside there.
+    // Excludes /races and /races/year/{year}.
+    let isRaceDetail = $derived(/^\/races\/(?!year(?:\/|$))[^/]+\/?$/.test(currentPath));
+
     let userLabel = $derived(
         user ? (user.nickname?.trim() || user.email.split('@')[0] || '계정') : ''
     );
@@ -28,13 +41,7 @@
     let lastTrackedPath = $state('');
     let mobileMenuOpen = $state(false);
     let userMenuOpen = $state(false);
-    let navHeight = $state(0);
 
-    // After a deploy, a tab opened against the old build references JS chunks
-    // whose hashed filenames no longer exist. A client-side navigation would
-    // then stall forever (the loading bar spins but the page never arrives).
-    // When SvelteKit's version poll flags a new deployment, fall back to a full
-    // page load so the navigation always resolves against fresh assets.
     beforeNavigate((nav) => {
         if ($updated && !nav.willUnload && nav.to?.url) {
             nav.cancel();
@@ -97,21 +104,34 @@
         userMenuOpen = false;
     });
 
-    const links = [
-        { href: '/', label: '홈', match: (p: string) => p === '/' },
-        { href: '/races?reset=1', label: '전체 대회', match: (p: string) => p === '/races' },
-        { href: '/races/year/2026', label: '2026년 대회', match: (p: string) => p === '/races/year/2026' },
-        { href: '/calendar', label: '캘린더', match: (p: string) => p === '/calendar' },
-        { href: '/posts', label: '커뮤니티', match: (p: string) => p.startsWith('/posts') },
-        { href: '/tools', label: '도구', match: (p: string) => p.startsWith('/tools') || p === '/running-terms' },
-    ];
+    // Primary nav — mirrors the DS shell (대회 / 검색 / 시즌 / 커뮤니티 / 공지 / 도구).
+    type NavItem = { id: string; href: string; label: string; match: (p: string) => boolean };
+    const navItems: NavItem[] = $derived([
+        { id: 'home', href: '/', label: '대회', match: (p) => p === '/' || p.startsWith('/calendar') },
+        { id: 'search', href: '/races', label: '검색', match: (p) => p.startsWith('/races') && !p.startsWith('/races/year') },
+        { id: 'year', href: `/races/year/${currentYear}`, label: `${currentYear} 대회`, match: (p) => p.startsWith('/races/year') },
+        { id: 'season', href: '/timeline', label: '시즌', match: (p) => p.startsWith('/timeline') },
+        { id: 'community', href: '/community', label: '커뮤니티', match: (p) => p.startsWith('/community') || p.startsWith('/posts') },
+        { id: 'notice', href: '/notice', label: '공지', match: (p) => p.startsWith('/notice') },
+        { id: 'tools', href: '/tools', label: '도구', match: (p) => p.startsWith('/tools') || p === '/running-terms' }
+    ]);
+
+    const activeNavId = $derived(navItems.find((n) => n.match(currentPath))?.id ?? '');
 
     const sportLinks = [
         { href: '/running', label: '마라톤', code: 'RUN' },
         { href: '/swimming', label: '수영', code: 'SWIM' },
         { href: '/cycling', label: '자전거', code: 'CYCLE' },
         { href: '/triathlon', label: '철인3종', code: 'TRI' },
-        { href: '/trail-running', label: '트레일러닝', code: 'TRL' },
+        { href: '/trail-running', label: '트레일러닝', code: 'TRL' }
+    ];
+
+    // Bottom tab bar (mobile) — primary destinations + a "메뉴" sheet trigger.
+    const tabItems = [
+        { id: 'home', href: '/', label: '대회' },
+        { id: 'search', href: '/races', label: '검색' },
+        { id: 'season', href: '/timeline', label: '시즌' },
+        { id: 'community', href: '/community', label: '커뮤니티' }
     ];
 </script>
 
@@ -127,59 +147,44 @@
     {/if}
 </svelte:head>
 
-<nav class="arena-nav" style="--nav-height: {navHeight}px;">
-    <div class="nav-inner" bind:clientHeight={navHeight}>
-        <a href="/" class="nav-logo">
-            <span class="logo-dot"></span>
-            endurohub
+<!-- ── Top navbar (DS .eh-nav) ───────────────────────────── -->
+{#if !bare}
+<header class="eh-nav">
+    <a class="eh-nav__wordmark" href="/">ENDURO<span class="slash">/</span>HUB</a>
+
+    <nav class="eh-nav__links">
+        {#each navItems as it (it.id)}
+            <a
+                href={it.href}
+                class="eh-nav__link {it.id === activeNavId ? 'eh-nav__link--on' : ''}"
+            >
+                {it.label}
+            </a>
+        {/each}
+    </nav>
+
+    <div class="eh-nav__right">
+        <a class="eh-iconbtn eh-nav__searchbtn" href="/races" aria-label="검색" title="검색">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
         </a>
 
-        <div class="nav-links desktop">
-            {#each links as l (l.href)}
-                <a
-                    href={l.href}
-                    class="nav-link"
-                    class:active={l.match(currentPath)}
-                >
-                    {l.label}
-                </a>
-            {/each}
-        </div>
-
-        <div class="nav-spacer"></div>
-
         <button
-            class="theme-toggle"
+            class="eh-iconbtn"
             onclick={handleToggleTheme}
             aria-label={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
             title="테마 전환"
         >
             {#if theme === 'dark'}
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
             {:else}
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
             {/if}
         </button>
 
         {#if user}
-            <a
-                href="/mypage/favorites"
-                class="user-icon"
-                class:active={currentPath === '/mypage/favorites'}
-                aria-label="관심 대회"
-                title="관심 대회"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-7.5-4.35-10-9.5C.5 7 3 3 7 3c2.1 0 3.6 1 5 2.5C13.4 4 14.9 3 17 3c4 0 6.5 4 5 8.5-2.5 5.15-10 9.5-10 9.5z" />
-                </svg>
-            </a>
-            <div class="user-dropdown">
+            <div class="eh-user">
                 <button
-                    class="avatar-btn"
+                    class="v-avatar"
                     class:open={userMenuOpen}
                     onclick={() => (userMenuOpen = !userMenuOpen)}
                     aria-expanded={userMenuOpen}
@@ -188,664 +193,210 @@
                     {#if user.profileImage}
                         <img src={user.profileImage} alt={userLabel} />
                     {:else}
-                        <span class="avatar-fallback">{userLabel.charAt(0).toUpperCase()}</span>
+                        {userLabel.charAt(0).toUpperCase()}
                     {/if}
                 </button>
                 {#if userMenuOpen}
-                    <div class="user-menu" role="menu">
-                        <div class="user-menu-head">
-                            <div class="user-menu-avatar">
-                                {#if user.profileImage}
-                                    <img src={user.profileImage} alt="" />
-                                {:else}
-                                    <span>{userLabel.charAt(0).toUpperCase()}</span>
-                                {/if}
-                            </div>
-                            <div class="user-menu-id">
-                                <div class="user-menu-name">{userLabel}</div>
-                                <div class="user-menu-email" title={user.email}>{user.email}</div>
-                            </div>
+                    <div class="eh-user__menu" role="menu">
+                        <div class="eh-user__head">
+                            <div class="eh-user__name">{userLabel}</div>
+                            <div class="eh-user__email" title={user.email}>{user.email}</div>
                         </div>
-                        <ul class="user-menu-list">
-                            <li>
-                                <a href="/mypage" onclick={() => (userMenuOpen = false)} role="menuitem">
-                                    <span class="user-menu-kicker">01</span>
-                                    <span class="user-menu-text">마이페이지</span>
-                                    <span class="user-menu-arrow" aria-hidden="true">→</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a href="/mypage/favorites" onclick={() => (userMenuOpen = false)} role="menuitem">
-                                    <span class="user-menu-kicker">02</span>
-                                    <span class="user-menu-text">관심 대회</span>
-                                    <span class="user-menu-arrow" aria-hidden="true">→</span>
-                                </a>
-                            </li>
-                        </ul>
-                        <form method="POST" action="/auth/logout" class="user-menu-logout">
-                            <button type="submit" role="menuitem">
-                                <span class="user-menu-text">로그아웃</span>
-                                <span class="user-menu-arrow" aria-hidden="true">↗</span>
-                            </button>
+                        <a href="/mypage" role="menuitem" onclick={() => (userMenuOpen = false)}>마이페이지</a>
+                        <a href="/mypage/favorites" role="menuitem" onclick={() => (userMenuOpen = false)}>관심 대회</a>
+                        <form method="POST" action="/auth/logout">
+                            <button type="submit" role="menuitem">로그아웃</button>
                         </form>
                     </div>
                 {/if}
             </div>
         {:else}
-            <a href="/auth/login" class="arena-btn arena-btn-ghost login-btn">로그인</a>
+            <a href="/auth/login" class="eh-btn eh-btn--secondary eh-btn--sm">로그인</a>
         {/if}
-
-        <button
-            class="hamburger"
-            onclick={() => (mobileMenuOpen = !mobileMenuOpen)}
-            aria-label="메뉴 열기"
-            aria-expanded={mobileMenuOpen}
-        >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                {#if mobileMenuOpen}
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                {:else}
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                {/if}
-            </svg>
-        </button>
     </div>
-
-    {#if mobileMenuOpen}
-        <div class="mobile-panel">
-            <div class="mobile-section">
-                {#each links as l (l.href)}
-                    <a href={l.href} class="mobile-link" class:active={l.match(currentPath)}>{l.label}</a>
-                {/each}
-            </div>
-            <div class="mobile-section">
-                <div class="arena-kicker mobile-kicker">종목별</div>
-                {#each sportLinks as s (s.href)}
-                    <a href={s.href} class="mobile-link mobile-link-row">
-                        <span>{s.label}</span>
-                        <span class="mono-mini">{s.code}</span>
-                    </a>
-                {/each}
-            </div>
-            <div class="mobile-section">
-                <div class="arena-kicker mobile-kicker">도구</div>
-                <a href="/tools/pace-calculator" class="mobile-link">페이스 계산기</a>
-                <a href="/tools/training-plan" class="mobile-link">훈련 플랜</a>
-                <a href="/tools/vo2max" class="mobile-link">VO2max</a>
-                <a href="/tools/race-predictor" class="mobile-link">기록 예측</a>
-                <a href="/running-terms" class="mobile-link">러닝 용어</a>
-            </div>
-            {#if user}
-                <div class="mobile-section">
-                    <div class="arena-kicker mobile-kicker">계정 · {userLabel}</div>
-                    <a href="/mypage" class="mobile-link">마이페이지</a>
-                    <a href="/mypage/favorites" class="mobile-link">관심 대회</a>
-                    <form method="POST" action="/auth/logout">
-                        <button type="submit" class="mobile-link mobile-logout">로그아웃</button>
-                    </form>
-                </div>
-            {:else}
-                <div class="mobile-section">
-                    <a href="/auth/login" class="mobile-link mobile-login">로그인</a>
-                </div>
-            {/if}
-            <div class="mobile-section mobile-section-theme">
-                <button
-                    type="button"
-                    class="mobile-theme-btn"
-                    onclick={handleToggleTheme}
-                    aria-label={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
-                    title="테마 전환"
-                >
-                    {#if theme === 'dark'}
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                        </svg>
-                    {:else}
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                        </svg>
-                    {/if}
-                </button>
-            </div>
-        </div>
-    {/if}
-</nav>
+</header>
+{/if}
 
 <ProgressBar active={!!$navigating} />
 
-<main class="arena-main">
+<main class="eh-main">
     {@render children()}
 </main>
 
-<footer class="arena-footer">
-    <div class="footer-inner">
-        <div class="footer-top">
-            <div class="footer-brand">
-                <a href="/" class="footer-logo">
-                    <span class="logo-dot"></span>
-                    endurohub
-                </a>
-                <p class="footer-desc">국내 마라톤 · 수영 · 자전거 · 철인3종 · 트레일러닝 대회 정보를 한곳에서.</p>
-            </div>
-            <div class="footer-cols">
-                <div class="footer-col">
-                    <div class="arena-kicker footer-kicker">대회</div>
-                    <a href="/races?reset=1">전체 대회</a>
-                    <a href={`/races/year/${currentYear}`}>{currentYear}년 대회</a>
-                    <a href="/calendar">캘린더</a>
-                </div>
-                <div class="footer-col">
-                    <div class="arena-kicker footer-kicker">종목</div>
-                    <a href="/running">마라톤</a>
-                    <a href="/swimming">수영</a>
-                    <a href="/cycling">자전거</a>
-                    <a href="/triathlon">철인3종</a>
-                    <a href="/trail-running">트레일러닝</a>
-                </div>
-                <div class="footer-col">
-                    <div class="arena-kicker footer-kicker">도구</div>
-                    <a href="/tools/pace-calculator">페이스 계산기</a>
-                    <a href="/tools/training-plan">훈련 플랜</a>
-                    <a href="/tools/vo2max">VO2max</a>
-                    <a href="/tools/race-predictor">기록 예측</a>
-                    <a href="/running-terms">러닝 용어</a>
-                </div>
-                <div class="footer-col">
-                    <div class="arena-kicker footer-kicker">고객지원</div>
-                    <a href="/about">서비스 소개</a>
-                    <a href="/privacy">개인정보처리방침</a>
-                    <a href="mailto:contact@endurohub.kr">문의하기</a>
-                    {#if feedbackFormUrl}
-                        <a href={feedbackFormUrl} target="_blank" rel="noopener">피드백 보내기 ↗</a>
-                    {/if}
-                </div>
-            </div>
+{#if !bare}
+<!-- ── Footer (2px ink rule — DS signature) ──────────────── -->
+<footer class="v-footer" class:flush={errorHero}>
+    <div class="eh-footer-grid">
+        <div class="eh-footer-brand">
+            <a href="/" class="v-wordmark">ENDURO<span class="slash">/</span>HUB</a>
+            <p>국내 마라톤 · 트레일 · 사이클 · 수영 · 철인3종 대회를 한곳에서.</p>
         </div>
-        <div class="footer-bottom">
-            <span>© {currentYear} endurohub · 지구력 스포츠 대회 플랫폼</span>
+        <div class="eh-footer-cols">
+            <div class="eh-footer-col">
+                <div class="eh-micro">RACES</div>
+                <a href="/races?reset=1">전체 대회</a>
+                <a href={`/races/year/${currentYear}`}>{currentYear}년 대회</a>
+                <a href="/calendar">캘린더</a>
+                <a href="/timeline">시즌 타임라인</a>
+            </div>
+            <div class="eh-footer-col">
+                <div class="eh-micro">SPORTS</div>
+                {#each sportLinks as s (s.href)}<a href={s.href}>{s.label}</a>{/each}
+            </div>
+            <div class="eh-footer-col">
+                <div class="eh-micro">TOOLS</div>
+                <a href="/tools/pace-calculator">페이스 계산기</a>
+                <a href="/tools/training-plan">훈련 플랜</a>
+                <a href="/tools/vo2max">VO2max</a>
+                <a href="/tools/race-predictor">기록 예측</a>
+                <a href="/running-terms">러닝 용어</a>
+            </div>
+            <div class="eh-footer-col">
+                <div class="eh-micro">SUPPORT</div>
+                <a href="/about">서비스 소개</a>
+                <a href="/privacy">개인정보처리방침</a>
+                {#if feedbackFormUrl}
+                    <a href={feedbackFormUrl} target="_blank" rel="noopener">문의하기 ↗</a>
+                {:else}
+                    <a href="mailto:contact@endurohub.kr">문의하기</a>
+                {/if}
+            </div>
         </div>
     </div>
+    <div class="eh-footer-base eh-micro">© {currentYear} ENDUROHUB · 지구력 스포츠 대회 큐레이션</div>
 </footer>
 
+<!-- ── Mobile bottom tab bar ─────────────────────────────── -->
+<!-- Race detail pages render their own sticky CTA bar instead. -->
+{#if !isRaceDetail}
+<div class="v-tabbar-wrap">
+    <nav class="eh-tabbar">
+        {#each tabItems as it (it.id)}
+            <a class="eh-tabbar__item {it.id === activeNavId ? 'eh-tabbar__item--on' : ''}" href={it.href}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    {#if it.id === 'home'}<path d="M3 9.5 12 3l9 6.5V21H3z"/>
+                    {:else if it.id === 'search'}<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                    {:else if it.id === 'season'}<path d="M8 2v4M16 2v4M3 10h18M5 6h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"/>
+                    {:else}<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>{/if}
+                </svg>
+                <span>{it.label}</span>
+                <span class="eh-tabbar__ind"></span>
+            </a>
+        {/each}
+        <button class="eh-tabbar__item" onclick={() => (mobileMenuOpen = !mobileMenuOpen)}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+            <span>메뉴</span>
+            <span class="eh-tabbar__ind"></span>
+        </button>
+    </nav>
+</div>
+{/if}
+
+{#if mobileMenuOpen}
+    <div class="eh-sheet" role="presentation" onclick={(e) => { if (e.target === e.currentTarget) mobileMenuOpen = false; }}>
+        <div class="eh-sheet__panel">
+            <div class="eh-sheet__sec">
+                <div class="eh-micro">종목</div>
+                {#each sportLinks as s (s.href)}
+                    <a href={s.href} class="eh-sheet__link"><span>{s.label}</span><span class="eh-sheet__code">{s.code}</span></a>
+                {/each}
+            </div>
+            <div class="eh-sheet__sec">
+                <div class="eh-micro">도구</div>
+                <a href="/tools" class="eh-sheet__link">전체 도구</a>
+                <a href="/notice" class="eh-sheet__link">공지사항</a>
+                <a href="/about" class="eh-sheet__link">서비스 소개</a>
+            </div>
+            <div class="eh-sheet__sec">
+                {#if user}
+                    <div class="eh-micro">계정 · {userLabel}</div>
+                    <a href="/mypage" class="eh-sheet__link">마이페이지</a>
+                    <a href="/mypage/favorites" class="eh-sheet__link">관심 대회</a>
+                    <form method="POST" action="/auth/logout"><button type="submit" class="eh-sheet__link">로그아웃</button></form>
+                {:else}
+                    <a href="/auth/login" class="eh-sheet__link">로그인</a>
+                {/if}
+            </div>
+        </div>
+    </div>
+{/if}
+{/if}
+
 <style>
-    /* ── Nav ─────────────────────────── */
-    .arena-nav {
-        position: sticky;
-        top: 0;
-        z-index: 50;
-        background: var(--arena-paper);
-        border-bottom: 1px solid var(--arena-line);
+    :global(.eh-main) { flex: 1; }
+
+    /* 404 hero ends in its own rule — footer sits flush, no top gap. */
+    .v-footer.flush { margin-top: 0; }
+
+    .eh-nav__searchbtn { display: none; }
+
+    /* User menu */
+    .eh-user { position: relative; }
+    .v-avatar.open { background: var(--paper-50); }
+    .v-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .eh-user__menu {
+        position: absolute; top: calc(100% + 10px); right: 0;
+        min-width: 240px; background: var(--paper-0);
+        border: 1px solid var(--ink-900); box-shadow: var(--shadow-pop);
+        z-index: 100; display: flex; flex-direction: column;
+        animation: v-rise var(--dur-base) var(--ease-out);
     }
-    .nav-inner {
-        max-width: 1400px;
-        margin: 0 auto;
-        padding: 14px 16px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
+    .eh-user__head { padding: 12px 14px; border-bottom: 1px solid var(--line); background: var(--paper-50); }
+    .eh-user__name { font-size: 14px; font-weight: 700; color: var(--text-strong); }
+    .eh-user__email { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .eh-user__menu a,
+    .eh-user__menu button {
+        padding: 11px 14px; font-size: 13px; font-weight: 600; text-align: left;
+        color: var(--text-body); text-decoration: none; background: none; border: none;
+        border-top: 1px solid var(--line); cursor: pointer; width: 100%; font-family: var(--font-sans);
     }
-    @media (min-width: 480px) {
-        .nav-inner {
-            padding: 14px 24px;
-            gap: 24px;
-        }
+    .eh-user__menu a:first-of-type { border-top: none; }
+    .eh-user__menu a:hover { background: var(--paper-50); color: var(--text-strong); }
+    .eh-user__menu button:hover { background: var(--danger-bg); color: var(--danger); }
+
+    /* Footer */
+    .eh-footer-grid {
+        max-width: var(--container-max); margin: 0 auto;
+        padding: var(--sp-12) var(--container-pad) var(--sp-6);
+        display: grid; grid-template-columns: 1fr; gap: var(--sp-10);
     }
-    @media (min-width: 1024px) {
-        .nav-inner {
-            padding: 14px 32px;
-            gap: 32px;
-        }
-    }
-    .nav-logo {
-        font-family: var(--arena-f-display);
-        font-weight: 700;
-        font-size: 18px;
-        letter-spacing: -0.5px;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        color: var(--arena-ink);
-        text-decoration: none;
-        min-width: 0;
-        flex-shrink: 1;
-        overflow: hidden;
-    }
-    @media (max-width: 359px) {
-        .nav-inner {
-            gap: 8px;
-            padding: 12px 12px;
-        }
-        .nav-logo {
-            font-size: 16px;
-        }
-    }
-    .logo-dot {
-        display: inline-block;
-        width: 8px;
-        height: 8px;
-        background: var(--arena-accent);
-    }
-    .nav-links {
-        display: flex;
-        gap: 4px;
-    }
-    .nav-link {
-        padding: 6px 12px;
-        font-size: 13px;
-        font-weight: 500;
-        font-family: var(--arena-f-body);
-        color: var(--arena-ink-soft);
-        white-space: nowrap;
-        text-decoration: none;
-    }
-    .nav-link:hover {
-        color: var(--arena-ink);
-        background: var(--arena-paper-alt);
-    }
-    .nav-link.active {
-        color: var(--arena-ink);
-        background: var(--arena-paper-alt);
-        box-shadow: inset 0 -2px 0 var(--arena-ink);
-    }
-    .nav-spacer {
-        flex: 1;
-    }
-    .theme-toggle,
-    .user-icon,
-    .avatar-btn,
-    .hamburger {
-        background: transparent;
-        border: 1px solid transparent;
-        padding: 6px;
-        cursor: pointer;
-        color: var(--arena-ink-soft);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        text-decoration: none;
-    }
-    .theme-toggle:hover,
-    .user-icon:hover,
-    .avatar-btn:hover {
-        color: var(--arena-ink);
-        background: var(--arena-paper-alt);
-    }
-    .user-icon.active {
-        color: var(--arena-urgent);
-    }
-    .avatar-btn.open {
-        background: var(--arena-paper-alt);
-        box-shadow: inset 0 -2px 0 var(--arena-ink);
-    }
-    .avatar-btn img,
-    .avatar-fallback {
-        width: 22px;
-        height: 22px;
-        display: grid;
-        place-items: center;
-        object-fit: cover;
-        background: var(--arena-paper-alt);
-        color: var(--arena-ink);
-        font-family: var(--arena-f-display);
-        font-weight: 700;
-        font-size: 11px;
-        line-height: 1;
-        border: 1px solid var(--arena-line);
-    }
-    .user-dropdown {
-        position: relative;
-    }
-    .user-menu {
-        position: absolute;
-        top: calc(100% + 10px);
-        right: 0;
-        background: var(--arena-paper);
-        border: 1px solid var(--arena-ink);
-        min-width: 240px;
-        z-index: 100;
-        box-shadow: 4px 4px 0 var(--arena-ink);
-        animation: user-menu-in 140ms cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    @keyframes user-menu-in {
-        from { opacity: 0; transform: translateY(-4px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    .user-menu-head {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 12px 14px;
-        background: var(--arena-paper-alt);
-        border-bottom: 1px solid var(--arena-line);
-    }
-    .user-menu-avatar {
-        flex-shrink: 0;
-        width: 36px;
-        height: 36px;
-        border: 1px solid var(--arena-line);
-        background: var(--arena-paper);
-        display: grid;
-        place-items: center;
-        overflow: hidden;
-        font-family: var(--arena-f-display);
-        font-weight: 700;
-        font-size: 14px;
-        color: var(--arena-ink);
-    }
-    .user-menu-avatar img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-    .user-menu-id {
-        flex: 1;
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-    }
-    .user-menu-name {
-        font-family: var(--arena-f-display);
-        font-size: 14px;
-        font-weight: 600;
-        letter-spacing: -0.3px;
-        color: var(--arena-ink);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .user-menu-email {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        color: var(--arena-ink-soft);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .user-menu-list {
-        list-style: none;
-        margin: 0;
-        padding: 4px 0;
-    }
-    .user-menu-list li {
-        padding: 0;
-    }
-    .user-menu-list a {
-        display: grid;
-        grid-template-columns: 22px 1fr auto;
-        align-items: center;
-        gap: 10px;
-        padding: 10px 14px;
-        font-family: var(--arena-f-body);
-        font-size: 13px;
-        color: var(--arena-ink);
-        text-decoration: none;
-        border-left: 2px solid transparent;
-        transition: background 0.12s, border-color 0.12s, padding-left 0.12s;
-    }
-    .user-menu-list a:hover,
-    .user-menu-list a:focus-visible {
-        background: var(--arena-paper-alt);
-        border-left-color: var(--arena-accent-deep);
-        padding-left: 18px;
-        outline: none;
-    }
-    .user-menu-kicker {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 1.5px;
-        color: var(--arena-ink-mute);
-    }
-    .user-menu-text {
-        font-weight: 500;
-    }
-    .user-menu-arrow {
-        font-family: var(--arena-f-mono);
-        font-size: 13px;
-        color: var(--arena-ink-mute);
-        transition: transform 0.12s, color 0.12s;
-    }
-    .user-menu-list a:hover .user-menu-arrow {
-        color: var(--arena-accent-deep);
-        transform: translateX(2px);
-    }
-    .user-menu-logout {
-        margin: 0;
-        border-top: 1px solid var(--arena-line-soft);
-    }
-    .user-menu-logout button {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        width: 100%;
-        padding: 11px 14px;
-        background: transparent;
-        border: none;
-        cursor: pointer;
-        text-align: left;
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        letter-spacing: 1.5px;
-        text-transform: uppercase;
-        color: var(--arena-ink-soft);
-        transition: background 0.12s, color 0.12s;
-    }
-    .user-menu-logout button:hover,
-    .user-menu-logout button:focus-visible {
-        background: var(--arena-urgent);
-        color: var(--arena-paper);
-        outline: none;
-    }
-    .user-menu-logout button:hover .user-menu-arrow,
-    .user-menu-logout button:focus-visible .user-menu-arrow {
-        color: var(--arena-paper);
-    }
-    .login-btn {
-        font-size: 12px !important;
-        padding: 6px 12px !important;
-    }
-    .hamburger {
-        display: none;
-    }
-    .desktop {
-        display: none;
-    }
-    @media (min-width: 1024px) {
-        .desktop {
-            display: inline-flex;
-        }
-        .nav-links.desktop {
-            display: flex;
-        }
-    }
-    @media (max-width: 1023px) {
-        .hamburger {
-            display: inline-flex;
-        }
-        .login-btn {
-            display: none;
-        }
-        .theme-toggle {
-            display: none;
-        }
+    @media (min-width: 768px) { .eh-footer-grid { grid-template-columns: 280px 1fr; } }
+    .eh-footer-brand p { margin-top: 12px; font-size: 13px; color: var(--text-muted); line-height: 1.6; max-width: 32ch; }
+    .eh-footer-cols { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-6); }
+    @media (min-width: 768px) { .eh-footer-cols { grid-template-columns: repeat(4, 1fr); } }
+    .eh-footer-col { display: flex; flex-direction: column; gap: 9px; }
+    .eh-footer-col .eh-micro { margin-bottom: 3px; }
+    .eh-footer-col a { font-size: 13px; color: var(--text-muted); text-decoration: none; }
+    .eh-footer-col a:hover { color: var(--text-strong); }
+    .eh-footer-base {
+        max-width: var(--container-max); margin: 0 auto;
+        padding: var(--sp-4) var(--container-pad) var(--sp-8);
     }
 
-    .mobile-section-theme {
-        margin-top: 4px;
-        align-items: flex-start;
-        padding-bottom: 0;
-        border-bottom: none;
+    /* Mobile sheet */
+    .eh-sheet {
+        position: fixed; inset: 0; z-index: 95; background: rgba(16,19,18,0.45);
+        display: flex; align-items: flex-end;
     }
-    .mobile-theme-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 8px;
-        width: 36px;
-        height: 36px;
-        border: 1px solid var(--arena-line-soft);
-        background: var(--arena-paper);
-        color: var(--arena-ink-soft);
-        cursor: pointer;
-        transition: color 0.15s, border-color 0.15s, background 0.15s;
+    .eh-sheet__panel {
+        width: 100%; background: var(--paper-0); border-top: var(--border-rule);
+        padding: var(--sp-5) var(--container-pad-mobile) calc(var(--sp-5) + 76px);
+        display: flex; flex-direction: column; gap: var(--sp-5);
+        max-height: 70vh; overflow-y: auto;
+        animation: v-rise var(--dur-base) var(--ease-out);
     }
-    .mobile-theme-btn:hover {
-        color: var(--arena-ink);
-        border-color: var(--arena-line);
-        background: var(--arena-paper-alt);
+    .eh-sheet__sec { display: flex; flex-direction: column; gap: 2px; }
+    .eh-sheet__sec .eh-micro { margin-bottom: 6px; }
+    .eh-sheet__link {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 11px 0; font-size: 15px; font-weight: 600; color: var(--text-strong);
+        text-decoration: none; border: none; background: none; width: 100%; cursor: pointer;
+        font-family: var(--font-sans); text-align: left;
     }
+    .eh-sheet__code { font-size: 10px; font-weight: 700; letter-spacing: 0.09em; color: var(--text-faint); }
 
-    .mobile-panel {
-        border-top: 1px solid var(--arena-line);
-        background: var(--arena-paper);
-        padding: 12px 24px 20px;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        max-height: calc(100vh - var(--nav-height, 60px));
-        max-height: calc(100dvh - var(--nav-height, 60px));
-        overflow-y: auto;
-        overscroll-behavior: contain;
+    @media (max-width: 768px) {
+        .eh-nav__searchbtn { display: inline-flex; }
     }
-    .mobile-section {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        padding-bottom: 12px;
-        border-bottom: 1px solid var(--arena-line-soft);
-    }
-    .mobile-section:last-child {
-        border-bottom: none;
-    }
-    .mobile-kicker {
-        margin-bottom: 4px;
-    }
-    .mobile-link {
-        padding: 8px 0;
-        font-size: 14px;
-        font-family: var(--arena-f-body);
-        color: var(--arena-ink);
-        text-decoration: none;
-        background: transparent;
-        border: none;
-        cursor: pointer;
-        text-align: left;
-        width: 100%;
-    }
-    .mobile-link:hover {
-        color: var(--arena-accent-deep);
-    }
-    .mobile-link.active {
-        color: var(--arena-accent-deep);
-        font-weight: 600;
-    }
-    .mobile-link-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    .mono-mini {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        color: var(--arena-ink-soft);
-        letter-spacing: 1.5px;
-    }
-    .mobile-login,
-    .mobile-logout {
-        font-weight: 600;
-        color: var(--arena-accent-deep);
-    }
-
-    /* ── Main ─────────────────────────── */
-    :global(.arena-main) {
-        flex: 1;
-    }
-
-    /* ── Footer ─────────────────────────── */
-    .arena-footer {
-        margin-top: 60px;
-        border-top: 1px solid var(--arena-line);
-        background: var(--arena-paper);
-    }
-    .footer-inner {
-        max-width: 1400px;
-        margin: 0 auto;
-        padding: 40px 32px 24px;
-    }
-    .footer-top {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 32px;
-    }
-    @media (min-width: 768px) {
-        .footer-top {
-            grid-template-columns: 280px 1fr;
-        }
-    }
-    .footer-brand {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-    }
-    .footer-logo {
-        font-family: var(--arena-f-display);
-        font-weight: 700;
-        font-size: 18px;
-        letter-spacing: -0.5px;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        color: var(--arena-ink);
-        text-decoration: none;
-    }
-    .footer-desc {
-        font-size: 12px;
-        color: var(--arena-ink-soft);
-        line-height: 1.6;
-        margin: 0;
-        text-wrap: balance;
-        word-break: keep-all;
-    }
-    .footer-cols {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 24px;
-    }
-    @media (min-width: 768px) {
-        .footer-cols {
-            grid-template-columns: repeat(4, 1fr);
-        }
-    }
-    .footer-col {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-    .footer-kicker {
-        margin-bottom: 4px;
-    }
-    .footer-col a {
-        font-family: var(--arena-f-body);
-        font-size: 12px;
-        color: var(--arena-ink-soft);
-        text-decoration: none;
-    }
-    .footer-col a:hover {
-        color: var(--arena-ink);
-    }
-    .footer-bottom {
-        margin-top: 40px;
-        padding-top: 16px;
-        border-top: 1px solid var(--arena-line-soft);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 1.2px;
-        color: var(--arena-ink-soft);
-        text-transform: uppercase;
-    }
+    @keyframes v-rise { from { opacity: 0; transform: translateY(8px); } }
 </style>

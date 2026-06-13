@@ -1,147 +1,149 @@
 <script lang="ts">
-    import { onMount, onDestroy } from 'svelte';
-    import RaceRow from '$lib/components/arena/RaceRow.svelte';
-    import type { Race, Sport } from '$lib/types';
+    import { onMount } from 'svelte';
+    import FilterChip from '$lib/components/eh/FilterChip.svelte';
+    import Badge from '$lib/components/eh/Badge.svelte';
+    import SportTag from '$lib/components/eh/SportTag.svelte';
+    import Button from '$lib/components/eh/Button.svelte';
+    import { SPORT_META, appSportToDs, type DsSport } from '$lib/components/eh/meta';
+    import { arenaDistLabel, arenaFeeRange, arenaFeeShort, arenaDday } from '$lib/arena';
+    import type { Race } from '$lib/types';
 
     let { data } = $props();
 
-    const races = $derived(data.races as Record<string, Race[]>);
+    const racesByMonth = $derived(data.races as Record<string, Race[]>);
     const year = $derived(data.year as number);
     const totalCount = $derived(data.totalCount as number);
 
-    type StatusType = 'registration_open' | 'registration_closed' | 'upcoming' | 'finished';
+    // ── Constants ─────────────────────────────────────────────────────────────
+    const EN_MONTH = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
+    const DOW = ['일', '월', '화', '수', '목', '금', '토'];
+    const pad = (n: number) => String(n).padStart(2, '0');
 
-    const statuses: { key: StatusType; label: string }[] = [
-        { key: 'registration_open', label: '접수중' },
-        { key: 'upcoming', label: '예정' },
-        { key: 'registration_closed', label: '접수마감' },
-        { key: 'finished', label: '종료' },
+    const SPORTS: DsSport[] = ['run', 'trail', 'ride', 'swim', 'tri'];
+
+    // 상태 패싯 — 접수중·예정·접수마감·종료
+    const STATUS_FACETS = [
+        { id: 'open', label: '접수중', match: (r: Race) => r.status === 'registration_open' },
+        { id: 'upcoming', label: '예정', match: (r: Race) => r.status === 'upcoming' },
+        { id: 'closed', label: '접수마감', match: (r: Race) => r.status === 'registration_closed' },
+        { id: 'done', label: '종료', match: (r: Race) => r.status === 'finished' }
     ];
+    const statusMatch = (r: Race, id: string) => STATUS_FACETS.find((s) => s.id === id)?.match(r) ?? true;
 
-    const regions = ['서울', '경기', '인천', '강원', '충북', '충남', '대전', '세종', '전북', '전남', '광주', '경북', '경남', '대구', '울산', '부산', '제주'];
+    const REGION_ORDER = ['서울', '경기', '인천', '강원', '충북', '충남', '대전', '세종', '대구', '경북', '울산', '부산', '경남', '전북', '전남', '광주', '제주'];
+    const regionIdx = (x: string) => {
+        const i = REGION_ORDER.indexOf(x);
+        return i === -1 ? 99 : i;
+    };
 
-    const sports: { key: Sport; label: string }[] = [
-        { key: 'running', label: '러닝' },
-        { key: 'trail_running', label: '트레일러닝' },
-        { key: 'cycling', label: '사이클' },
-        { key: 'swimming', label: '수영' },
-        { key: 'triathlon', label: '철인3종' },
-    ];
+    // ── Row helpers ───────────────────────────────────────────────────────────
+    function dayOf(race: Race): number {
+        const p = race.raceDate?.split('-');
+        return p && p.length >= 3 ? Number(p[2]) : 1;
+    }
+    function dowOf(month: number, day: number): string {
+        return DOW[new Date(year, month - 1, day).getDay()];
+    }
+    function feeLabel(race: Race): string {
+        const { min, max } = arenaFeeRange(race);
+        if (min == null) return '—';
+        return max != null && max !== min ? `${arenaFeeShort(min)}~` : arenaFeeShort(min);
+    }
 
-    const STORAGE_KEY = 'yearly-filter';
-    const ALL_SPORTS: Sport[] = sports.map((s) => s.key);
-    const ALL_STATUSES: StatusType[] = statuses.map((s) => s.key);
+    // ── Filter state (single-select per facet) ────────────────────────────────
+    type Facet = 'all' | string;
+    let fSport = $state<Facet>('all');
+    let fStatus = $state<Facet>('all');
+    let fRegion = $state<Facet>('all');
+    let sheetOpen = $state(false);
 
-    const MONTH_LABELS = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'];
+    function reset() {
+        fSport = 'all';
+        fStatus = 'all';
+        fRegion = 'all';
+    }
+    function removeChip(k: string) {
+        if (k === 'sport') fSport = 'all';
+        else if (k === 'status') fStatus = 'all';
+        else if (k === 'region') fRegion = 'all';
+    }
 
-    let selectedSports = $state<Set<Sport>>(new Set(ALL_SPORTS));
-    let selectedRegions = $state<Set<string>>(new Set(regions));
-    let selectedStatuses = $state<Set<StatusType>>(new Set(ALL_STATUSES));
-    let mobileFilterOpen = $state(false);
-    let activeMonth = $state<number | null>(null);
-
-    let observer: IntersectionObserver | null = null;
-
-    let hasActiveFilter = $derived(
-        selectedSports.size < ALL_SPORTS.length ||
-        selectedStatuses.size < ALL_STATUSES.length ||
-        selectedRegions.size < regions.length
+    // ── Data shaping ──────────────────────────────────────────────────────────
+    interface MonthRace {
+        race: Race;
+        month: number;
+    }
+    const allRaces = $derived<MonthRace[]>(
+        Object.entries(racesByMonth).flatMap(([m, list]) => list.map((race) => ({ race, month: Number(m) })))
     );
 
-    function saveFilter() {
-        localStorage.setItem(
-            STORAGE_KEY,
-            JSON.stringify({
-                sports: [...selectedSports],
-                statuses: [...selectedStatuses],
-                regions: [...selectedRegions],
-            })
-        );
+    const regions = $derived(
+        [...new Set(allRaces.map((x) => x.race.region).filter((r): r is string => !!r))].sort(
+            (a, b) => regionIdx(a) - regionIdx(b)
+        )
+    );
+
+    // 한 조건(except)만 빼고 적용 — 패싯 카운트용
+    function matchExcept(x: MonthRace, except: string | null): boolean {
+        const r = x.race;
+        if (except !== 'sport' && fSport !== 'all' && appSportToDs[r.sport] !== fSport) return false;
+        if (except !== 'status' && fStatus !== 'all' && !statusMatch(r, fStatus)) return false;
+        if (except !== 'region' && fRegion !== 'all' && r.region !== fRegion) return false;
+        return true;
     }
 
-    onMount(() => {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-            try {
-                const saved = JSON.parse(stored);
-                if (saved.sports?.length > 0)
-                    selectedSports = new Set(saved.sports.filter((s: string) => ALL_SPORTS.includes(s as Sport)));
-                if (saved.statuses?.length > 0)
-                    selectedStatuses = new Set(saved.statuses.filter((s: string) => ALL_STATUSES.includes(s as StatusType)));
-                if (saved.regions?.length > 0)
-                    selectedRegions = new Set(saved.regions.filter((r: string) => regions.includes(r)));
-            } catch { /* ignore */ }
-        }
+    const filtered = $derived(allRaces.filter((x) => matchExcept(x, null)));
+    const sportPool = $derived(allRaces.filter((x) => matchExcept(x, 'sport')));
+    const statusPool = $derived(allRaces.filter((x) => matchExcept(x, 'status')));
+    const regionPool = $derived(allRaces.filter((x) => matchExcept(x, 'region')));
 
-        const sections = document.querySelectorAll('section[id^="month-"]');
-        observer = new IntersectionObserver(
-            (entries) => {
-                entries.forEach((entry) => {
-                    if (entry.isIntersecting) {
-                        const month = parseInt(entry.target.id.replace('month-', ''));
-                        activeMonth = month;
-                        document.getElementById(`month-nav-${month}`)?.scrollIntoView({
-                            behavior: 'smooth',
-                            block: 'nearest',
-                            inline: 'center',
-                        });
-                    }
-                });
-            },
-            { root: null, rootMargin: '-20% 0px -60% 0px', threshold: 0 }
-        );
-        sections.forEach((section) => observer?.observe(section));
+    const byMonth = $derived.by(() => {
+        const map: Record<number, MonthRace[]> = {};
+        for (const x of filtered) (map[x.month] ||= []).push(x);
+        for (const m of Object.keys(map)) map[Number(m)].sort((a, b) => dayOf(a.race) - dayOf(b.race));
+        return map;
     });
 
-    onDestroy(() => observer?.disconnect());
+    const sumChips = $derived.by(() => {
+        const out: { k: string; label: string }[] = [];
+        if (fSport !== 'all') out.push({ k: 'sport', label: SPORT_META[fSport as DsSport].ko });
+        if (fStatus !== 'all') out.push({ k: 'status', label: STATUS_FACETS.find((s) => s.id === fStatus)?.label ?? '' });
+        if (fRegion !== 'all') out.push({ k: 'region', label: fRegion });
+        return out;
+    });
 
-    function getMonthRaces(month: number): Race[] {
-        const monthRaces = races[String(month)] || [];
-        return monthRaces.filter((race) => {
-            const sportMatch = selectedSports.has(race.sport as Sport);
-            const regionMatch =
-                !race.region ||
-                selectedRegions.size === 0 ||
-                Array.from(selectedRegions).some((r) => race.region?.includes(r));
-            const statusMatch = selectedStatuses.has(race.status as StatusType);
-            return sportMatch && regionMatch && statusMatch;
-        });
-    }
+    // ── Current-month highlight (set client-side to avoid hydration mismatch) ──
+    let nowMonth = $state<number | null>(null);
+    onMount(() => {
+        const d = new Date();
+        if (d.getFullYear() === year) nowMonth = d.getMonth() + 1;
+    });
 
-    function toggleSport(sport: Sport) {
-        if (selectedSports.has(sport)) selectedSports.delete(sport);
-        else selectedSports.add(sport);
-        selectedSports = new Set(selectedSports);
-        saveFilter();
-    }
-    function toggleRegion(region: string) {
-        if (selectedRegions.has(region)) selectedRegions.delete(region);
-        else selectedRegions.add(region);
-        selectedRegions = new Set(selectedRegions);
-        saveFilter();
-    }
-    function toggleStatus(status: StatusType) {
-        if (selectedStatuses.has(status)) selectedStatuses.delete(status);
-        else selectedStatuses.add(status);
-        selectedStatuses = new Set(selectedStatuses);
-        saveFilter();
-    }
-    function resetFilters() {
-        selectedSports = new Set(ALL_SPORTS);
-        selectedRegions = new Set(regions);
-        selectedStatuses = new Set(ALL_STATUSES);
-        localStorage.removeItem(STORAGE_KEY);
-    }
-
-    function openMobileFilter() {
-        mobileFilterOpen = true;
+    // ── Sheet behaviour: lock scroll + ESC ────────────────────────────────────
+    $effect(() => {
+        if (!sheetOpen) return;
+        const prev = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
-    }
-    function closeMobileFilter() {
-        mobileFilterOpen = false;
-        document.body.style.overflow = '';
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') sheetOpen = false;
+        };
+        window.addEventListener('keydown', onKey);
+        return () => {
+            document.body.style.overflow = prev;
+            window.removeEventListener('keydown', onKey);
+        };
+    });
+
+    // ── Month jump ────────────────────────────────────────────────────────────
+    function jump(m: number) {
+        const el = document.getElementById('yr-m-' + m);
+        if (!el) return;
+        const idx = document.querySelector('.yr-index');
+        const off = 12 + (idx ? idx.getBoundingClientRect().height : 0) + (window.innerWidth <= 768 ? 52 : 64);
+        window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - off, behavior: 'smooth' });
     }
 
+    // ── SEO / OG ──────────────────────────────────────────────────────────────
     const SCHEDULE_OG_YEARS = [2025, 2026, 2027, 2028];
     let ogImage = $derived(
         SCHEDULE_OG_YEARS.includes(year)
@@ -168,626 +170,559 @@
     <meta name="twitter:image" content={ogImage} />
 </svelte:head>
 
-<div class="year-wrap">
-    <!-- HEADER -->
-    <header class="year-head">
-        <div class="head-left">
-            <div class="kicker">시즌 · {year}</div>
-            <h1 class="title">{year}년 대회 일정</h1>
-            <div class="sub">
-                총 <b>{totalCount.toLocaleString()}</b>개 대회 · {ALL_SPORTS.length}개 종목
-            </div>
-        </div>
-        <nav class="year-nav" aria-label="연도 이동">
-            <a class="year-nav-btn" href="/races/year/{year - 1}" aria-label="{year - 1}년">
-                <span class="arrow">←</span>
-                <span class="num">{year - 1}</span>
-            </a>
-            <span class="year-nav-current">{year}</span>
-            <a class="year-nav-btn" href="/races/year/{year + 1}" aria-label="{year + 1}년">
-                <span class="num">{year + 1}</span>
-                <span class="arrow">→</span>
-            </a>
-        </nav>
-    </header>
+{#snippet countSlot()}
+    <span class="eh-micro eh-data count-slot">{filtered.length} / {allRaces.length} RACES</span>
+{/snippet}
 
-    <!-- STICKY MONTH NAV -->
-    <nav class="month-nav" aria-label="월 이동">
-        <div class="month-nav-inner">
-            {#each Array(12) as _, i}
-                {@const m = i + 1}
-                {@const monthRaces = getMonthRaces(m)}
-                {@const empty = monthRaces.length === 0}
-                {@const active = activeMonth === m}
-                <a
-                    id="month-nav-{m}"
-                    href="#month-{m}"
-                    class="month-chip"
-                    class:active
-                    class:empty
-                    aria-disabled={empty}
+{#snippet filterRows()}
+    <div class="fil-row">
+        <span class="eh-micro fil-label">SPORT</span>
+        <div class="fil-chips">
+            <FilterChip selected={fSport === 'all'} onclick={() => (fSport = 'all')}>전체</FilterChip>
+            {#each SPORTS as s (s)}
+                <FilterChip
+                    selected={fSport === s}
+                    dotColor={SPORT_META[s].color}
+                    count={sportPool.filter((x) => appSportToDs[x.race.sport] === s).length}
+                    onclick={() => (fSport = fSport === s ? 'all' : s)}
                 >
-                    <span class="month-chip-label">{MONTH_LABELS[i]}</span>
-                    {#if monthRaces.length > 0}
-                        <span class="month-chip-count">{monthRaces.length}</span>
-                    {/if}
-                </a>
+                    {SPORT_META[s].ko}
+                </FilterChip>
             {/each}
         </div>
-    </nav>
+    </div>
+    <div class="fil-row">
+        <span class="eh-micro fil-label">STATUS</span>
+        <div class="fil-chips">
+            <FilterChip selected={fStatus === 'all'} onclick={() => (fStatus = 'all')}>전체</FilterChip>
+            {#each STATUS_FACETS as s (s.id)}
+                <FilterChip
+                    selected={fStatus === s.id}
+                    count={statusPool.filter((x) => s.match(x.race)).length}
+                    onclick={() => (fStatus = fStatus === s.id ? 'all' : s.id)}
+                >
+                    {s.label}
+                </FilterChip>
+            {/each}
+        </div>
+    </div>
+    <div class="fil-row">
+        <span class="eh-micro fil-label">REGION</span>
+        <div class="fil-chips">
+            <FilterChip selected={fRegion === 'all'} onclick={() => (fRegion = 'all')}>전국</FilterChip>
+            {#each regions as rg (rg)}
+                <FilterChip
+                    selected={fRegion === rg}
+                    count={regionPool.filter((x) => x.race.region === rg).length}
+                    onclick={() => (fRegion = fRegion === rg ? 'all' : rg)}
+                >
+                    {rg}
+                </FilterChip>
+            {/each}
+        </div>
+    </div>
+{/snippet}
 
-    <div class="year-body">
-        <!-- MONTH SECTIONS -->
-        <div class="months">
-            {#each Array(12) as _, i}
-                {@const m = i + 1}
-                {@const monthRaces = getMonthRaces(m)}
-                <section id="month-{m}" class="month-sec" class:empty={monthRaces.length === 0}>
-                    <div class="month-head">
-                        <div class="month-head-num">
-                            <span class="month-num">{MONTH_LABELS[i]}</span>
-                        </div>
-                        <div class="month-head-line"></div>
-                        {#if monthRaces.length > 0}
-                            <span class="month-head-count">{monthRaces.length}개 대회</span>
-                        {:else}
-                            <span class="month-head-count muted">대회 없음</span>
-                        {/if}
-                    </div>
+<main class="v-container yr-page">
+    <!-- HERO -->
+    <div class="hero">
+        <div class="eh-micro"><span class="acc">{year} INDEX</span> · 전국 <span class="eh-data">{totalCount}</span> RACES</div>
+        <h1 class="hero-title">{year} 대회 캘린더</h1>
+        <p class="hero-sub">올해 열리는 모든 대회 — 월을 눌러 바로 이동하세요.</p>
+    </div>
 
-                    {#if monthRaces.length > 0}
-                        <div class="race-table">
-                            <div class="race-thead">
-                                <span>접수마감</span>
-                                <span>대회명</span>
-                                <span>일정</span>
-                                <span>종목</span>
-                                <span>거리</span>
-                                <span>지역</span>
-                                <span>참가비</span>
-                            </div>
-                            {#each monthRaces as race (race.id)}
-                                <RaceRow {race} />
-                            {/each}
-                        </div>
-                    {:else}
-                        <div class="empty-card">
-                            <span class="empty-kicker">결과 없음</span>
-                            <p>이 달에 해당하는 대회가 없습니다.</p>
-                        </div>
+    <!-- MONTH INDEX (sticky) -->
+    <section class="yr-index" aria-label="월별 바로가기">
+        {#each Array(12) as _, i (i)}
+            {@const m = i + 1}
+            {@const n = (byMonth[m] || []).length}
+            <button
+                type="button"
+                disabled={n === 0}
+                class="yr-cell"
+                class:off={n === 0}
+                class:now={m === nowMonth}
+                onclick={() => jump(m)}
+            >
+                <span class="yr-num eh-data">{m}<span class="yr-suf">월</span></span>
+            </button>
+        {/each}
+    </section>
+
+    <!-- FILTER BAR + SHEET -->
+    <section class="fil compactbar" aria-label="필터">
+        <div class="fil-bar">
+            <button
+                type="button"
+                class="fil-toggle"
+                aria-haspopup="dialog"
+                aria-expanded={sheetOpen}
+                onclick={() => (sheetOpen = true)}
+            >
+                필터
+                {#if sumChips.length > 0}<span class="fil-cnt eh-data">{sumChips.length}</span>{/if}
+            </button>
+            {#if sumChips.length > 0}
+                <div class="fil-sum">
+                    {#each sumChips as chip (chip.k)}
+                        <FilterChip selected onclick={() => removeChip(chip.k)}>{chip.label} ×</FilterChip>
+                    {/each}
+                    {#if sumChips.length > 1}
+                        <button class="reset-link" onclick={reset}>초기화</button>
                     {/if}
+                </div>
+            {/if}
+            <div class="fil-end">{@render countSlot()}</div>
+        </div>
+    </section>
+
+    {#if sheetOpen}
+        <div class="v-scrim fil-scrim">
+            <button class="fil-scrim-bg" aria-label="필터 닫기" onclick={() => (sheetOpen = false)}></button>
+            <div class="v-modal fil-sheet" role="dialog" aria-modal="true" aria-label="필터">
+                <div class="fil-sheet-head">
+                    <span class="eh-micro"><span class="acc">FILTER</span> · {year} INDEX</span>
+                    <button type="button" class="fil-x" aria-label="닫기" onclick={() => (sheetOpen = false)}>×</button>
+                </div>
+                <div class="fil-sheet-body">
+                    {@render filterRows()}
+                </div>
+                <div class="fil-sheet-foot">
+                    <button class="reset-link" onclick={reset}>초기화</button>
+                    <Button variant="primary" onclick={() => (sheetOpen = false)}>결과 {filtered.length}개 보기 →</Button>
+                </div>
+            </div>
+        </div>
+    {/if}
+
+    <!-- MONTH SECTIONS -->
+    {#if filtered.length === 0}
+        <p class="yr-empty">조건에 맞는 대회가 없습니다. 필터를 줄여보세요.</p>
+    {:else}
+        {#each Array(12) as _, i (i)}
+            {@const m = i + 1}
+            {@const list = byMonth[m] || []}
+            {#if list.length > 0}
+                <section class="yr-month" id={'yr-m-' + m}>
+                    <div class="yr-mhead">
+                        <span class="yr-mnum eh-data">{pad(m)}</span>
+                        <span class="eh-micro">{EN_MONTH[m - 1]}</span>
+                        {#if m === nowMonth}<span class="eh-micro yr-thismonth">THIS MONTH</span>{/if}
+                        <span class="eh-micro eh-data yr-mcount">{list.length} RACES</span>
+                    </div>
+                    <div class="v-table">
+                        {#each list as { race } (race.slug)}
+                            {@const day = dayOf(race)}
+                            <a class="v-trow click yr-row" class:done={race.status === 'finished'} href={`/races/${race.slug}`}>
+                                <span class="eh-data yr-date">{m}.{pad(day)} {dowOf(m, day)}</span>
+                                <span class="hide-m"><SportTag sport={appSportToDs[race.sport]} /></span>
+                                <span class="yr-name">{race.title}</span>
+                                <span class="hide-m yr-dim eh-data">{arenaDistLabel(race)}</span>
+                                <span class="hide-m yr-dim">{race.region || '—'}</span>
+                                <span class="hide-m yr-dim eh-data">{feeLabel(race)}</span>
+                                <span class="yr-badge">
+                                    {#if race.status === 'finished'}
+                                        <span class="eh-micro yr-done">종료</span>
+                                    {:else if race.status === 'registration_open'}
+                                        {@const dday = arenaDday(race).value}
+                                        <Badge status={dday != null && dday >= 0 && dday <= 7 ? 'closing' : 'open'}>
+                                            <span class="eh-data">{dday != null && dday >= 0 ? `접수 중 D-${dday}` : '접수 중'}</span>
+                                        </Badge>
+                                    {:else if race.status === 'upcoming'}
+                                        <Badge status="upcoming" />
+                                    {:else}
+                                        <Badge status="closed" />
+                                    {/if}
+                                </span>
+                            </a>
+                        {/each}
+                    </div>
                 </section>
-            {/each}
-        </div>
-
-        <!-- DESKTOP FILTER SIDEBAR -->
-        <aside class="filter-sidebar">
-            <div class="filter-panel">
-                <div class="filter-panel-head">
-                    <span class="kicker">필터</span>
-                    {#if hasActiveFilter}
-                        <button class="filter-reset" onclick={resetFilters}>초기화 ✕</button>
-                    {/if}
-                </div>
-
-                <div class="filter-group">
-                    <div class="filter-group-label">종목</div>
-                    <div class="chip-row">
-                        {#each sports as sport}
-                            <button
-                                class="filter-chip"
-                                class:active={selectedSports.has(sport.key)}
-                                onclick={() => toggleSport(sport.key)}
-                            >
-                                {sport.label}
-                            </button>
-                        {/each}
-                    </div>
-                </div>
-
-                <div class="filter-group">
-                    <div class="filter-group-label">상태</div>
-                    <div class="chip-row">
-                        {#each statuses as status}
-                            <button
-                                class="filter-chip"
-                                class:active={selectedStatuses.has(status.key)}
-                                onclick={() => toggleStatus(status.key)}
-                            >
-                                {status.label}
-                            </button>
-                        {/each}
-                    </div>
-                </div>
-
-                <div class="filter-group">
-                    <div class="filter-group-label">지역</div>
-                    <div class="chip-row chip-row-wrap">
-                        {#each regions as region}
-                            <button
-                                class="filter-chip"
-                                class:active={selectedRegions.has(region)}
-                                onclick={() => toggleRegion(region)}
-                            >
-                                {region}
-                            </button>
-                        {/each}
-                    </div>
-                </div>
-            </div>
-        </aside>
-    </div>
-
-    <!-- MOBILE FILTER FAB -->
-    <button class="mobile-fab" onclick={openMobileFilter} aria-label="필터 열기">
-        <span class="mono">필터</span>
-        {#if hasActiveFilter}<span class="fab-dot"></span>{/if}
-    </button>
-</div>
-
-{#if mobileFilterOpen}
-    <div class="mobile-filter">
-        <button
-            class="mobile-filter-bg"
-            onclick={closeMobileFilter}
-            aria-label="모달 닫기"
-        ></button>
-        <div class="mobile-filter-sheet">
-            <div class="mobile-filter-head">
-                <span class="kicker">필터</span>
-                <button class="mobile-filter-close" onclick={closeMobileFilter} aria-label="닫기">✕</button>
-            </div>
-
-            <div class="filter-group">
-                <div class="filter-group-label">종목</div>
-                <div class="chip-row chip-row-wrap">
-                    {#each sports as sport}
-                        <button
-                            class="filter-chip"
-                            class:active={selectedSports.has(sport.key)}
-                            onclick={() => toggleSport(sport.key)}
-                        >
-                            {sport.label}
-                        </button>
-                    {/each}
-                </div>
-            </div>
-
-            <div class="filter-group">
-                <div class="filter-group-label">상태</div>
-                <div class="chip-row chip-row-wrap">
-                    {#each statuses as status}
-                        <button
-                            class="filter-chip"
-                            class:active={selectedStatuses.has(status.key)}
-                            onclick={() => toggleStatus(status.key)}
-                        >
-                            {status.label}
-                        </button>
-                    {/each}
-                </div>
-            </div>
-
-            <div class="filter-group">
-                <div class="filter-group-label">지역</div>
-                <div class="chip-row chip-row-wrap">
-                    {#each regions as region}
-                        <button
-                            class="filter-chip"
-                            class:active={selectedRegions.has(region)}
-                            onclick={() => toggleRegion(region)}
-                        >
-                            {region}
-                        </button>
-                    {/each}
-                </div>
-            </div>
-
-            <div class="mobile-filter-actions">
-                {#if hasActiveFilter}
-                    <button class="arena-btn arena-btn-ghost" onclick={resetFilters}>초기화</button>
-                {/if}
-                <button class="arena-btn arena-btn-primary mobile-filter-apply" onclick={closeMobileFilter}>
-                    적용
-                </button>
-            </div>
-        </div>
-    </div>
-{/if}
+            {/if}
+        {/each}
+    {/if}
+</main>
 
 <style>
-    .year-wrap {
-        max-width: 1400px;
-        margin: 0 auto;
-        padding: 32px 24px 80px;
-    }
-    @media (min-width: 1024px) {
-        .year-wrap { padding: 40px 32px 100px; }
+    .yr-page {
+        padding-top: var(--sp-2);
+        padding-bottom: var(--sp-16);
     }
 
-    /* ── HEADER ── */
-    .year-head {
+    /* ── HERO (Search와 동일한 패턴, 컴팩트) ── */
+    .hero {
         display: flex;
-        align-items: flex-end;
-        justify-content: space-between;
-        gap: 24px;
-        padding-bottom: 24px;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: var(--sp-4);
+        padding: 48px 0 8px;
+    }
+    .hero-title {
+        font-size: clamp(30px, 4vw, 42px);
+        font-weight: var(--w-display);
+        letter-spacing: var(--track-display);
+        line-height: var(--leading-display);
+        color: var(--text-strong);
+        margin: 0;
+    }
+    .hero-sub {
+        color: var(--text-muted);
+        font-size: 15px;
+        margin: 0;
+    }
+
+    /* ── 필터 바 (컴팩트) ── */
+    .fil {
+        border-top: var(--border-rule);
+    }
+    .reset-link {
+        background: none;
+        border: 0;
+        padding: 2px 0;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-muted);
+        border-bottom: 1px solid var(--line);
+        cursor: pointer;
+    }
+    .reset-link:hover {
+        color: var(--text-strong);
+        border-bottom-color: var(--ink-900);
+    }
+
+    .fil-bar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        row-gap: 10px;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--line);
         flex-wrap: wrap;
     }
-    .head-left { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-    .kicker {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 2px;
-        color: var(--arena-ink-soft);
-        text-transform: uppercase;
-    }
-    .title {
-        font-family: var(--arena-f-display);
-        font-size: clamp(32px, 5vw, 52px);
-        font-weight: 700;
-        letter-spacing: -1.5px;
-        line-height: 1;
-        margin: 4px 0 6px;
-        color: var(--arena-ink);
-    }
-    .sub {
-        font-family: var(--arena-f-mono);
-        font-size: 12px;
-        letter-spacing: 0.3px;
-        color: var(--arena-ink-soft);
-    }
-    .sub b { color: var(--arena-ink); font-weight: 700; }
-
-    .year-nav {
-        display: flex;
-        align-items: stretch;
-        border: 1px solid var(--arena-line);
-        background: var(--arena-paper);
-    }
-    .year-nav-btn {
-        display: flex;
+    .fil-toggle {
+        appearance: none;
+        display: inline-flex;
         align-items: center;
         gap: 8px;
-        padding: 10px 14px;
-        font-family: var(--arena-f-mono);
-        font-size: 12px;
-        letter-spacing: 1px;
-        color: var(--arena-ink-soft);
-        text-decoration: none;
-        background: var(--arena-paper);
-        transition: background 0.1s, color 0.1s;
-    }
-    .year-nav-btn:hover { background: var(--arena-paper-alt); color: var(--arena-ink); }
-    .year-nav-btn .arrow { font-size: 13px; }
-    .year-nav-current {
-        padding: 10px 18px;
-        font-family: var(--arena-f-display);
-        font-weight: 700;
-        font-size: 14px;
-        letter-spacing: -0.3px;
-        color: var(--arena-paper);
-        background: var(--arena-ink);
-        display: flex;
-        align-items: center;
-        border-left: 1px solid var(--arena-line);
-        border-right: 1px solid var(--arena-line);
-    }
-
-    /* ── STICKY MONTH NAV ── */
-    .month-nav {
-        position: sticky;
-        top: 62px;
-        z-index: 20;
-        background: var(--arena-paper);
-        margin: 0 -24px;
-    }
-    @media (min-width: 1024px) {
-        .month-nav {
-             margin: 0 -32px;         
-             top: 60px;
-        }
-    }
-    .month-nav-inner {
-        max-width: 1400px;
-        margin: 0 auto;
-        padding: 10px 24px;
-        display: flex;
-        gap: 6px;
-        overflow-x: auto;
-        scrollbar-width: none;
-    }
-    .month-nav-inner::-webkit-scrollbar { display: none; }
-    @media (min-width: 1024px) {
-        .month-nav-inner { padding: 12px 32px; }
-    }
-    .month-chip {
-        flex-shrink: 0;
-        display: inline-flex;
-        align-items: baseline;
-        gap: 7px;
-        padding: 7px 13px;
-        border: 1px solid var(--arena-line-soft);
-        background: var(--arena-paper);
-        font-family: var(--arena-f-mono);
-        text-decoration: none;
-        color: var(--arena-ink);
-        transition: background 0.1s, color 0.1s, border-color 0.1s;
-    }
-    .month-chip-label {
-        font-size: 12px;
+        height: 40px;
+        padding: 0 16px;
+        flex: none;
+        background: var(--paper-0);
+        border: 1px solid var(--ink-900);
+        border-radius: 2px;
+        font: inherit;
+        font-size: 13px;
         font-weight: 600;
-        letter-spacing: 0.3px;
+        color: var(--text-strong);
+        cursor: pointer;
+        transition: background 140ms var(--ease-out);
     }
-    .month-chip-count {
+    .fil-toggle:hover,
+    .fil-toggle[aria-expanded='true'] {
+        background: var(--paper-50);
+    }
+    .fil-cnt {
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        border-radius: 999px;
+        background: var(--ink-900);
+        color: var(--paper-0);
         font-size: 11px;
         font-weight: 700;
-        padding: 1px 5px;
-        margin-left: 2px;
-        background: var(--arena-paper-alt);
-        color: var(--arena-ink-soft);
-    }
-    .month-chip:hover {
-        border-color: var(--arena-ink);
-    }
-    .month-chip.active {
-        background: var(--arena-ink);
-        color: var(--arena-paper);
-        border-color: var(--arena-ink);
-    }
-    .month-chip.active .month-chip-label {
-        color: var(--arena-accent);
-    }
-    .month-chip.active .month-chip-count {
-        background: var(--arena-accent);
-        color: var(--arena-ink);
-    }
-    .month-chip.empty {
-        color: var(--arena-ink-mute);
-        pointer-events: none;
-        opacity: 0.5;
-    }
-    .month-chip.empty .month-chip-label,
-    .month-chip.empty .month-chip-num { color: var(--arena-ink-mute); }
-
-    /* ── BODY (months + sidebar) ── */
-    .year-body {
         display: grid;
-        grid-template-columns: 1fr;
-        gap: 32px;
-        margin-top: 28px;
+        place-items: center;
     }
-    @media (min-width: 1024px) {
-        .year-body {
-            grid-template-columns: minmax(0, 1fr) 240px;
-            gap: 28px;
+    .fil-sum {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        min-width: 0;
+    }
+    .fil-end {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-left: auto;
+    }
+    .count-slot {
+        color: var(--text-faint);
+    }
+
+    /* ── 필터 행 (시트 내부) ── */
+    .fil-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 13px 0;
+        border-bottom: 1px solid var(--line);
+    }
+    .fil-row:last-child {
+        border-bottom: 0;
+    }
+    .fil-label {
+        flex: none;
+        width: 84px;
+        padding-top: 8px;
+        color: var(--text-faint);
+    }
+    .fil-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        flex: 1;
+    }
+
+    /* ── 필터 모달 / 바텀시트 ── */
+    .fil-scrim {
+        place-items: center;
+    }
+    .fil-scrim-bg {
+        position: absolute;
+        inset: 0;
+        background: none;
+        border: 0;
+        padding: 0;
+        cursor: pointer;
+    }
+    .fil-sheet {
+        max-width: 640px;
+        display: flex;
+        flex-direction: column;
+        max-height: 84dvh;
+    }
+    .fil-sheet-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 14px 12px 20px;
+        border-bottom: var(--border-rule);
+        flex: none;
+    }
+    .fil-x {
+        background: none;
+        border: 0;
+        font-size: 22px;
+        line-height: 1;
+        padding: 2px 8px;
+        color: var(--text-muted);
+        cursor: pointer;
+    }
+    .fil-x:hover {
+        color: var(--text-strong);
+    }
+    .fil-sheet-body {
+        padding: 0 20px 4px;
+        overflow-y: auto;
+    }
+    .fil-sheet-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex: none;
+        padding: 14px 20px calc(14px + env(safe-area-inset-bottom, 0px));
+        border-top: 1px solid var(--line);
+    }
+    @keyframes sheet-up {
+        from {
+            transform: translateY(24px);
+            opacity: 0;
         }
     }
 
-    .months { min-width: 0; }
-    .month-sec { scroll-margin-top: 140px; margin-bottom: 36px; }
-    .month-sec:last-child { margin-bottom: 0; }
-
-    .month-head {
-        display: flex;
-        align-items: baseline;
-        gap: 14px;
-        margin-bottom: 12px;
+    /* ── 월별 인덱스 그리드 (sticky) ── */
+    .yr-index {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        gap: 1px;
+        background: var(--line);
+        border: 1px solid var(--line);
+        border-top: var(--border-rule);
+        margin-top: 18px;
+        position: sticky;
+        top: 64px;
+        z-index: 40;
     }
-    .month-head-num {
+    .yr-cell {
+        appearance: none;
+        border: 0;
+        background: var(--paper-0);
+        cursor: pointer;
+        font: inherit;
+        padding: 13px 4px;
         display: flex;
-        align-items: baseline;
-        gap: 8px;
+        align-items: center;
+        justify-content: center;
+        transition: background 140ms var(--ease-out);
     }
-    .month-num {
-        font-family: var(--arena-f-display);
-        font-size: 32px;
+    .yr-cell:hover {
+        background: var(--paper-50);
+    }
+    .yr-cell.off {
+        cursor: default;
+    }
+    .yr-cell.off:hover {
+        background: var(--paper-0);
+    }
+    .yr-cell.off .yr-num {
+        color: var(--text-faint);
+    }
+    .yr-num {
+        font-size: 17px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1.1;
+    }
+    .yr-suf {
+        font-size: 12px;
         font-weight: 700;
-        letter-spacing: -1.5px;
-        color: var(--arena-ink);
+        margin-left: 1px;
+    }
+    .yr-cell.now {
+        box-shadow: inset 0 -2px 0 var(--accent);
+    }
+    .yr-cell.now .yr-num {
+        color: var(--accent-strong);
+    }
+
+    /* ── 월 섹션 ── */
+    .yr-month {
+        margin-top: 36px;
+    }
+    .yr-month:last-of-type {
+        margin-bottom: 64px;
+    }
+    .yr-mhead {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        border-top: var(--border-rule);
+        padding: 12px 0;
+    }
+    .yr-mnum {
+        font-size: 34px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
         line-height: 1;
     }
-    .month-sec.empty .month-num { color: var(--arena-ink-mute); }
-    .month-mono {
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        letter-spacing: 2px;
-        color: var(--arena-ink-soft);
+    .yr-thismonth {
+        color: var(--text-accent);
     }
-    .month-head-line {
-        flex: 1;
-        height: 1px;
-        background: var(--arena-line-soft);
-    }
-    .month-head-count {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 1.5px;
-        color: var(--arena-ink);
-        font-weight: 700;
-    }
-    .month-head-count.muted { color: var(--arena-ink-mute); font-weight: 500; }
-
-    /* ── RACE TABLE (mirrored from /races) ── */
-    .race-table {
-        border: 1px solid var(--arena-line);
-        background: var(--arena-paper);
-    }
-    .race-thead {
-        display: grid;
-        grid-template-columns: 56px 1fr 90px 60px 100px 110px 90px;
-        gap: 16px;
-        padding: 10px 20px;
-        background: var(--arena-paper-alt);
-        border-bottom: 1px solid var(--arena-line);
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        letter-spacing: 0.3px;
-        color: var(--arena-ink-soft);
-    }
-    @media (max-width: 879px) {
-        .race-thead { display: none; }
+    .yr-mcount {
+        margin-left: auto;
+        color: var(--text-faint);
     }
 
-    .empty-card {
-        border: 1px solid var(--arena-line-soft);
-        background: var(--arena-paper);
-        padding: 32px 20px;
-        text-align: center;
-        color: var(--arena-ink-soft);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 8px;
+    .yr-row {
+        grid-template-columns: 96px 84px 1fr 100px 56px 76px 132px;
+        gap: 14px;
+        text-decoration: none;
+        color: var(--text-strong);
     }
-    .empty-kicker {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 2px;
-        color: var(--arena-ink-mute);
+    .yr-badge {
+        justify-self: end;
     }
-    .empty-card p { margin: 0; font-size: 13px; }
-
-    /* ── FILTER SIDEBAR ── */
-    .filter-sidebar { display: none; }
-    @media (min-width: 1024px) { .filter-sidebar { display: block; } }
-    .filter-panel {
-        position: sticky;
-        top: 140px;
-        border: 1px solid var(--arena-line);
-        background: var(--arena-paper);
-        padding: 18px;
-        display: flex;
-        flex-direction: column;
-        gap: 18px;
+    .yr-date {
+        font-weight: 600;
+        white-space: nowrap;
     }
-    .filter-panel-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding-bottom: 12px;
-        border-bottom: 1px solid var(--arena-line-soft);
+    .yr-name {
+        font-weight: 600;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
-    .filter-reset {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 1.5px;
-        color: var(--arena-urgent);
-        background: transparent;
-        border: none;
-        cursor: pointer;
-        padding: 0;
+    .yr-dim {
+        color: var(--text-muted);
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
-    .filter-reset:hover { text-decoration: underline; }
-
-    .filter-group { display: flex; flex-direction: column; gap: 8px; }
-    .filter-group-label {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 1.5px;
-        color: var(--arena-ink-soft);
+    .yr-done {
+        color: var(--text-faint);
     }
-    .chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
-    .chip-row-wrap { gap: 5px; }
-    .filter-chip {
-        display: inline-flex;
-        align-items: center;
-        padding: 5px 10px;
-        border: 1px solid var(--arena-line-soft);
-        background: var(--arena-paper);
-        color: var(--arena-ink-soft);
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        letter-spacing: 0.3px;
-        cursor: pointer;
-        transition: all 0.1s;
+    .yr-row.done .yr-name {
+        color: var(--text-muted);
+        font-weight: 500;
     }
-    .filter-chip:hover { border-color: var(--arena-ink); color: var(--arena-ink); }
-    .filter-chip.active {
-        background: var(--arena-ink);
-        color: var(--arena-paper);
-        border-color: var(--arena-ink);
+    .yr-row.done .yr-date {
+        color: var(--text-muted);
     }
 
-    /* ── MOBILE FAB ── */
-    .mobile-fab {
-        display: flex;
-        position: fixed;
-        bottom: 24px;
-        right: 24px;
-        align-items: center;
-        gap: 8px;
-        padding: 10px 14px;
-        background: var(--arena-ink);
-        color: var(--arena-paper);
-        border: none;
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        letter-spacing: 1.5px;
-        cursor: pointer;
-        z-index: 30;
+    .yr-empty {
+        color: var(--text-muted);
+        padding: 28px 0;
     }
-    .mobile-fab:active { transform: translateY(1px); }
-    .fab-dot {
-        width: 6px;
-        height: 6px;
-        background: var(--arena-accent);
-    }
-    @media (min-width: 1024px) { .mobile-fab { display: none; } }
 
-    /* ── MOBILE FILTER SHEET ── */
-    .mobile-filter {
-        position: fixed;
-        inset: 0;
-        z-index: 9999;
-    }
-    .mobile-filter-bg {
-        position: absolute;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.5);
-        border: none;
-        cursor: pointer;
-    }
-    .mobile-filter-sheet {
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        background: var(--arena-paper);
-        border-top: 1px solid var(--arena-line);
-        padding: 20px 20px 28px;
-        max-height: 80vh;
-        overflow-y: auto;
-        display: flex;
-        flex-direction: column;
-        gap: 18px;
-        animation: slide-up 0.25s ease-out;
-    }
-    .mobile-filter-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding-bottom: 12px;
-        border-bottom: 1px solid var(--arena-line-soft);
-    }
-    .mobile-filter-close {
-        background: transparent;
-        border: none;
-        font-family: var(--arena-f-mono);
-        font-size: 16px;
-        color: var(--arena-ink);
-        cursor: pointer;
-    }
-    .mobile-filter-actions {
-        display: flex;
-        gap: 8px;
-        padding-top: 8px;
-        border-top: 1px solid var(--arena-line-soft);
-    }
-    .mobile-filter-apply { flex: 1; justify-content: center; }
+    @media (max-width: 768px) {
+        .hero {
+            padding: 28px 0 0;
+            gap: 12px;
+        }
+        .hero-title {
+            font-size: 26px;
+        }
+        .hero-sub {
+            font-size: 14px;
+        }
 
-    @keyframes slide-up {
-        from { transform: translateY(100%); }
-        to { transform: translateY(0); }
+        .yr-index {
+            grid-template-columns: repeat(6, 1fr);
+            top: 52px;
+        }
+        .yr-cell {
+            padding: 11px 2px;
+        }
+        .yr-num {
+            font-size: 16px;
+        }
+
+        .fil-bar {
+            gap: 10px;
+        }
+        .fil-bar .fil-sum {
+            flex: 1 0 100%;
+            order: 3;
+        }
+
+        /* 모달 → 바텀시트 */
+        .fil-scrim {
+            place-items: end stretch;
+            padding: 0;
+        }
+        .fil-sheet {
+            max-width: none;
+            width: 100%;
+            max-height: 86dvh;
+            border-left: 0;
+            border-right: 0;
+            border-bottom: 0;
+            animation: sheet-up 200ms var(--ease-out);
+        }
+
+        .yr-month {
+            margin-top: 28px;
+        }
+        .yr-mnum {
+            font-size: 28px;
+        }
+        .yr-row {
+            grid-template-columns: 76px 1fr auto;
+            gap: 10px;
+        }
+        .yr-row .hide-m {
+            display: none;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .fil-sheet {
+            animation: none;
+        }
     }
 </style>

@@ -1,375 +1,144 @@
 <script lang="ts">
-    import { page } from '$app/stores';
-    import ToolsShell from '$lib/components/arena/ToolsShell.svelte';
-    import {
-        STD_DISTANCES,
-        ZONE_INK,
-        type ZoneKey,
-        fmtPace,
-        parseTime,
-        trainingPaces,
-        vdot,
-    } from '$lib/tools';
+	import { page } from '$app/stores';
+	import ToolsShell from '$lib/components/arena/ToolsShell.svelte';
+	import StatBlock from '$lib/components/eh/StatBlock.svelte';
+	import FilterChip from '$lib/components/eh/FilterChip.svelte';
+	import Field from '$lib/components/eh/Field.svelte';
+	import Prefill from '$lib/components/eh/Prefill.svelte';
+	import { STD_DISTANCES, ZONE_INK, type ZoneKey, fmtPace, parseTime, trainingPaces, vdot } from '$lib/tools';
 
-    let { data } = $props();
-    const pf = data.prefill;
+	let { data } = $props();
+	const pf = data.prefill;
 
-    let distKm = $state(pf?.distKm ?? 21.0975);
-    let timeStr = $state(pf?.timeStr ?? '1:42:15');
+	let km = $state(pf?.distKm ?? 21.0975);
+	let time = $state(pf?.timeStr ?? '1:42:15');
 
-    const timeSec = $derived(parseTime(timeStr));
-    const v = $derived(vdot(distKm, timeSec));
-    const paces = $derived(trainingPaces(v));
+	const sec = $derived(parseTime(time || '0'));
+	const v = $derived(sec > 60 ? vdot(km, sec) : NaN);
+	const paces = $derived(Number.isFinite(v) ? trainingPaces(v) : null);
+	const grade = $derived(
+		!Number.isFinite(v) ? '—' : v >= 55 ? '상위 5%' : v >= 48 ? '상위 15%' : v >= 42 ? '상위 35%' : '평균',
+	);
 
-    const grade = $derived(
-        v >= 60 ? '엘리트' : v >= 50 ? '상급' : v >= 40 ? '중급' : '초급',
-    );
-
-    const gradePct = $derived(Math.max(0, Math.min(100, (v / 70) * 100)));
+	const zoneUse: Record<ZoneKey, string> = {
+		E: '회복 / 베이스 빌딩',
+		M: '마라톤 목표 페이스',
+		T: '젖산 역치 자극',
+		I: 'VO₂max 인터벌',
+		R: '스피드 / 폼',
+	};
 </script>
 
 <svelte:head>
-    <title>VO₂max 계산기 — endurohub</title>
+	<title>VO₂max — endurohub</title>
 </svelte:head>
 
 <ToolsShell currentPath={$page.url.pathname}>
-    <div class="page">
-        <header class="head">
-            <div class="arena-kicker">03 · VDOT</div>
-            <h2>VO₂max 계산기</h2>
-            <p>최근 레이스 기록으로 VDOT(Daniels)를 추정하고, 트레이닝 페이스를 자동 산출합니다.</p>
-        </header>
+<div class="page v-container">
+	<div class="tool-layout">
+		<!-- INPUT -->
+		<div class="panel">
+			<span class="eh-micro"><span class="acc">INPUT</span> · 최근 레이스 결과</span>
+			<div class="row">
+				{#each STD_DISTANCES as d (d.code)}
+					<FilterChip selected={Math.abs(km - d.km) < 0.01} onclick={() => (km = d.km)}>{d.label}</FilterChip>
+				{/each}
+			</div>
+			<Field label="Race time" placeholder="예: 1:42:15" bind:value={time} hint="최근 전력 레이스 기록일수록 정확합니다" />
+			{#if pf}
+				<Prefill label={pf.label} onApply={() => { km = pf.distKm; time = pf.timeStr; }} />
+			{/if}
+			<p class="src-note">Daniels &amp; Gilbert VDOT 근사식 기반. 트랙 실측 VO₂max와 다를 수 있습니다.</p>
+		</div>
 
-        {#if pf}
-            <div class="prefill-note">최근 기록 <b>{pf.label}</b> 을(를) 불러왔어요</div>
-        {/if}
+		<!-- OUTPUT -->
+		<div class="out">
+			<div class="out-hero">
+				<StatBlock label="VDOT" value={Number.isFinite(v) ? v.toFixed(1) : '—'} size="xl" accent />
+				<StatBlock label="등급 (동연령)" value={grade} size="lg" />
+			</div>
 
-        <!-- Inputs -->
-        <div class="inputs">
-            <div class="input-cell">
-                <div class="cell-lbl">거리</div>
-                <div class="dist-buttons">
-                    {#each STD_DISTANCES as d}
-                        <button
-                            type="button"
-                            class="dist-btn"
-                            class:active={Math.abs(distKm - d.km) < 0.01}
-                            onclick={() => (distKm = d.km)}>{d.label}</button
-                        >
-                    {/each}
-                </div>
-            </div>
-            <div class="input-cell">
-                <div class="cell-lbl">완주 시간</div>
-                <input
-                    class="time-input"
-                    value={timeStr}
-                    oninput={(e) => (timeStr = (e.currentTarget as HTMLInputElement).value)}
-                />
-                <div class="hint">시:분:초</div>
-            </div>
-        </div>
-
-        <!-- Result card -->
-        <div class="result">
-            <div class="result-half">
-                <div class="result-kicker">VDOT</div>
-                <div class="vdot-num">{v.toFixed(1)}</div>
-                <div class="vdot-sub">ml/kg/min 환산</div>
-            </div>
-            <div class="result-half">
-                <div class="result-kicker">등급</div>
-                <div class="grade-name">{grade}</div>
-                <div class="grade-bar">
-                    <div class="grade-fill" style="width: {gradePct}%"></div>
-                    <div class="grade-tick" style="left: 57%"></div>
-                    <div class="grade-tick" style="left: 71%"></div>
-                    <div class="grade-tick" style="left: 86%"></div>
-                </div>
-                <div class="grade-axis">
-                    <span>30</span>
-                    <span>40</span>
-                    <span>50</span>
-                    <span>60</span>
-                    <span>70</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Training paces -->
-        <section class="block">
-            <div class="block-title">
-                <span class="title-rule"></span>
-                트레이닝 페이스 (Daniels)
-            </div>
-            <div class="paces">
-                {#each Object.entries(paces) as [k, p] (k)}
-                    <div class="pace-row">
-                        <span class="pace-zone" style="color: {ZONE_INK[k as ZoneKey]}">{k}</span>
-                        <span class="pace-name">{p.label}</span>
-                        <span class="pace-val">{fmtPace(p.sec)}/km</span>
-                        <span class="pace-hr">심박 {p.hr}</span>
-                    </div>
-                {/each}
-            </div>
-        </section>
-
-    </div>
+			{#if paces}
+			<div>
+				<div class="v-sechead">
+					<h2 class="sechead-title">트레이닝 페이스</h2>
+					<span class="eh-micro sechead-aux">DANIELS RUNNING FORMULA</span>
+				</div>
+				<div class="v-table ztable" style="margin-top:12px">
+					<div class="v-thead zcols">
+						<span></span>
+						<span>ZONE</span>
+						<span>용도</span>
+						<span>PACE/KM</span>
+						<span class="hide-m">HR</span>
+					</div>
+					{#each Object.entries(paces) as [z, p] (z)}
+						<div class="v-trow zcols">
+							<span class="zone-dot" style="background:{ZONE_INK[z as ZoneKey]}"></span>
+							<b>{z} · {p.label}</b>
+							<span class="zone-use">{zoneUse[z as ZoneKey]}</span>
+							<b class="eh-data">{fmtPace(p.sec)}</b>
+							<span class="hide-m eh-data zone-hr">{p.hr}</span>
+						</div>
+					{/each}
+				</div>
+			</div>
+			{/if}
+		</div>
+	</div>
+</div>
 </ToolsShell>
 
 <style>
-    .page {
-        max-width: 1100px;
-        margin: 0 auto;
-        padding: 32px 24px 60px;
-    }
-    @media (min-width: 1024px) {
-        .page {
-            padding: 40px 32px 80px;
-        }
-    }
-    .head {
-        margin-bottom: 28px;
-    }
-    .head h2 {
-        font-family: var(--arena-f-display);
-        font-size: clamp(24px, 3vw, 32px);
-        font-weight: 700;
-        letter-spacing: -0.8px;
-        margin: 8px 0 6px;
-        color: var(--arena-ink);
-    }
-    .head p {
-        margin: 0;
-        font-size: 13px;
-        color: var(--arena-ink-soft);
-    }
+	.page { padding-top: 28px; padding-bottom: var(--sp-20); }
 
-    .prefill-note {
-        margin: 0 0 20px;
-        padding: 8px 12px;
-        border: 1px solid var(--arena-line-soft);
-        background: var(--arena-paper-alt);
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        letter-spacing: 0.3px;
-        color: var(--arena-ink-soft);
-    }
-    .prefill-note b {
-        color: var(--arena-ink);
-        font-weight: 700;
-    }
+	.tool-layout {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: var(--sp-6);
+		align-items: start;
+	}
+	@media (min-width: 960px) {
+		.tool-layout { grid-template-columns: 380px minmax(0, 1fr); gap: var(--sp-10); }
+	}
 
-    .inputs {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 12px;
-        margin-bottom: 24px;
-    }
-    @media (min-width: 768px) {
-        .inputs {
-            grid-template-columns: 1fr 1fr;
-        }
-    }
-    .input-cell {
-        border: 1px solid var(--arena-line);
-        padding: 14px 16px;
-    }
-    .cell-lbl {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 1.5px;
-        color: var(--arena-ink-soft);
-        text-transform: uppercase;
-        margin-bottom: 6px;
-    }
-    .dist-buttons {
-        display: flex;
-        gap: 6px;
-    }
-    .dist-btn {
-        flex: 1;
-        padding: 8px 12px;
-        background: transparent;
-        color: var(--arena-ink);
-        border: 1px solid var(--arena-line);
-        font-family: var(--arena-f-mono);
-        font-size: 12px;
-        cursor: pointer;
-    }
-    .dist-btn.active {
-        background: var(--arena-ink);
-        color: var(--arena-paper);
-    }
-    .time-input {
-        width: 100%;
-        background: transparent;
-        border: none;
-        outline: none;
-        font-family: var(--arena-f-display);
-        font-size: 24px;
-        font-weight: 700;
-        letter-spacing: -0.5px;
-        color: var(--arena-ink);
-        padding: 0;
-    }
-    .hint {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        color: var(--arena-ink-mute);
-        margin-top: 2px;
-    }
+	.panel {
+		border: 1px solid var(--ink-900);
+		padding: var(--sp-6);
+		background: var(--paper-0);
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-5);
+	}
+	.row { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+	.src-note { margin: 0; font-size: 12px; color: var(--text-faint); line-height: 1.6; }
 
-    .result {
-        background: var(--arena-ink);
-        color: var(--arena-paper);
-        padding: 28px;
-        margin-bottom: 24px;
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 24px;
-    }
-    @media (min-width: 768px) {
-        .result {
-            grid-template-columns: 1fr 1fr;
-        }
-    }
-    .result-kicker {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 2px;
-        opacity: 0.6;
-        text-transform: uppercase;
-        margin-bottom: 8px;
-    }
-    .vdot-num {
-        font-family: var(--arena-f-display);
-        font-size: 72px;
-        font-weight: 700;
-        letter-spacing: -2px;
-        line-height: 0.95;
-    }
-    .vdot-sub {
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        opacity: 0.6;
-        margin-top: 4px;
-    }
-    .grade-name {
-        font-family: var(--arena-f-display);
-        font-size: 32px;
-        font-weight: 700;
-        letter-spacing: -0.6px;
-    }
-    .grade-bar {
-        margin-top: 14px;
-        height: 6px;
-        background: oklch(40% 0.03 145);
-        position: relative;
-    }
-    .grade-fill {
-        position: absolute;
-        left: 0;
-        top: 0;
-        bottom: 0;
-        background: var(--arena-accent);
-    }
-    .grade-tick {
-        position: absolute;
-        top: -2px;
-        bottom: -2px;
-        width: 1px;
-        background: oklch(70% 0.03 145);
-    }
-    .grade-axis {
-        display: flex;
-        justify-content: space-between;
-        font-family: var(--arena-f-mono);
-        font-size: 9px;
-        color: oklch(70% 0.03 145);
-        margin-top: 4px;
-    }
+	.out { display: flex; flex-direction: column; gap: var(--sp-6); }
+	.out-hero {
+		border-top: var(--border-rule);
+		padding-top: var(--sp-4);
+		display: flex;
+		gap: 48px;
+		flex-wrap: wrap;
+		align-items: flex-end;
+	}
 
-    .block {
-        margin-bottom: 24px;
-    }
-    .block-title {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 2px;
-        color: var(--arena-ink-soft);
-        text-transform: uppercase;
-        margin-bottom: 10px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .title-rule {
-        width: 14px;
-        height: 1px;
-        background: var(--arena-ink);
-    }
+	.sechead-title {
+		margin: 0;
+		font-size: var(--text-h3);
+		font-weight: var(--w-strong);
+		letter-spacing: var(--track-heading);
+		color: var(--text-strong);
+	}
+	.sechead-aux { color: var(--text-faint); }
 
-    .paces {
-        border: 1px solid var(--arena-line);
-    }
-    .pace-row {
-        display: grid;
-        grid-template-columns: 50px 1fr 110px 110px;
-        gap: 16px;
-        padding: 12px 16px;
-        border-top: 1px solid var(--arena-line-soft);
-        align-items: center;
-    }
-    .pace-row:first-child {
-        border-top: none;
-    }
-    .pace-zone {
-        font-family: var(--arena-f-display);
-        font-weight: 700;
-        font-size: 18px;
-    }
-    .pace-name {
-        font-weight: 600;
-        font-size: 14px;
-    }
-    .pace-val {
-        font-family: var(--arena-f-mono);
-        font-weight: 700;
-        font-size: 14px;
-    }
-    .pace-hr {
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        color: var(--arena-ink-soft);
-    }
+	.zcols { grid-template-columns: 14px 110px 1fr 110px 90px; gap: 14px; }
+	.zone-dot { width: 10px; height: 10px; border-radius: 50%; align-self: center; }
+	.zone-use { color: var(--text-muted); font-size: 13px; }
+	.zone-hr { color: var(--text-faint); font-size: 12px; }
 
-    .save {
-        margin-top: 8px;
-        padding: 16px 20px;
-        background: var(--arena-paper-alt);
-        border: 1px dashed var(--arena-line);
-        display: grid;
-        grid-template-columns: 1fr auto;
-        gap: 16px;
-        align-items: center;
-    }
-    .save-desc {
-        font-size: 13px;
-        color: var(--arena-ink);
-        margin-top: 2px;
-    }
-    .save-cta {
-        padding: 10px 14px;
-        border: 1px solid var(--arena-ink);
-        background: var(--arena-paper);
-        font-family: var(--arena-f-mono);
-        font-size: 12px;
-        color: var(--arena-ink);
-        text-decoration: none;
-    }
-    .save-cta:hover {
-        background: var(--arena-ink);
-        color: var(--arena-paper);
-    }
+	@media (max-width: 768px) {
+		.zcols { grid-template-columns: 14px 90px 1fr 90px; }
+		.hide-m { display: none; }
+	}
 </style>

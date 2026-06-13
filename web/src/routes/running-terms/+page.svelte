@@ -1,119 +1,114 @@
 <script lang="ts">
-    import ToolsSidebar from '$lib/components/Tools/ToolsSidebar.svelte';
-    import { glossaryTerms, categoryLabels, type GlossaryCategory } from '$lib/tools/glossary-data';
+    import { SearchBar, FilterChip } from '$lib/components/eh';
+    import {
+        glossaryCats,
+        glossaryGroups,
+        glossaryTerms,
+        type GlossaryCategory
+    } from '$lib/tools/glossary-data';
 
     let { data } = $props();
 
-    let selectedCategory = $state<GlossaryCategory | 'all'>('all');
-    let searchQuery = $state('');
+    const TOTAL = glossaryTerms.length;
+    const ALPHA = glossaryGroups.map((g) => g.key);
 
-    let filteredTerms = $derived.by(() => {
-        let terms = glossaryTerms;
-        if (selectedCategory !== 'all') {
-            terms = terms.filter((t) => t.category === selectedCategory);
-        }
-        if (searchQuery.trim()) {
-            const q = searchQuery.trim().toLowerCase();
-            terms = terms.filter(
-                (t) =>
-                    t.term.toLowerCase().includes(q) ||
-                    t.shortDesc.includes(q) ||
-                    t.fullDesc.includes(q)
-            );
-        }
-        return terms;
-    });
+    const OTHER_TOOLS = [
+        { no: '01', t: '페이스 계산기', d: '거리·목표 시간으로 구간 페이스 산출', href: '/tools/pace-calculator' },
+        { no: '02', t: '훈련 플랜', d: '목표 대회까지 주차별 단계 구성', href: '/tools/training-plan' },
+        { no: '03', t: 'VO₂max 계산기', d: '최근 기록으로 유산소 능력 추정', href: '/tools/vo2max' },
+        { no: '04', t: '기록 예측기', d: 'Riegel 공식 기반 거리별 예상 기록', href: '/tools/race-predictor' }
+    ];
 
-    let categories = $derived.by(() => {
-        const counts = new Map<string, number>();
+    let q = $state('');
+    let activeCat = $state<GlossaryCategory | 'all'>('all');
+    let open = $state<Record<string, boolean>>({});
+    let jump = $state<string | null>(null);
+
+    let groupRefs: Record<string, HTMLElement | null> = {};
+
+    function catKo(id: GlossaryCategory | 'all'): string {
+        return glossaryCats.find((c) => c.id === id)?.ko ?? id;
+    }
+
+    function matches(t: { ko: string; en: string; short: string; def: string }, ql: string): boolean {
+        return !ql || (t.ko + ' ' + t.en + ' ' + t.short + ' ' + t.def).toLowerCase().includes(ql);
+    }
+
+    // Category counts respect the search, ignore the active category.
+    let counts = $derived.by(() => {
+        const ql = q.trim().toLowerCase();
+        const c: Record<string, number> = { all: 0 };
+        for (const cc of glossaryCats) if (cc.id !== 'all') c[cc.id] = 0;
         for (const t of glossaryTerms) {
-            counts.set(t.category, (counts.get(t.category) || 0) + 1);
-        }
-        return Object.entries(categoryLabels).map(([key, label]) => ({
-            key: key as GlossaryCategory,
-            label,
-            count: counts.get(key) || 0,
-        }));
-    });
-
-    let expandedId = $state<string | null>(null);
-
-    function toggle(id: string) {
-        expandedId = expandedId === id ? null : id;
-    }
-
-    function getRelatedTerms(ids: string[] | undefined) {
-        if (!ids) return [];
-        return ids.map((id) => glossaryTerms.find((t) => t.id === id)).filter(Boolean);
-    }
-
-    const KOREAN_INITIALS = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
-    const DISPLAY_INITIALS = ['ㄱ','ㄴ','ㄷ','ㄹ','ㅁ','ㅂ','ㅅ','ㅇ','ㅈ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ','A-Z','0-9'];
-    const DOUBLE_TO_SINGLE: Record<string, string> = { 'ㄲ':'ㄱ', 'ㄸ':'ㄷ', 'ㅃ':'ㅂ', 'ㅆ':'ㅅ', 'ㅉ':'ㅈ' };
-
-    function getInitial(str: string): string {
-        const ch = str.charAt(0);
-        const code = ch.charCodeAt(0);
-        if (code >= 0xac00 && code <= 0xd7a3) {
-            const idx = Math.floor((code - 0xac00) / (21 * 28));
-            const initial = KOREAN_INITIALS[idx];
-            return DOUBLE_TO_SINGLE[initial] || initial;
-        }
-        if (/[a-zA-Z]/.test(ch)) return 'A-Z';
-        if (/[0-9]/.test(ch)) return '0-9';
-        return 'ㅇ';
-    }
-
-    let groupedTerms = $derived.by(() => {
-        const groups = new Map<string, typeof filteredTerms>();
-        for (const term of filteredTerms) {
-            const initial = getInitial(term.term);
-            if (!groups.has(initial)) groups.set(initial, []);
-            groups.get(initial)!.push(term);
-        }
-        const ordered: { initial: string; terms: typeof filteredTerms }[] = [];
-        for (const ini of DISPLAY_INITIALS) {
-            if (groups.has(ini)) {
-                ordered.push({ initial: ini, terms: groups.get(ini)! });
+            if (matches(t, ql)) {
+                c.all++;
+                c[t.cat]++;
             }
         }
-        return ordered;
+        return c;
     });
 
-    let availableInitials = $derived(new Set(groupedTerms.map((g) => g.initial)));
+    let groups = $derived.by(() => {
+        const ql = q.trim().toLowerCase();
+        return glossaryGroups
+            .map((g) => ({
+                key: g.key,
+                terms: g.terms.filter((t) => {
+                    if (activeCat !== 'all' && t.cat !== activeCat) return false;
+                    return matches(t, ql);
+                })
+            }))
+            .filter((g) => g.terms.length > 0);
+    });
 
-    function scrollToGroup(initial: string) {
-        document.getElementById(`group-${initial}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    let shown = $derived(groups.reduce((n, g) => n + g.terms.length, 0));
+    let availKeys = $derived(new Set(groups.map((g) => g.key)));
+    let allOpen = $derived(shown > 0 && groups.every((g) => g.terms.every((t) => open[t.ko])));
+
+    function toggle(ko: string) {
+        open = { ...open, [ko]: !open[ko] };
     }
 
-    function clearSearch() {
-        searchQuery = '';
+    function toggleAll() {
+        if (allOpen) {
+            open = {};
+        } else {
+            const o: Record<string, boolean> = {};
+            for (const g of groups) for (const t of g.terms) o[t.ko] = true;
+            open = o;
+        }
     }
 
-    function resetAll() {
-        searchQuery = '';
-        selectedCategory = 'all';
+    function jumpTo(key: string) {
+        if (!availKeys.has(key)) return;
+        jump = key;
+        const el = groupRefs[key];
+        if (el) {
+            const y = el.getBoundingClientRect().top + window.scrollY - 116;
+            window.scrollTo({ top: y, behavior: 'smooth' });
+        }
     }
 
+    // SEO: FAQ structured data from the first 20 terms.
     let faqSchema = $derived({
         '@context': 'https://schema.org',
         '@type': 'FAQPage',
         mainEntity: glossaryTerms.slice(0, 20).map((t) => ({
             '@type': 'Question',
-            name: `${t.term}이란?`,
-            acceptedAnswer: { '@type': 'Answer', text: t.fullDesc },
-        })),
+            name: `${t.ko}이란?`,
+            acceptedAnswer: { '@type': 'Answer', text: t.def }
+        }))
     });
 </script>
 
 <svelte:head>
-    <title>러닝 용어 사전 - 엔듀로허브</title>
+    <title>러닝 용어 사전 — 엔듀로허브</title>
     <meta
         name="description"
         content="마라톤 러닝 용어 사전 - LSD, 인터벌, 템포런, VO2max, 네거티브 스플릿, 카보로딩 등 러닝 용어를 초보자도 이해하기 쉽게 설명합니다."
     />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="러닝 용어 사전 - 엔듀로허브" />
+    <meta property="og:title" content="러닝 용어 사전 — 엔듀로허브" />
     <meta
         property="og:description"
         content="LSD, 인터벌, 템포런, VO2max, 네거티브 스플릿 등 러닝 용어를 쉽게 알아보세요."
@@ -125,9 +120,9 @@
     {@html `<script type="application/ld+json">${JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'WebPage',
-        name: '러닝 용어 사전 - 엔듀로허브',
+        name: '러닝 용어 사전 — 엔듀로허브',
         description:
-            '마라톤, 러닝 용어 사전 - LSD, 인터벌, 템포런, VO2max, 네거티브 스플릿 등 러닝 용어를 쉽게 알아보세요.',
+            '마라톤, 러닝 용어 사전 - LSD, 인터벌, 템포런, VO2max, 네거티브 스플릿 등 러닝 용어를 쉽게 알아보세요.'
     })}</script>`}
     {@html `<script type="application/ld+json">${JSON.stringify(faqSchema)}</script>`}
     {@html `<script type="application/ld+json">${JSON.stringify({
@@ -135,681 +130,541 @@
         '@type': 'BreadcrumbList',
         itemListElement: [
             { '@type': 'ListItem', position: 1, name: '홈', item: 'https://www.endurohub.kr' },
-            { '@type': 'ListItem', position: 2, name: '러닝 용어 사전' },
-        ],
+            { '@type': 'ListItem', position: 2, name: '도구', item: 'https://www.endurohub.kr/tools' },
+            { '@type': 'ListItem', position: 3, name: '러닝 용어 사전' }
+        ]
     })}</script>`}
 </svelte:head>
 
-<div class="page-wrap">
-    <article class="page-shell">
-        <nav class="crumbs" aria-label="breadcrumb">
-            <a href="/" class="crumb-link">홈</a>
-            <span class="crumb-sep">/</span>
-            <span class="crumb-current">러닝 용어 사전</span>
-        </nav>
+<main class="v-container glossary">
+    <nav class="crumb" aria-label="breadcrumb">
+        <a href="/">홈</a>
+        <span>›</span>
+        <a href="/tools">도구</a>
+        <span>›</span>
+        <span class="here">러닝 용어 사전</span>
+    </nav>
 
-        <header class="page-head">
-            <div class="head-row">
-                <div class="arena-kicker">용어 · {glossaryTerms.length}</div>
-                <div class="head-meta">
-                    <span class="meta-key">결과</span>
-                    <span class="meta-val">{filteredTerms.length}</span>
-                </div>
-            </div>
-            <h1 class="page-title">러닝 용어 사전</h1>
-            <p class="page-lead">
-                마라톤과 러닝에서 자주 쓰이는 용어를 카테고리·초성별로 정리했습니다.
-            </p>
-        </header>
-
-        <div class="filter-bar">
-            <div class="search-wrap">
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="search-icon"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    aria-hidden="true"
-                >
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                    type="text"
-                    bind:value={searchQuery}
-                    placeholder="용어 검색"
-                    class="search-input"
-                    aria-label="용어 검색"
-                />
-                {#if searchQuery}
-                    <button type="button" class="search-clear" onclick={clearSearch} aria-label="검색어 지우기">
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="clear-icon"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            stroke-width="2"
-                        >
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                {/if}
-            </div>
-
-            <div class="cat-row" role="tablist" aria-label="카테고리">
-                <button
-                    type="button"
-                    class="cat-chip"
-                    class:active={selectedCategory === 'all'}
-                    role="tab"
-                    aria-selected={selectedCategory === 'all'}
-                    onclick={() => (selectedCategory = 'all')}
-                >
-                    <span class="cat-label">전체</span>
-                    <span class="cat-count">{glossaryTerms.length}</span>
-                </button>
-                {#each categories as cat (cat.key)}
-                    <button
-                        type="button"
-                        class="cat-chip"
-                        class:active={selectedCategory === cat.key}
-                        data-cat={cat.key}
-                        role="tab"
-                        aria-selected={selectedCategory === cat.key}
-                        onclick={() => (selectedCategory = cat.key)}
-                    >
-                        <span class="cat-label">{cat.label}</span>
-                        <span class="cat-count">{cat.count}</span>
-                    </button>
-                {/each}
-            </div>
+    <header class="hd">
+        <div class="eh-micro"><span class="acc">GLOSSARY</span> · 용어 {TOTAL}</div>
+        <h1>러닝 용어 사전</h1>
+        <p class="lede">
+            마라톤과 러닝에서 자주 쓰이는 용어를 카테고리·초성별로 정리했습니다. 항목을 누르면 자세한
+            설명이 열립니다.
+        </p>
+        <div class="searchwrap">
+            <SearchBar
+                bind:value={q}
+                placeholder="용어 검색 — LSD, 테이퍼, 젖산역치…"
+                shortcutHint="/"
+            />
         </div>
+    </header>
 
-        {#if !searchQuery.trim()}
-            <div class="initials-row" aria-label="초성으로 이동">
-                {#each DISPLAY_INITIALS as ini}
-                    {@const has = availableInitials.has(ini)}
-                    <button
-                        type="button"
-                        class="initial-btn"
-                        class:has
-                        disabled={!has}
-                        onclick={() => scrollToGroup(ini)}
-                        aria-label={`${ini}으로 이동`}
-                    >
-                        {ini}
-                    </button>
-                {/each}
-            </div>
+    <div class="catrow">
+        {#each glossaryCats as c (c.id)}
+            <FilterChip
+                selected={activeCat === c.id}
+                count={counts[c.id]}
+                onclick={() => (activeCat = c.id)}
+            >
+                {c.ko}
+            </FilterChip>
+        {/each}
+    </div>
+
+    <nav class="alpha" aria-label="초성 색인">
+        {#each ALPHA as k (k)}
+            <button
+                class="ai eh-data {jump === k ? 'on' : ''}"
+                disabled={!availKeys.has(k)}
+                onclick={() => jumpTo(k)}
+            >
+                {k}
+            </button>
+        {/each}
+    </nav>
+
+    <div class="resmeta">
+        <span class="n"
+            >결과 <b class="eh-data">{shown}</b>{#if activeCat !== 'all'}<span>
+                    · {catKo(activeCat)}</span
+                >{/if}{#if q}<span> · “{q}”</span>{/if}</span
+        >
+        {#if shown > 0}
+            <button class="expand" onclick={toggleAll}>{allOpen ? '모두 접기' : '모두 펼치기'}</button>
         {/if}
+    </div>
 
-        <div class="groups">
-            {#each groupedTerms as group (group.initial)}
-                <section id={`group-${group.initial}`} class="group">
-                    <div class="group-head">
-                        <span class="group-initial">{group.initial}</span>
-                        <span class="group-rule"></span>
-                        <span class="group-count">{group.terms.length}개</span>
+    {#if shown === 0}
+        <div class="empty">일치하는 용어가 없습니다. 다른 검색어나 카테고리를 시도하세요.</div>
+    {:else}
+        <div class="grouplist">
+            {#each groups as g (g.key)}
+                <section class="grp" bind:this={groupRefs[g.key]}>
+                    <div class="grp-hd">
+                        <span class="gl eh-data">{g.key}</span>
+                        <span class="gc">{g.terms.length}개</span>
                     </div>
-
-                    <div class="term-list">
-                        {#each group.terms as term (term.id)}
-                            {@const open = expandedId === term.id}
-                            <div id={term.id} class="term" class:open>
-                                <button
-                                    type="button"
-                                    class="term-head"
-                                    onclick={() => toggle(term.id)}
-                                    aria-expanded={open}
-                                >
-                                    <div class="term-meta">
-                                        <span class="term-cat" data-cat={term.category}>
-                                            {categoryLabels[term.category]}
-                                        </span>
-                                    </div>
-                                    <div class="term-body">
-                                        <h2 class="term-title">{term.term}</h2>
-                                        <p class="term-short">{term.shortDesc}</p>
-                                    </div>
-                                    <span class="term-toggle" aria-hidden="true">
-                                        {open ? '−' : '+'}
+                    <div>
+                        {#each g.terms as term (term.ko)}
+                            {@const isOpen = !!open[term.ko]}
+                            <div class="term {isOpen ? 'open' : ''}">
+                                <button class="term-row" onclick={() => toggle(term.ko)} aria-expanded={isOpen}>
+                                    <span class="cat">{catKo(term.cat)}</span>
+                                    <span class="name">
+                                        <span class="ko">{term.ko}</span>
+                                        {#if term.en}<span class="en">{term.en}</span>{/if}
+                                    </span>
+                                    <span class="short">{term.short}</span>
+                                    <span class="tog" aria-hidden="true">
+                                        <svg
+                                            width="14"
+                                            height="14"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                            stroke-linecap="round"
+                                        >
+                                            <path d="M12 5v14M5 12h14" />
+                                        </svg>
                                     </span>
                                 </button>
-
-                                {#if open}
-                                    <div class="term-detail">
-                                        <p class="detail-text">{term.fullDesc}</p>
-                                        {#if term.related && term.related.length > 0}
-                                            <div class="related">
-                                                <div class="arena-kicker related-kicker">관련 용어</div>
-                                                <div class="related-list">
-                                                    {#each getRelatedTerms(term.related) as related}
-                                                        {#if related}
-                                                            <button
-                                                                type="button"
-                                                                class="related-chip"
-                                                                onclick={() => {
-                                                                    expandedId = related.id;
-                                                                    document
-                                                                        .getElementById(related.id)
-                                                                        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                                                }}
-                                                            >
-                                                                {related.term}
-                                                                <span class="related-arrow">→</span>
-                                                            </button>
-                                                        {/if}
-                                                    {/each}
-                                                </div>
-                                            </div>
-                                        {/if}
+                                <div class="def">
+                                    <div class="def-clip">
+                                        <div class="def-inner">
+                                            <p>{term.def}</p>
+                                        </div>
                                     </div>
-                                {/if}
+                                </div>
                             </div>
                         {/each}
                     </div>
                 </section>
             {/each}
         </div>
+    {/if}
 
-        {#if filteredTerms.length === 0}
-            <div class="empty">
-                <div class="arena-kicker">결과 없음</div>
-                <p class="empty-msg">조건에 맞는 용어가 없습니다.</p>
-                <button type="button" class="empty-reset" onclick={resetAll}>
-                    필터 초기화 <span class="empty-arrow">→</span>
-                </button>
-            </div>
-        {/if}
-
-        <div class="sidebar-wrap">
-            <ToolsSidebar current="glossary" />
+    <section class="other">
+        <div class="sec-head">
+            <h2>다른 도구</h2>
+            <span class="eh-micro">TOOLS · 4</span>
         </div>
-    </article>
-</div>
+        <div class="other-grid">
+            {#each OTHER_TOOLS as o (o.no)}
+                <a href={o.href}>
+                    <span class="num eh-data">{o.no}</span>
+                    <span class="ot">{o.t} <span class="arr">→</span></span>
+                    <span class="od">{o.d}</span>
+                </a>
+            {/each}
+        </div>
+    </section>
+</main>
 
 <style>
-    .page-wrap {
-        background: var(--arena-paper);
-        padding: 40px 24px 80px;
-    }
-    .page-shell {
-        max-width: 880px;
-        margin: 0 auto;
-        display: flex;
-        flex-direction: column;
-        gap: 24px;
+    .glossary {
+        padding-bottom: var(--sp-20);
     }
 
-    /* Breadcrumbs */
-    .crumbs {
-        display: inline-flex;
+    /* ---- breadcrumb ---- */
+    .crumb {
+        display: flex;
         align-items: center;
-        gap: 8px;
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 1.5px;
-        color: var(--arena-ink-soft);
+        gap: 10px;
+        padding: 14px 0 0;
+        font-size: 12.5px;
+        color: var(--text-faint);
+        flex-wrap: wrap;
     }
-    .crumb-link {
-        color: var(--arena-ink-soft);
+    .crumb a {
+        color: var(--text-muted);
         text-decoration: none;
     }
-    .crumb-link:hover {
-        color: var(--arena-ink);
+    .crumb a:hover {
+        color: var(--text-strong);
+        text-decoration: underline;
+        text-underline-offset: 3px;
     }
-    .crumb-sep {
-        color: var(--arena-ink-mute);
-    }
-    .crumb-current {
-        color: var(--arena-ink);
+    .crumb .here {
+        color: var(--text-strong);
         font-weight: 600;
     }
 
-    /* Header */
-    .page-head {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        padding-bottom: 24px;
-        border-bottom: 1px solid var(--arena-line);
+    /* ---- header ---- */
+    .hd {
+        padding: 26px 0 0;
     }
-    .head-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
+    .hd .acc {
+        color: var(--accent);
     }
-    .head-meta {
-        display: inline-flex;
-        align-items: baseline;
-        gap: 6px;
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
+    .hd h1 {
+        font-size: var(--text-h1);
+        font-weight: var(--w-display);
+        letter-spacing: var(--track-display);
+        line-height: var(--leading-heading);
+        margin-top: 8px;
+        color: var(--text-strong);
     }
-    .meta-key {
-        color: var(--arena-ink-mute);
-        letter-spacing: 1.5px;
+    .hd .lede {
+        color: var(--text-muted);
+        font-size: 15px;
+        margin-top: 12px;
+        max-width: 560px;
+        line-height: var(--leading-body);
     }
-    .meta-val {
-        color: var(--arena-ink);
-        font-weight: 700;
-    }
-    .page-title {
-        font-family: var(--arena-f-display);
-        font-size: 44px;
-        font-weight: 700;
-        letter-spacing: -1.5px;
-        line-height: 1;
-        margin: 0;
-        color: var(--arena-ink);
-    }
-    .page-lead {
-        font-family: var(--arena-f-body);
-        font-size: 14px;
-        line-height: 1.6;
-        color: var(--arena-ink-soft);
-        margin: 0;
-        max-width: 56ch;
-        word-break: keep-all;
+    .hd .searchwrap {
+        margin-top: 22px;
+        max-width: 560px;
     }
 
-    /* Filter bar */
-    .filter-bar {
-        position: sticky;
-        top: 64px;
-        z-index: 10;
-        background: var(--arena-paper);
-        padding: 12px 0;
-        margin: 0 -4px;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        border-top: 1px solid transparent;
-        border-bottom: 1px solid var(--arena-line);
-    }
-    .search-wrap {
-        position: relative;
+    /* ---- category filter row ---- */
+    .catrow {
         display: flex;
         align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 24px;
+        padding-bottom: 18px;
+        border-bottom: var(--border-rule);
     }
-    .search-icon {
-        position: absolute;
-        left: 12px;
-        top: 50%;
-        transform: translateY(-50%);
-        width: 16px;
-        height: 16px;
-        color: var(--arena-ink-soft);
-        pointer-events: none;
+
+    /* ---- 초성 index bar (sticky under the 64px nav) ---- */
+    .alpha {
+        position: sticky;
+        top: 64px;
+        z-index: 40;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        flex-wrap: wrap;
+        padding: 12px 0;
+        margin: 0 0 8px;
+        background: var(--surface-glass);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-bottom: var(--border-hair);
     }
-    .search-input {
-        width: 100%;
-        padding: 11px 36px 11px 36px;
-        background: var(--arena-paper);
-        border: 1px solid var(--arena-line);
-        font-family: var(--arena-f-body);
-        font-size: 14px;
-        color: var(--arena-ink);
-        outline: none;
-        transition: border-color 0.1s, box-shadow 0.1s;
-    }
-    .search-input::placeholder {
-        color: var(--arena-ink-mute);
-    }
-    .search-input:focus {
-        border-color: var(--arena-ink);
-        box-shadow: inset 0 0 0 1px var(--arena-ink);
-    }
-    .search-clear {
-        position: absolute;
-        right: 6px;
-        top: 50%;
-        transform: translateY(-50%);
-        background: transparent;
-        border: none;
-        cursor: pointer;
-        padding: 6px;
-        color: var(--arena-ink-soft);
+    .alpha .ai {
+        min-width: 30px;
+        height: 30px;
+        padding: 0 6px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-    }
-    .search-clear:hover {
-        color: var(--arena-ink);
-    }
-    .clear-icon {
-        width: 14px;
-        height: 14px;
-    }
-
-    .cat-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-    }
-    .cat-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 7px 12px;
-        background: var(--arena-paper);
-        border: 1px solid var(--arena-line-soft);
-        font-family: var(--arena-f-mono);
-        font-size: 12px;
-        color: var(--arena-ink-soft);
-        cursor: pointer;
-        transition: border-color 0.1s, color 0.1s, background 0.1s;
-    }
-    .cat-chip:hover {
-        border-color: var(--arena-ink);
-        color: var(--arena-ink);
-    }
-    .cat-chip.active {
-        background: var(--arena-ink);
-        color: var(--arena-paper);
-        border-color: var(--arena-ink);
-    }
-    .cat-label {
-        letter-spacing: 0.3px;
-    }
-    .cat-count {
-        font-size: 10px;
-        letter-spacing: 1px;
-        opacity: 0.7;
-    }
-    .cat-chip.active .cat-count {
-        color: var(--arena-accent);
-        opacity: 1;
-    }
-
-    /* Initials row */
-    .initials-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-    }
-    .initial-btn {
-        min-width: 36px;
-        padding: 6px 10px;
-        background: var(--arena-paper);
-        border: 1px solid var(--arena-line-soft);
-        font-family: var(--arena-f-mono);
         font-size: 13px;
-        font-weight: 600;
-        color: var(--arena-ink-mute);
-        cursor: pointer;
-        transition: border-color 0.1s, color 0.1s, background 0.1s;
-    }
-    .initial-btn.has {
-        color: var(--arena-ink);
-    }
-    .initial-btn:hover:not(:disabled) {
-        border-color: var(--arena-ink);
-        background: var(--arena-paper-alt);
-    }
-    .initial-btn:disabled {
-        cursor: not-allowed;
-        opacity: 0.4;
-    }
-
-    /* Groups */
-    .groups {
-        display: flex;
-        flex-direction: column;
-        gap: 32px;
-    }
-    .group {
-        scroll-margin-top: 160px;
-    }
-    .group-head {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 12px;
-    }
-    .group-initial {
-        font-family: var(--arena-f-display);
-        font-size: 22px;
         font-weight: 700;
-        letter-spacing: -0.5px;
-        color: var(--arena-ink);
+        letter-spacing: -0.01em;
+        color: var(--text-strong);
+        background: none;
+        border: 1px solid transparent;
+        border-radius: var(--r-2);
+        font-variant-numeric: tabular-nums;
+        transition:
+            background var(--dur-fast) var(--ease-out),
+            color var(--dur-fast) var(--ease-out),
+            border-color var(--dur-fast) var(--ease-out);
     }
-    .group-rule {
-        flex: 1;
-        height: 1px;
-        background: var(--arena-line);
+    .alpha .ai:hover:not(:disabled) {
+        background: var(--paper-100);
     }
-    .group-count {
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        letter-spacing: 1px;
-        color: var(--arena-ink-soft);
+    .alpha .ai:disabled {
+        color: var(--text-faint);
+        opacity: 0.4;
+        cursor: default;
+    }
+    .alpha .ai.on {
+        background: var(--ink-900);
+        color: var(--paper-0);
     }
 
-    /* Term list */
-    .term-list {
+    /* ---- result meta ---- */
+    .resmeta {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        padding: 4px 0 0;
+    }
+    .resmeta .n {
+        font-size: 13px;
+        color: var(--text-faint);
+    }
+    .resmeta .n b {
+        color: var(--text-strong);
+        font-weight: 700;
+    }
+    .resmeta .expand {
+        margin-left: auto;
+        background: none;
+        border: 0;
+        padding: 0;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--text-accent);
+        border-bottom: 1px solid transparent;
+    }
+    .resmeta .expand:hover {
+        border-bottom-color: var(--text-accent);
+    }
+
+    /* ---- group ---- */
+    .grouplist {
+        margin-top: 4px;
+    }
+    .grp {
+        scroll-margin-top: 120px;
+    }
+    .grp + .grp {
+        margin-top: 8px;
+    }
+    .grp-hd {
+        display: flex;
+        align-items: baseline;
+        gap: 16px;
+        border-top: var(--border-rule);
+        padding: 18px 0 12px;
+        margin-top: 18px;
+    }
+    .grp-hd .gl {
+        font-size: 30px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1;
+        min-width: 56px;
+        color: var(--text-strong);
+    }
+    .grp-hd .gc {
+        font-size: var(--text-micro);
+        font-weight: var(--w-strong);
+        letter-spacing: var(--track-micro);
+        text-transform: uppercase;
+        color: var(--text-faint);
+    }
+
+    /* ---- term row ---- */
+    .term {
+        border-bottom: var(--border-hair);
+    }
+    .term-row {
+        display: grid;
+        grid-template-columns: 88px minmax(220px, 1.1fr) minmax(0, 1.3fr) 32px;
+        gap: 18px;
+        align-items: baseline;
+        padding: 16px 6px;
+        width: 100%;
+        text-align: left;
+        background: none;
+        border: 0;
+        cursor: pointer;
+        transition: background var(--dur-fast) var(--ease-out);
+    }
+    .term-row:hover {
+        background: var(--paper-50);
+    }
+    .term .cat {
+        justify-self: start;
+        align-self: center;
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        padding: 3px 8px;
+        border: 1px solid var(--line);
+        border-radius: var(--r-2);
+        white-space: nowrap;
+    }
+    .term .name {
+        min-width: 0;
+    }
+    .term .name .ko {
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: var(--track-heading);
+        color: var(--text-strong);
+    }
+    .term .name .en {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-faint);
+        margin-top: 3px;
+    }
+    .term .short {
+        font-size: 13.5px;
+        color: var(--text-muted);
+        line-height: 1.5;
+        align-self: center;
+    }
+    .term .tog {
+        justify-self: end;
+        align-self: center;
+        width: 26px;
+        height: 26px;
+        flex: none;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--line);
+        border-radius: var(--r-2);
+        color: var(--text-muted);
+        transition:
+            transform var(--dur-base) var(--ease-out),
+            border-color var(--dur-fast) var(--ease-out),
+            background var(--dur-fast) var(--ease-out);
+    }
+    .term-row:hover .tog {
+        border-color: var(--ink-900);
+        color: var(--text-strong);
+    }
+    .term.open .tog {
+        transform: rotate(45deg);
+        background: var(--ink-900);
+        color: var(--paper-0);
+        border-color: var(--ink-900);
+    }
+
+    /* ---- expanded definition (animated height via grid-rows) ---- */
+    .def {
+        display: grid;
+        grid-template-rows: 0fr;
+        transition: grid-template-rows var(--dur-base) var(--ease-out);
+    }
+    .term.open .def {
+        grid-template-rows: 1fr;
+    }
+    .def-clip {
+        overflow: hidden;
+        min-height: 0;
+    }
+    .def-inner {
+        padding: 0 0 18px;
+        margin-left: 106px;
+        border-left: 2px solid var(--ink-900);
+        padding-left: 18px;
+        max-width: 640px;
+    }
+    .def-inner p {
+        font-size: 14.5px;
+        line-height: 1.72;
+        color: var(--text-body);
+        margin: 0;
+    }
+
+    /* ---- empty ---- */
+    .empty {
+        padding: 60px 0;
+        text-align: center;
+        color: var(--text-faint);
+        font-size: 14px;
+    }
+
+    /* ---- other tools ---- */
+    .other {
+        margin-top: var(--sp-16);
+    }
+    .sec-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 16px;
+        border-bottom: var(--border-rule);
+        padding-bottom: 12px;
+    }
+    .sec-head h2 {
+        font-size: var(--text-h3);
+        font-weight: var(--w-heading);
+        letter-spacing: var(--track-heading);
+        color: var(--text-strong);
+        margin: 0;
+    }
+    .other-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1px;
+        background: var(--line);
+        border: 1px solid var(--line);
+        border-top: none;
+        margin-top: 16px;
+    }
+    .other-grid a {
+        background: var(--paper-0);
+        padding: 20px;
+        min-height: 116px;
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        text-decoration: none;
+        color: inherit;
+        transition: background var(--dur-fast) var(--ease-out);
     }
-    .term {
-        background: var(--arena-paper);
-        border: 1px solid var(--arena-line-soft);
-        transition: border-color 0.1s;
+    .other-grid a:hover {
+        background: var(--paper-50);
     }
-    .term:hover {
-        border-color: var(--arena-line);
+    .other-grid .num {
+        font-size: var(--text-micro);
+        font-weight: 700;
+        letter-spacing: var(--track-micro);
+        color: var(--text-faint);
     }
-    .term.open {
-        border-color: var(--arena-ink);
+    .other-grid .ot {
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: var(--track-heading);
+        margin-top: auto;
+        color: var(--text-strong);
+    }
+    .other-grid .od {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 5px;
+        line-height: 1.45;
+    }
+    .other-grid a .arr {
+        color: var(--text-accent);
+        transition: transform var(--dur-base) var(--ease-out);
+        display: inline-block;
+    }
+    .other-grid a:hover .arr {
+        transform: translateX(3px);
     }
 
-    .term-head {
-        width: 100%;
-        display: grid;
-        grid-template-columns: 84px 1fr 28px;
-        gap: 14px;
-        padding: 14px 16px;
-        background: transparent;
-        border: none;
-        cursor: pointer;
-        text-align: left;
-        align-items: start;
-    }
-    @media (max-width: 540px) {
-        .term-head {
+    @media (max-width: 768px) {
+        .alpha {
+            top: 52px;
+        }
+        .term-row {
             grid-template-columns: 1fr 28px;
-            grid-template-rows: auto auto;
+            gap: 10px 12px;
+            padding: 14px 4px;
         }
-        .term-meta {
+        .term .cat {
             grid-row: 1;
-            grid-column: 1 / -1;
+            grid-column: 1;
         }
-        .term-body {
+        .term .name {
             grid-row: 2;
             grid-column: 1;
         }
-        .term-toggle {
-            grid-row: 2;
+        .term .short {
+            grid-row: 3;
+            grid-column: 1;
+            font-size: 13px;
+        }
+        .term .tog {
+            grid-row: 1;
             grid-column: 2;
         }
-    }
-    .term-meta {
-        display: flex;
-        align-items: center;
-        padding-top: 2px;
-    }
-    .term-cat {
-        display: inline-flex;
-        align-items: center;
-        padding: 2px 8px;
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 1px;
-        color: var(--arena-ink-soft);
-        border: 1px solid var(--arena-line-soft);
-        background: var(--arena-paper-alt);
-        white-space: nowrap;
-    }
-    .term-cat[data-cat='training'] {
-        color: var(--arena-zone-e);
-        border-color: var(--arena-zone-e);
-    }
-    .term-cat[data-cat='race'] {
-        color: var(--arena-zone-t);
-        border-color: var(--arena-zone-t);
-    }
-    .term-cat[data-cat='body'] {
-        color: var(--arena-zone-r);
-        border-color: var(--arena-zone-r);
-    }
-    .term-cat[data-cat='gear'] {
-        color: var(--arena-zone-m);
-        border-color: var(--arena-zone-m);
-    }
-    .term-cat[data-cat='nutrition'] {
-        color: var(--arena-zone-i);
-        border-color: var(--arena-zone-i);
-    }
-
-    .term-body {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        min-width: 0;
-    }
-    .term-title {
-        font-family: var(--arena-f-display);
-        font-size: 16px;
-        font-weight: 700;
-        letter-spacing: -0.3px;
-        line-height: 1.3;
-        color: var(--arena-ink);
-        margin: 0;
-        word-break: keep-all;
-    }
-    .term-short {
-        font-family: var(--arena-f-body);
-        font-size: 13px;
-        color: var(--arena-ink-soft);
-        margin: 0;
-        line-height: 1.5;
-        word-break: keep-all;
-    }
-    .term-toggle {
-        font-family: var(--arena-f-mono);
-        font-size: 18px;
-        font-weight: 600;
-        color: var(--arena-ink-soft);
-        text-align: center;
-        line-height: 1;
-        padding-top: 4px;
-    }
-    .term.open .term-toggle {
-        color: var(--arena-accent-deep);
-    }
-
-    .term-detail {
-        padding: 16px 16px 18px;
-        border-top: 1px solid var(--arena-line-soft);
-        background: var(--arena-paper-alt);
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-    }
-    .detail-text {
-        margin: 0;
-        font-family: var(--arena-f-body);
-        font-size: 14px;
-        line-height: 1.75;
-        color: var(--arena-ink);
-        word-break: keep-all;
-    }
-
-    .related {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-    .related-kicker {
-        font-size: 10px;
-    }
-    .related-list {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-    }
-    .related-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 4px 10px;
-        background: var(--arena-paper);
-        border: 1px solid var(--arena-line-soft);
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        color: var(--arena-ink);
-        cursor: pointer;
-        transition: border-color 0.1s, color 0.1s;
-    }
-    .related-chip:hover {
-        border-color: var(--arena-ink);
-        color: var(--arena-accent-deep);
-    }
-    .related-arrow {
-        color: var(--arena-ink-soft);
-        font-size: 10px;
-    }
-
-    /* Empty */
-    .empty {
-        padding: 48px 24px;
-        border: 1px dashed var(--arena-line);
-        background: var(--arena-paper-alt);
-        text-align: center;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        align-items: center;
-    }
-    .empty-msg {
-        font-family: var(--arena-f-body);
-        font-size: 14px;
-        color: var(--arena-ink-soft);
-        margin: 0;
-    }
-    .empty-reset {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 14px;
-        background: var(--arena-ink);
-        color: var(--arena-paper);
-        border: 1px solid var(--arena-ink);
-        font-family: var(--arena-f-display);
-        font-weight: 600;
-        font-size: 13px;
-        cursor: pointer;
-    }
-    .empty-arrow {
-        font-family: var(--arena-f-mono);
-        color: var(--arena-accent);
-    }
-
-    .sidebar-wrap {
-        margin-top: 32px;
-    }
-
-    @media (max-width: 719px) {
-        .page-title {
-            font-size: 32px;
-            letter-spacing: -1px;
+        .def-inner {
+            margin-left: 0;
         }
-        .filter-bar {
-            top: 56px;
+        .other-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        .grp-hd .gl {
+            font-size: 26px;
+            min-width: 44px;
         }
     }
 </style>

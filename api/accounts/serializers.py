@@ -170,3 +170,73 @@ class RaceRecordCreateSerializer(serializers.Serializer):
             duration_seconds=validated_data['duration_seconds'],
             is_public=validated_data.get('is_public', False),
         )
+
+
+def course_code_for(distance: dict) -> str:
+    """Mirror the frontend's course-code derivation for a race distance entry."""
+    meters = distance.get('distance_meter') if isinstance(distance, dict) else None
+    if meters and meters > 0:
+        km = meters / 1000
+        return f'{int(km)}K' if float(km).is_integer() else f'{km:.1f}K'
+    name = (distance.get('name') if isinstance(distance, dict) else '') or ''
+    return name[:4].upper()
+
+
+class RaceResultCreateSerializer(serializers.Serializer):
+    """Log a finish for a curated race → a RaceRecord linked to that race.
+
+    Requires the target Race in context['race']. Derives sport from the race
+    and the distance label from the matching course when possible.
+    """
+
+    course_code = serializers.CharField(max_length=20)
+    hours = serializers.IntegerField(required=False, min_value=0, max_value=99, default=0)
+    minutes = serializers.IntegerField(required=False, min_value=0, max_value=59, default=0)
+    seconds = serializers.IntegerField(required=False, min_value=0, max_value=59, default=0)
+    is_personal_best = serializers.BooleanField(required=False, default=False)
+    is_public = serializers.BooleanField(required=False, default=False)
+
+    def validate_course_code(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError('완주한 종목을 선택해주세요.')
+        race = self.context['race']
+        codes = {course_code_for(d) for d in (race.distances or []) if isinstance(d, dict)}
+        # Only enforce when the race actually publishes course distances.
+        if codes and value not in codes:
+            raise serializers.ValidationError(f'이 대회에 없는 종목입니다: {value}')
+        return value
+
+    def validate(self, attrs):
+        total = attrs.get('hours', 0) * 3600 + attrs.get('minutes', 0) * 60 + attrs.get('seconds', 0)
+        if total <= 0:
+            raise serializers.ValidationError({'time': ['기록 시간을 입력해주세요.']})
+        attrs['duration_seconds'] = total
+        return attrs
+
+    def create(self, validated_data):
+        race = self.context['race']
+        user = self.context['user']
+        code = validated_data['course_code']
+        # Resolve a human label for the chosen course.
+        label = code
+        for d in race.distances or []:
+            if isinstance(d, dict) and course_code_for(d) == code:
+                label = d.get('name') or code
+                break
+
+        record, _ = RaceRecord.objects.update_or_create(
+            user=user,
+            race=race,
+            defaults={
+                'sport': race.sport,
+                'distance': label,
+                'course_code': code,
+                'name': race.title,
+                'record_date': race.race_date.isoformat() if race.race_date else '',
+                'duration_seconds': validated_data['duration_seconds'],
+                'is_personal_best': validated_data.get('is_personal_best', False),
+                'is_public': validated_data.get('is_public', False),
+            },
+        )
+        return record

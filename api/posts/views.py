@@ -290,6 +290,21 @@ class PostDetailUpdateDeleteView(APIView):
         ).order_by('-view_count')[:5]
         upcoming_races = Race.objects.upcoming()[:5]
 
+        # Other community posts tagged to the same race(s) as this post.
+        race_ids = list(post.races.values_list('id', flat=True))
+        same_race_posts = []
+        if race_ids:
+            same_race_qs = Post.objects.prefetch_related('races').annotate(
+                _comment_count=comment_count_sq,
+                _like_count=like_count_sq,
+            ).filter(
+                races__id__in=race_ids,
+            ).exclude(pk=post.pk).distinct().order_by('-created_at')[:5]
+            same_race_posts = PostListSerializer(
+                same_race_qs, many=True,
+                context={'include_tagged_races': True},
+            ).data
+
         return Response({
             'post': PostSerializer(
                 post,
@@ -308,6 +323,7 @@ class PostDetailUpdateDeleteView(APIView):
                     context={'include_tagged_races': False},
                 ).data,
                 'upcomingRaces': UpcomingRaceSerializer(upcoming_races, many=True).data,
+                'sameRacePosts': same_race_posts,
             }
         })
 
