@@ -1,7 +1,7 @@
 <script lang="ts">
-    import RaceRow from '$lib/components/arena/RaceRow.svelte';
-    import FilterBar from '$lib/components/FilterBar.svelte';
-    import Pagination from '$lib/components/Pagination.svelte';
+    import { page } from '$app/stores';
+    import RaceFilterBar from '$lib/components/races/RaceFilterBar.svelte';
+    import RaceResultList from '$lib/components/eh/RaceResultList.svelte';
     import { sportLabels } from '$lib/race';
 
     let { data } = $props();
@@ -31,6 +31,30 @@
         return '/images/og-image.png';
     });
     let ogImage = $derived(`${data.appUrl}${ogImagePath}`);
+
+    // ── Pagination (DS) ───────────────────────────────────────────────────────
+    let meta = $derived(data.meta);
+    function pageHref(n: number): string {
+        const sp = new URLSearchParams($page.url.search);
+        if (n <= 1) sp.delete('page');
+        else sp.set('page', String(n));
+        const qs = sp.toString();
+        return qs ? `?${qs}` : '/races';
+    }
+    let pageItems = $derived.by((): (number | 'gap')[] => {
+        const cur = meta.currentPage;
+        const last = meta.lastPage;
+        const out: (number | 'gap')[] = [];
+        const push = (n: number) => out.push(n);
+        push(1);
+        const start = Math.max(2, cur - 2);
+        const end = Math.min(last - 1, cur + 2);
+        if (start > 2) out.push('gap');
+        for (let i = start; i <= end; i++) push(i);
+        if (end < last - 1) out.push('gap');
+        if (last > 1) push(last);
+        return out;
+    });
 </script>
 
 <svelte:head>
@@ -45,104 +69,130 @@
     <meta name="twitter:image" content={ogImage} />
 </svelte:head>
 
-<div class="races-wrap">
-    <FilterBar
-        sports={data.filters.sports}
-        regions={data.filters.regions}
-        distanceCategories={data.filters.distanceCategories}
-        selectedSport={data.applied.sport}
-        selectedRegion={data.applied.region}
-        selectedStatus={data.applied.status}
-        selectedName={data.applied.name}
-        selectedDistanceCategory={data.applied.distanceCategory}
-        selectedMonthFrom={data.applied.monthFrom}
-        selectedMonthTo={data.applied.monthTo}
-        title={closingSoon ? '마감 임박 대회' : sportTitle() ? `${sportTitle()} 대회` : '전체 대회'}
-        totalCount={data.meta.total}
-    />
+<main class="v-container races-page">
+    <h1 class="sr-only">{title}</h1>
+
+    <RaceFilterBar filters={data.filters} applied={data.applied} total={data.meta.total} {title} />
 
     {#if data.data.length === 0}
-        <div class="empty-card">
-            <span class="empty-kicker">NO RESULTS</span>
-            <p>검색 조건에 맞는 대회가 없습니다.</p>
+        <div class="empty">
+            <span class="eh-micro">NO RESULTS</span>
+            <p>검색 조건에 맞는 대회가 없습니다. 조건을 바꿔보세요.</p>
         </div>
     {:else}
-        <div class="race-table">
-            <div class="race-thead">
-                <span>접수마감</span>
-                <span>대회명</span>
-                <span>일정</span>
-                <span>종목</span>
-                <span>거리</span>
-                <span>지역</span>
-                <span>참가비</span>
-            </div>
-            {#each data.data as race (race.id)}
-                <RaceRow {race} />
-            {/each}
-        </div>
+        <RaceResultList races={data.data} />
 
-        <div class="mt-8 flex justify-center">
-            <Pagination meta={data.meta} scrollToTop showInfo />
-        </div>
+        {#if meta.lastPage > 1}
+            <nav class="pager" aria-label="페이지 이동">
+                <a class="pager__edge" class:disabled={meta.currentPage <= 1} href={pageHref(meta.currentPage - 1)} aria-disabled={meta.currentPage <= 1} tabindex={meta.currentPage <= 1 ? -1 : undefined}>← 이전</a>
+                <div class="pager__nums">
+                    {#each pageItems as item, i (item === 'gap' ? `gap-${i}` : item)}
+                        {#if item === 'gap'}
+                            <span class="pager__gap">…</span>
+                        {:else}
+                            <a class="pager__num eh-data" class:on={item === meta.currentPage} href={pageHref(item)} aria-current={item === meta.currentPage ? 'page' : undefined}>{item}</a>
+                        {/if}
+                    {/each}
+                </div>
+                <a class="pager__edge" class:disabled={meta.currentPage >= meta.lastPage} href={pageHref(meta.currentPage + 1)} aria-disabled={meta.currentPage >= meta.lastPage} tabindex={meta.currentPage >= meta.lastPage ? -1 : undefined}>다음 →</a>
+            </nav>
+            <p class="pager__info eh-micro eh-data">{meta.from}–{meta.to} / {meta.total.toLocaleString()}</p>
+        {/if}
     {/if}
-</div>
+</main>
 
 <style>
-    .races-wrap {
-        max-width: 1400px;
-        margin: 0 auto;
-        padding: 32px 24px;
-    }
-    @media (min-width: 1024px) {
-        .races-wrap {
-            padding: 40px 32px;
-        }
+    .races-page {
+        padding-top: var(--sp-6);
+        padding-bottom: var(--sp-16);
     }
 
-    .empty-card {
-        border: 1px solid var(--arena-line);
-        background: var(--arena-paper);
-        padding: 48px 24px;
+    .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    /* ── Empty ────────────────────────────────────────────────────────────── */
+    .empty {
+        border: var(--border-hair);
+        background: var(--surface-card);
+        padding: 56px 24px;
         text-align: center;
-        font-family: var(--arena-f-body);
-        color: var(--arena-ink-soft);
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 10px;
     }
-    .empty-kicker {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 2px;
-        color: var(--arena-ink-mute);
+    .empty .eh-micro {
+        color: var(--text-faint);
     }
-    .empty-card p {
+    .empty p {
         margin: 0;
         font-size: 14px;
+        color: var(--text-muted);
     }
 
-    .race-table {
-        border: 1px solid var(--arena-line);
-        background: var(--arena-paper);
+    /* ── Pager ────────────────────────────────────────────────────────────── */
+    .pager {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        margin-top: var(--sp-6);
+        flex-wrap: wrap;
     }
-    .race-thead {
-        display: grid;
-        grid-template-columns: 56px 1fr 90px 60px 100px 110px 90px;
-        gap: 16px;
-        padding: 10px 20px;
-        background: var(--arena-paper-alt);
-        border-bottom: 1px solid var(--arena-line);
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        letter-spacing: 0.3px;
-        color: var(--arena-ink-soft);
+    .pager__nums {
+        display: flex;
+        align-items: center;
+        gap: 4px;
     }
-    /* Mobile: hide thead — RaceRow reflows into a 2-line self-describing layout */
-    @media (max-width: 879px) {
-        .race-thead {
-            display: none;
-        }
+    .pager__edge,
+    .pager__num {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 34px;
+        height: 34px;
+        padding: 0 10px;
+        border: 1px solid var(--line);
+        background: var(--paper-0);
+        color: var(--text-body);
+        font-family: var(--font-sans);
+        font-size: 13px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+    }
+    .pager__num {
+        padding: 0;
+    }
+    .pager__edge:hover,
+    .pager__num:hover {
+        border-color: var(--ink-900);
+    }
+    .pager__num.on {
+        background: var(--ink-900);
+        border-color: var(--ink-900);
+        color: var(--paper-0);
+    }
+    .pager__edge.disabled {
+        opacity: 0.35;
+        pointer-events: none;
+    }
+    .pager__gap {
+        padding: 0 4px;
+        color: var(--text-faint);
+    }
+    .pager__info {
+        text-align: center;
+        color: var(--text-faint);
+        margin: 10px 0 0;
     }
 </style>

@@ -36,80 +36,156 @@
     <meta name="robots" content="noindex" />
 </svelte:head>
 
-<div class="page-wrap">
-    <article class="page-shell">
+<div class="mp-wrap v-container">
+    <div class="mp-page">
 
-        <header class="page-head">
-            <div class="arena-kicker">계정</div>
-            <h1 class="page-title">마이페이지</h1>
-            <p class="page-lead">계정 정보와 알림 설정을 한곳에서 관리합니다.</p>
+        <!-- Page header -->
+        <header class="mp-hd">
+            <div class="eh-micro"><span class="acc">ACCOUNT</span> · 계정 / 설정</div>
+            <h1 class="eh-h1">마이페이지</h1>
+            <p class="eh-body mp-lead">계정 정보와 알림 설정을 한곳에서 관리합니다.</p>
         </header>
 
-        <!-- Profile -->
-        <section class="profile-row">
-            {#if user.profileImage}
-                <img src={user.profileImage} alt={user.nickname || '프로필'} class="avatar-img" />
-            {:else}
-                <div class="avatar-fallback">{initials}</div>
-            {/if}
-            <div class="profile-meta">
-                <div class="profile-name">{user.nickname || '닉네임 미설정'}</div>
-                <div class="profile-email">{user.email || '이메일 미등록'}</div>
-            </div>
-            {#if user.emailVerified}
-                <span class="arena-chip arena-chip-accent">인증됨</span>
-            {:else if user.email}
-                <span class="arena-chip arena-chip-urgent">미인증</span>
-            {/if}
-        </section>
-
-        <!-- Email Verification CTA -->
-        {#if !user.emailVerified}
-            <section class="alert">
-                <div class="alert-body">
-                    <div class="arena-kicker alert-kicker">필수 안내</div>
-                    <div class="alert-title">이메일 인증이 필요합니다</div>
-                    <p class="alert-desc">
-                        인증을 완료하면 계정 관련 안내와 알림을 받을 수 있습니다.
-                    </p>
+        <!-- ── 01 · Identity strip ── -->
+        <div class="identity">
+            <!-- Avatar + name -->
+            <div class="id-main">
+                <div class="id-row">
+                    {#if user.profileImage}
+                        <img src={user.profileImage} alt={user.nickname || '프로필'} class="id-avatar id-avatar--img" />
+                    {:else}
+                        <span class="id-avatar">{initials}</span>
+                    {/if}
+                    <span>
+                        <span class="id-name">{user.nickname || '닉네임 미설정'}</span>
+                        <span class="id-email">{user.email || '이메일 미등록'}</span>
+                    </span>
                 </div>
-                <a href="/auth/onboarding" class="alert-btn">
-                    인증하기 <span class="arrow">→</span>
-                </a>
-            </section>
+                <div class="id-badges">
+                    {#if user.emailVerified}
+                        <span class="badge ok">VERIFIED</span>
+                    {:else if user.email}
+                        <span class="badge warn">미인증</span>
+                    {/if}
+                    <span class="eh-micro" style="color: var(--text-faint)">GOOGLE OAUTH</span>
+                </div>
+            </div>
+            <!-- Stat cells -->
+            <div class="id-stat">
+                <span class="stat-label">Saved races</span>
+                <span class="stat-val eh-data">—</span>
+                <span class="stat-note">저장한 대회</span>
+            </div>
+            <div class="id-stat">
+                <span class="stat-label">PB records</span>
+                <span class="stat-val eh-data accent">—</span>
+                <span class="stat-note">개인 최고 기록</span>
+            </div>
+        </div>
+
+        <!-- ── 이메일 미인증 안내 ── -->
+        {#if !user.emailVerified}
+            <div class="alert-bar">
+                <div class="alert-body">
+                    <span class="eh-micro" style="color: var(--danger)">필수 안내</span>
+                    <div class="alert-title">이메일 인증이 필요합니다</div>
+                    <p class="alert-desc">인증을 완료하면 계정 관련 안내와 알림을 받을 수 있습니다.</p>
+                </div>
+                <a href="/auth/onboarding" class="alert-cta">인증하기 →</a>
+            </div>
         {/if}
 
-        <!-- Account Info -->
-        <section class="page-section">
-            <div class="arena-kicker">계정 정보</div>
-            <div class="info-grid">
+        <!-- ── 01 · 계정 정보 ── -->
+        <section class="mp-section">
+            <div class="v-sechead">
+                <span>
+                    <span class="eh-micro" style="color: var(--text-faint)">01</span>
+                    <span class="eh-h3" style="margin-left: var(--sp-2)">계정 정보</span>
+                </span>
+                <span class="eh-micro" style="color: var(--text-faint)">ACCOUNT</span>
+            </div>
+
+            <div class="v-table" style="margin-top: var(--sp-4)">
                 <div class="info-row">
-                    <span class="info-label">닉네임</span>
-                    <span class="info-value">{user.nickname || '미설정'}</span>
+                    <span class="eh-micro info-key">EMAIL</span>
+                    <span class="info-val">
+                        {user.email || '미등록'}
+                        {#if user.emailVerified}
+                            <span class="badge ok" style="margin-left: var(--sp-2)">인증됨</span>
+                        {/if}
+                    </span>
+                    <a href="/auth/onboarding" class="info-action">변경</a>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">이메일</span>
-                    <span class="info-value email-value">{user.email || '미등록'}</span>
+                    <span class="eh-micro info-key">NICKNAME</span>
+                    <span class="info-val">
+                        {user.nickname || '미설정'}
+                        <span class="info-note">커뮤니티 표시 이름</span>
+                    </span>
+                    <a href="/auth/onboarding" class="info-action">변경</a>
+                </div>
+                <div class="info-row info-row--last">
+                    <span class="eh-micro info-key">PASSWORD</span>
+                    <span class="info-val">
+                        <span class="info-note">소셜 로그인 계정 — 비밀번호 없음</span>
+                    </span>
+                    <span class="info-action faint">설정</span>
                 </div>
             </div>
         </section>
 
-        <!-- Quick Links -->
-        <section class="page-section">
-            <div class="arena-kicker">바로가기</div>
-            <a href="/mypage/favorites" class="quick-link">
-                <span class="quick-label">관심 대회</span>
-                <span class="quick-desc">저장한 대회 보기</span>
-                <span class="quick-arrow">→</span>
-            </a>
+        <!-- ── 02 · 바로가기 ── -->
+        <section class="mp-section">
+            <div class="v-sechead">
+                <span>
+                    <span class="eh-micro" style="color: var(--text-faint)">02</span>
+                    <span class="eh-h3" style="margin-left: var(--sp-2)">바로가기</span>
+                </span>
+                <span class="eh-micro" style="color: var(--text-faint)">QUICK ACCESS</span>
+            </div>
+
+            <div class="shortcuts">
+                <a href="/mypage/favorites" class="v-card shortcut">
+                    <span class="sh-num eh-data">01</span>
+                    <span class="sh-arrow">↗</span>
+                    <span class="sh-label">관심 대회</span>
+                    <span class="sh-meta">저장한 대회 보기</span>
+                </a>
+                <a href="/calendar" class="v-card shortcut">
+                    <span class="sh-num eh-data">02</span>
+                    <span class="sh-arrow">↗</span>
+                    <span class="sh-label">캘린더</span>
+                    <span class="sh-meta">내 종목 일정 보기</span>
+                </a>
+                <a href="/tools/pace-calculator" class="v-card shortcut">
+                    <span class="sh-num eh-data">03</span>
+                    <span class="sh-arrow">↗</span>
+                    <span class="sh-label">페이스 도구</span>
+                    <span class="sh-meta">목표 페이스 계산</span>
+                </a>
+                <a href="/posts" class="v-card shortcut">
+                    <span class="sh-num eh-data">04</span>
+                    <span class="sh-arrow">↗</span>
+                    <span class="sh-label">커뮤니티</span>
+                    <span class="sh-meta">훈련 일지 · 자유 게시판</span>
+                </a>
+            </div>
         </section>
 
-        <!-- Notifications -->
-        <section class="page-section">
-            <div class="arena-kicker">알림 설정</div>
+        <!-- ── 03 · 알림 설정 ── -->
+        <section class="mp-section">
+            <div class="v-sechead">
+                <span>
+                    <span class="eh-micro" style="color: var(--text-faint)">03</span>
+                    <span class="eh-h3" style="margin-left: var(--sp-2)">알림 설정</span>
+                </span>
+                <span class="eh-micro" style="color: var(--text-faint)">EMAIL / PUSH</span>
+            </div>
+
             <form
                 method="POST"
                 class="notif-form"
+                style="margin-top: var(--sp-4)"
                 use:enhance={() => {
                     isSubmitting = true;
                     return async ({ update }) => {
@@ -118,436 +194,513 @@
                     };
                 }}
             >
-                <label class="notif-row">
-                    <div class="notif-text">
-                        <div class="notif-title">이메일 알림 수신</div>
-                        <div class="notif-desc">대회 소식 · 일정 업데이트 · 이벤트 안내</div>
+                <div class="v-table">
+                    <!-- Table head -->
+                    <div class="v-thead notif-head">
+                        <span>유형</span>
+                        <span style="display:none"></span>
+                        <span style="text-align:center">EMAIL</span>
                     </div>
-                    <span class="arena-toggle">
-                        <input
-                            type="checkbox"
-                            name="email_updates_opt_in"
-                            bind:checked={emailUpdatesOptIn}
-                        />
-                        <span class="arena-toggle-track">
-                            <span class="arena-toggle-thumb"></span>
+                    <!-- Single row (existing backend field) -->
+                    <label class="v-trow notif-row">
+                        <span>
+                            <span class="notif-name">이메일 알림 수신</span>
                         </span>
-                    </span>
-                </label>
+                        <span class="notif-desc">대회 소식 · 일정 업데이트 · 이벤트 안내</span>
+                        <span class="notif-toggle-wrap">
+                            <span class="v-sw" class:on={emailUpdatesOptIn}>
+                                <span class="knob"></span>
+                            </span>
+                            <input
+                                type="checkbox"
+                                name="email_updates_opt_in"
+                                bind:checked={emailUpdatesOptIn}
+                                class="sw-hidden"
+                            />
+                        </span>
+                    </label>
+                </div>
 
-                <p class="notif-fineprint">
+                <p class="notif-fine">
                     계정 보안 · 인증 등 필수 안내는 동의 여부와 관계없이 발송됩니다.
                 </p>
 
                 {#if successMessage}
-                    <div class="notif-status notif-status-ok">{successMessage}</div>
+                    <div class="status-bar ok">{successMessage}</div>
                 {/if}
-
                 {#if errors.profile || errors.email_updates_opt_in}
-                    <div class="notif-status notif-status-err">
-                        {errors.profile || errors.email_updates_opt_in}
-                    </div>
+                    <div class="status-bar err">{errors.profile || errors.email_updates_opt_in}</div>
                 {/if}
 
-                <button type="submit" class="arena-btn arena-btn-primary save-btn" disabled={isSubmitting}>
-                    {#if isSubmitting}저장 중…{:else}저장{/if}
-                </button>
+                <div style="margin-top: var(--sp-4); display: flex; justify-content: flex-end">
+                    <button type="submit" class="save-btn" disabled={isSubmitting}>
+                        {isSubmitting ? '저장 중…' : '저장'}
+                    </button>
+                </div>
             </form>
         </section>
 
-        <!-- Logout -->
-        <form method="POST" action="/auth/logout" class="logout-form">
-            <button type="submit" class="logout-btn">로그아웃 →</button>
-        </form>
+        <!-- ── 04 · 계정 관리 ── -->
+        <section class="mp-section">
+            <div class="v-sechead">
+                <span>
+                    <span class="eh-micro" style="color: var(--text-faint)">04</span>
+                    <span class="eh-h3" style="margin-left: var(--sp-2)">계정 관리</span>
+                </span>
+                <span class="eh-micro" style="color: var(--text-faint)">SIGN OUT / DELETE</span>
+            </div>
 
-    </article>
+            <div class="danger-box" style="margin-top: var(--sp-4)">
+                <!-- Logout -->
+                <div class="danger-row">
+                    <div>
+                        <div class="danger-name">로그아웃</div>
+                        <p class="danger-desc">이 기기에서 로그아웃합니다. 저장한 대회와 설정은 유지됩니다.</p>
+                    </div>
+                    <form method="POST" action="/auth/logout">
+                        <button type="submit" class="ghost-btn">로그아웃</button>
+                    </form>
+                </div>
+                <!-- Delete account -->
+                <div class="danger-row danger-row--last">
+                    <div>
+                        <div class="danger-name">계정 삭제</div>
+                        <p class="danger-desc">모든 기록·관심 대회·커뮤니티 활동이 영구 삭제됩니다. 30일 이내 복구할 수 없습니다.</p>
+                    </div>
+                    <button type="button" class="danger-btn">계정 삭제</button>
+                </div>
+            </div>
+        </section>
+
+    </div>
 </div>
 
 <style>
-    .page-wrap {
-        background: var(--arena-paper);
-        padding: 56px 24px 80px;
+    .mp-wrap {
+        padding-top: var(--sp-10);
+        padding-bottom: var(--sp-20);
     }
-    .page-shell {
-        max-width: 720px;
+    .mp-page {
+        max-width: 980px;
         margin: 0 auto;
         display: flex;
         flex-direction: column;
-        gap: 40px;
+        gap: var(--sp-12);
     }
 
-    .page-head {
+    /* ── Header ── */
+    .mp-hd {
         display: flex;
         flex-direction: column;
-        gap: 14px;
-        padding-bottom: 24px;
-        border-bottom: 1px solid var(--arena-line);
+        gap: var(--sp-3);
+        padding-bottom: var(--sp-6);
+        border-bottom: var(--border-rule);
     }
-    .page-title {
-        font-family: var(--arena-f-display);
-        font-size: 56px;
-        font-weight: 700;
-        letter-spacing: -2px;
-        line-height: 1;
+    .mp-lead {
+        color: var(--text-muted);
+        max-width: 540px;
         margin: 0;
-        color: var(--arena-ink);
-    }
-    .page-lead {
-        font-family: var(--arena-f-body);
-        font-size: 15px;
-        line-height: 1.6;
-        color: var(--arena-ink-soft);
-        margin: 0;
-        word-break: keep-all;
     }
 
-    /* Profile row */
-    .profile-row {
+    /* ── Identity strip ── */
+    .identity {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr 1fr;
+        border: 1px solid var(--ink-900);
+        background: var(--paper-0);
+    }
+    .identity > div {
+        padding: 22px 24px;
+        border-right: var(--border-hair);
+        min-height: 116px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: var(--sp-2);
+    }
+    .identity > div:last-child { border-right: 0; }
+
+    .id-main { /* first cell: wider */ }
+    .id-row {
         display: flex;
         align-items: center;
-        gap: 16px;
-        padding: 18px 18px;
-        background: var(--arena-paper-alt);
-        border: 1px solid var(--arena-line);
+        gap: 14px;
     }
-    .avatar-img,
-    .avatar-fallback {
-        width: 56px;
-        height: 56px;
-        flex-shrink: 0;
-        border: 1px solid var(--arena-line);
-        background: var(--arena-paper);
+    .id-avatar {
+        width: 52px;
+        height: 52px;
+        flex: none;
+        border: 1.5px solid var(--ink-900);
+        border-radius: var(--r-1);
         display: grid;
         place-items: center;
-        overflow: hidden;
-    }
-    .avatar-img {
-        object-fit: cover;
-    }
-    .avatar-fallback {
-        font-family: var(--arena-f-display);
-        font-weight: 700;
         font-size: 22px;
-        color: var(--arena-ink);
+        font-weight: 800;
+        background: var(--paper-50);
+        color: var(--text-strong);
     }
-    .profile-meta {
-        flex: 1;
-        min-width: 0;
+    .id-avatar--img {
+        object-fit: cover;
+        font-size: 0;
+    }
+    .id-name {
+        display: block;
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: var(--track-heading);
+        line-height: 1.1;
+        color: var(--text-strong);
+    }
+    .id-email {
+        display: block;
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 4px;
+    }
+    .id-badges {
         display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-    .profile-name {
-        font-family: var(--arena-f-display);
-        font-size: 18px;
-        font-weight: 600;
-        letter-spacing: -0.4px;
-        color: var(--arena-ink);
-        word-break: keep-all;
-    }
-    .profile-email {
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        color: var(--arena-ink-soft);
-        overflow: hidden;
-        text-overflow: ellipsis;
+        align-items: center;
+        gap: var(--sp-2);
+        flex-wrap: wrap;
     }
 
-    /* Alert */
-    .alert {
+    /* Badges */
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        height: 22px;
+        padding: 0 8px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        border-radius: var(--r-2);
+    }
+    .badge.ok { color: var(--positive); background: var(--positive-bg); }
+    .badge.warn { color: var(--danger); background: var(--danger-bg); }
+
+    /* Stat cells */
+    .id-stat { }
+    .stat-label {
+        font-size: var(--text-micro);
+        font-weight: var(--w-strong);
+        letter-spacing: var(--track-micro);
+        text-transform: uppercase;
+        color: var(--text-muted);
+    }
+    .stat-val {
+        font-size: 28px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1;
+        color: var(--text-strong);
+        font-variant-numeric: tabular-nums;
+    }
+    .stat-val.accent { color: var(--accent-strong); }
+    .stat-note {
+        font-size: 12px;
+        color: var(--text-muted);
+    }
+
+    /* ── Alert bar ── */
+    .alert-bar {
         display: flex;
-        flex-direction: column;
-        gap: 16px;
-        padding: 18px 18px 20px;
-        background: var(--arena-paper);
-        border: 1px solid var(--arena-urgent);
-        border-left-width: 4px;
+        align-items: center;
+        gap: var(--sp-5);
+        padding: 18px 22px;
+        border: 1px solid var(--danger);
+        border-left-width: 3px;
+        background: var(--danger-bg);
+        flex-wrap: wrap;
     }
-    @media (min-width: 600px) {
-        .alert {
-            flex-direction: row;
-            align-items: center;
-        }
-    }
-    .alert-body {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-    }
-    .alert-kicker {
-        color: var(--arena-urgent);
-        letter-spacing: 1.5px;
-    }
+    .alert-body { flex: 1; display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
     .alert-title {
-        font-family: var(--arena-f-display);
-        font-size: 16px;
-        font-weight: 600;
-        color: var(--arena-ink);
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text-strong);
     }
     .alert-desc {
-        font-family: var(--arena-f-body);
         font-size: 13px;
-        color: var(--arena-ink-soft);
-        line-height: 1.6;
+        color: var(--text-muted);
+        line-height: 1.5;
         margin: 0;
         word-break: keep-all;
     }
-    .alert-btn {
+    .alert-cta {
         display: inline-flex;
         align-items: center;
-        gap: 10px;
-        padding: 10px 14px;
-        background: var(--arena-urgent);
-        color: var(--arena-paper);
-        font-family: var(--arena-f-display);
-        font-weight: 600;
+        gap: var(--sp-2);
+        padding: 10px 16px;
+        background: var(--danger);
+        color: #fff;
         font-size: 13px;
-        letter-spacing: -0.2px;
+        font-weight: 700;
         text-decoration: none;
         flex-shrink: 0;
-        align-self: flex-start;
+        border-radius: var(--r-1);
     }
-    @media (min-width: 600px) {
-        .alert-btn {
-            align-self: center;
-        }
-    }
-    .alert-btn .arrow {
-        font-family: var(--arena-f-mono);
-    }
+    .alert-cta:hover { background: color-mix(in oklch, var(--danger) 85%, black); }
 
-    /* Sections */
-    .page-section {
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-    }
+    /* ── Section wrapper ── */
+    .mp-section { display: flex; flex-direction: column; }
 
-    /* Account info grid */
-    .info-grid {
-        border: 1px solid var(--arena-line);
-        background: var(--arena-paper);
-    }
+    /* ── Account info table ── */
     .info-row {
         display: grid;
-        grid-template-columns: 100px 1fr;
-        gap: 16px;
+        grid-template-columns: 110px 1fr auto;
         align-items: center;
-        padding: 14px 16px;
-        border-bottom: 1px solid var(--arena-line-soft);
+        gap: var(--sp-5);
+        padding: 16px 22px;
+        border-bottom: var(--border-hair);
     }
-    .info-row:last-child {
-        border-bottom: none;
-    }
-    .info-label {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 1.5px;
-        text-transform: uppercase;
-        color: var(--arena-ink-soft);
-    }
-    .info-value {
-        font-family: var(--arena-f-body);
-        font-size: 14px;
+    .info-row--last { border-bottom: 0; }
+    .info-key { color: var(--text-faint); }
+    .info-val {
+        font-size: var(--text-body-sm);
         font-weight: 500;
-        color: var(--arena-ink);
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    .email-value {
-        font-family: var(--arena-f-mono);
-        font-size: 12px;
-    }
-
-    /* Quick link */
-    .quick-link {
-        display: grid;
-        grid-template-columns: 1fr auto;
-        grid-template-rows: auto auto;
+        display: flex;
         align-items: center;
-        gap: 4px 14px;
-        padding: 16px 18px;
-        background: var(--arena-paper);
-        border: 1px solid var(--arena-line);
-        text-decoration: none;
-        color: var(--arena-ink);
-        transition: transform 0.15s, box-shadow 0.15s;
+        gap: var(--sp-2);
+        flex-wrap: wrap;
+        min-width: 0;
+        color: var(--text-strong);
     }
-    .quick-link:hover {
-        transform: translate(-2px, -2px);
-        box-shadow: 4px 4px 0 var(--arena-ink);
-    }
-    .quick-label {
-        grid-column: 1;
-        grid-row: 1;
-        font-family: var(--arena-f-display);
-        font-size: 16px;
-        font-weight: 600;
-        letter-spacing: -0.3px;
-    }
-    .quick-desc {
-        grid-column: 1;
-        grid-row: 2;
-        font-family: var(--arena-f-body);
+    .info-note {
         font-size: 12px;
-        color: var(--arena-ink-soft);
+        color: var(--text-faint);
     }
-    .quick-arrow {
-        grid-column: 2;
-        grid-row: 1 / span 2;
-        font-family: var(--arena-f-mono);
-        font-size: 16px;
-        color: var(--arena-ink-soft);
+    .info-action {
+        font-size: 12px;
+        font-weight: var(--w-strong);
+        color: var(--text-muted);
+        text-decoration: none;
+        border-bottom: 1px solid var(--line);
+        white-space: nowrap;
+        cursor: pointer;
+        background: transparent;
+        border-top: 0;
+        border-left: 0;
+        border-right: 0;
+        padding: 0;
+        font-family: var(--font-sans);
     }
+    .info-action:hover { color: var(--text-strong); border-bottom-color: var(--ink-900); }
+    .info-action.faint { color: var(--text-faint); cursor: default; }
 
-    /* Notification form */
-    .notif-form {
+    /* ── Shortcuts grid ── */
+    .shortcuts {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: var(--sp-3);
+        margin-top: var(--sp-4);
+    }
+    .shortcut {
+        padding: 18px 20px;
+        min-height: 120px;
         display: flex;
         flex-direction: column;
-        gap: 14px;
+        position: relative;
+        text-decoration: none;
+        color: var(--text-strong);
+    }
+    .shortcut:hover { border-color: var(--ink-900); transform: translateY(-2px); box-shadow: var(--shadow-card-hover); }
+    .sh-num {
+        font-size: var(--text-micro);
+        font-weight: var(--w-strong);
+        letter-spacing: var(--track-micro);
+        color: var(--text-faint);
+    }
+    .sh-arrow {
+        position: absolute;
+        top: 14px;
+        right: 18px;
+        color: var(--text-faint);
+        font-size: 15px;
+    }
+    .shortcut:hover .sh-arrow { color: var(--text-strong); }
+    .sh-label {
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: var(--track-heading);
+        margin-top: auto;
+        color: var(--text-strong);
+    }
+    .sh-meta {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: var(--sp-1);
+        line-height: 1.45;
+    }
+
+    /* ── Notifications ── */
+    .notif-head {
+        grid-template-columns: 1.4fr 1fr 80px;
     }
     .notif-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        padding: 16px 18px;
-        background: var(--arena-paper);
-        border: 1px solid var(--arena-line);
+        grid-template-columns: 1.4fr 1fr 80px;
         cursor: pointer;
     }
-    .notif-row:hover {
-        background: var(--arena-paper-alt);
-    }
-    .notif-text {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        min-width: 0;
-    }
-    .notif-title {
-        font-family: var(--arena-f-display);
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--arena-ink);
+    .notif-name {
+        font-size: var(--text-body-sm);
+        font-weight: var(--w-strong);
+        color: var(--text-strong);
     }
     .notif-desc {
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        color: var(--arena-ink-soft);
-        letter-spacing: 0.3px;
-    }
-    .notif-fineprint {
-        margin: 0;
-        padding: 0 4px;
-        font-family: var(--arena-f-body);
         font-size: 12px;
-        color: var(--arena-ink-mute);
-        line-height: 1.6;
-        word-break: keep-all;
+        color: var(--text-muted);
+        line-height: 1.5;
     }
-
-    /* Arena toggle */
-    .arena-toggle {
+    .notif-toggle-wrap {
+        display: flex;
+        justify-content: center;
+        align-items: center;
         position: relative;
-        flex-shrink: 0;
-        display: inline-flex;
     }
-    .arena-toggle input {
+    /* DS switch */
+    .v-sw {
+        width: 38px;
+        height: 22px;
+        border: 1px solid var(--line);
+        background: var(--paper-50);
+        position: relative;
+        border-radius: var(--r-1);
+        transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+        flex-shrink: 0;
+    }
+    .v-sw .knob {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 16px;
+        height: 16px;
+        background: var(--ink-300);
+        border-radius: var(--r-1);
+        transition: left var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+    }
+    .v-sw.on { background: var(--accent); border-color: var(--accent-strong); }
+    .v-sw.on .knob { left: 18px; background: #fff; }
+    .sw-hidden {
         position: absolute;
         inset: 0;
         opacity: 0;
         cursor: pointer;
-    }
-    .arena-toggle-track {
-        width: 44px;
-        height: 22px;
-        background: var(--arena-paper-alt);
-        border: 1px solid var(--arena-line);
-        position: relative;
-        transition: background 0.15s;
-    }
-    .arena-toggle-thumb {
-        position: absolute;
-        top: 1px;
-        left: 1px;
-        width: 18px;
-        height: 18px;
-        background: var(--arena-ink);
-        transition: transform 0.15s;
-    }
-    .arena-toggle input:checked ~ .arena-toggle-track {
-        background: var(--arena-accent);
-        border-color: var(--arena-accent-deep);
-    }
-    .arena-toggle input:checked ~ .arena-toggle-track .arena-toggle-thumb {
-        transform: translateX(22px);
-        background: var(--arena-ink);
+        width: 100%;
+        height: 100%;
+        margin: 0;
     }
 
-    /* Status (renamed from .status to avoid daisyUI 5's bare .status rule) */
-    .notif-status {
-        font-family: var(--arena-f-body);
-        font-size: 13px;
-        line-height: 1.5;
-        padding: 10px 14px;
-        border: 1px solid;
+    .notif-fine {
+        margin: var(--sp-3) 0 0;
+        font-size: 12px;
+        color: var(--text-faint);
+        line-height: 1.6;
         word-break: keep-all;
     }
-    .notif-status-ok {
-        color: var(--arena-accent-deep);
-        border-color: var(--arena-accent);
-        background: color-mix(in oklch, var(--arena-accent), transparent 88%);
+    .status-bar {
+        margin-top: var(--sp-3);
+        padding: 10px 14px;
+        font-size: 13px;
+        border: 1px solid;
+        line-height: 1.5;
+        word-break: keep-all;
+        border-radius: var(--r-1);
     }
-    .notif-status-err {
-        color: var(--arena-urgent);
-        border-color: var(--arena-urgent);
-        background: color-mix(in oklch, var(--arena-urgent), transparent 90%);
+    .status-bar.ok {
+        color: var(--positive);
+        border-color: var(--positive);
+        background: var(--positive-bg);
     }
-
+    .status-bar.err {
+        color: var(--danger);
+        border-color: var(--danger);
+        background: var(--danger-bg);
+    }
     .save-btn {
-        width: 100%;
-        justify-content: center;
-        padding: 12px 16px;
-    }
-
-    /* Logout */
-    .logout-form {
-        margin: 0;
-        padding-top: 16px;
-        border-top: 1px solid var(--arena-line-soft);
-    }
-    .logout-btn {
-        width: 100%;
-        background: transparent;
-        border: 1px solid var(--arena-line-soft);
-        padding: 12px 16px;
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        letter-spacing: 1.5px;
-        text-transform: uppercase;
-        color: var(--arena-ink-soft);
+        height: 34px;
+        padding: 0 16px;
+        background: var(--ink-900);
+        color: var(--paper-0);
+        border: 1px solid var(--ink-900);
+        font-size: 13px;
+        font-weight: var(--w-strong);
         cursor: pointer;
-        transition: color 0.15s, border-color 0.15s, background 0.15s;
+        font-family: var(--font-sans);
+        border-radius: var(--r-1);
     }
-    .logout-btn:hover {
-        color: var(--arena-urgent);
-        border-color: var(--arena-urgent);
-        background: var(--arena-paper);
-    }
+    .save-btn:hover:not(:disabled) { background: var(--ink-700); border-color: var(--ink-700); }
+    .save-btn:disabled { cursor: not-allowed; opacity: 0.5; }
 
-    @media (max-width: 640px) {
-        .page-title {
-            font-size: 40px;
-            letter-spacing: -1.5px;
-        }
-        .info-row {
-            grid-template-columns: 80px 1fr;
-            gap: 12px;
-            padding: 12px 14px;
-        }
+    /* ── Danger zone ── */
+    .danger-box {
+        border: var(--border-hair);
+        background: var(--paper-50);
+    }
+    .danger-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--sp-5);
+        padding: 16px 22px;
+        border-bottom: var(--border-hair);
+        flex-wrap: wrap;
+    }
+    .danger-row--last { border-bottom: 0; }
+    .danger-name {
+        font-size: var(--text-body-sm);
+        font-weight: var(--w-strong);
+        color: var(--text-strong);
+    }
+    .danger-desc {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin: var(--sp-1) 0 0;
+        line-height: 1.5;
+        max-width: 520px;
+        word-break: keep-all;
+    }
+    .ghost-btn {
+        height: 34px;
+        padding: 0 14px;
+        font-size: 13px;
+        font-weight: var(--w-strong);
+        background: transparent;
+        border: 1px solid var(--line);
+        color: var(--text-muted);
+        cursor: pointer;
+        font-family: var(--font-sans);
+        border-radius: var(--r-1);
+        transition: border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+    }
+    .ghost-btn:hover { border-color: var(--ink-900); color: var(--text-strong); }
+    .danger-btn {
+        height: 34px;
+        padding: 0 14px;
+        font-size: 13px;
+        font-weight: var(--w-strong);
+        background: transparent;
+        border: 1px solid var(--danger);
+        color: var(--danger);
+        cursor: pointer;
+        font-family: var(--font-sans);
+        border-radius: var(--r-1);
+    }
+    .danger-btn:hover { background: var(--danger-bg); }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+        .identity { grid-template-columns: 1fr 1fr; }
+        .identity > .id-main { grid-column: 1 / -1; border-bottom: var(--border-hair); }
+        .identity > .id-stat:first-of-type { border-right: var(--border-hair); }
+        .shortcuts { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 768px) {
+        .mp-wrap { padding-top: var(--sp-6); }
+        .info-row { grid-template-columns: 1fr auto; }
+        .info-key { display: none; }
+        .notif-row, .notif-head { grid-template-columns: 1fr 80px; }
+        .notif-desc { display: none; }
+    }
+    @media (max-width: 540px) {
+        .shortcuts { grid-template-columns: 1fr 1fr; }
     }
 </style>

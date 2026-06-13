@@ -34,10 +34,12 @@ export interface EntryFee {
 
 export interface Distance {
 	name: string;
-	distance_meter?: number | null;
+	// The API renders the `distances` JSON via CamelCaseJSONRenderer, so these
+	// arrive camelCased (like every other field) — match that here.
+	distanceMeter?: number | null;
 	fee?: number | null;
 	cutoff?: string | null;
-	start_time?: string | null;
+	startTime?: string | null;
 }
 
 export interface RegistrationPhase {
@@ -379,6 +381,17 @@ export interface PostDetailResponse {
 	hasLiked: boolean;
 	prevPost: { id: number; title: string } | null;
 	nextPost: { id: number; title: string } | null;
+	sidebar: {
+		popularPosts: Post[];
+		upcomingRaces: Array<{
+			id: number;
+			title: string;
+			sport: Sport;
+			sportLabel: string;
+			raceDate: string;
+		}>;
+		sameRacePosts: Post[];
+	};
 }
 
 export interface PostListResponse extends PaginatedResponse<Post> {

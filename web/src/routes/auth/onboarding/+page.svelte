@@ -6,22 +6,22 @@
     let { data, form } = $props();
 
     /* ─────────── Static data ─────────── */
-    type SportMeta = { value: string; code: string; ko: string; tag: string };
+    type SportMeta = { value: string; code: string; ko: string; tag: string; desc: string };
     const SPORTS: SportMeta[] = [
-        { value: 'running', code: 'RUN', ko: '러닝', tag: 'run' },
-        { value: 'trail_running', code: 'TRL', ko: '트레일', tag: 'trl' },
-        { value: 'cycling', code: 'CYCLE', ko: '자전거', tag: 'cycle' },
-        { value: 'swimming', code: 'SWIM', ko: '수영', tag: 'swim' },
-        { value: 'triathlon', code: 'TRI', ko: '철인3종', tag: 'tri' },
+        { value: 'running',      code: 'RUN',   ko: '러닝',    tag: 'run',   desc: '로드 마라톤 · 5K부터 풀코스까지' },
+        { value: 'trail_running',code: 'TRL',   ko: '트레일',  tag: 'trl',   desc: '산악 트레일 러닝 · 스카이레이스' },
+        { value: 'cycling',      code: 'CYCLE', ko: '자전거',  tag: 'cycle', desc: '로드 사이클 · 그란폰도 · MTB' },
+        { value: 'swimming',     code: 'SWIM',  ko: '수영',    tag: 'swim',  desc: '오픈워터 · 실내 수영 대회' },
+        { value: 'triathlon',    code: 'TRI',   ko: '철인3종', tag: 'tri',   desc: '철인3종 · 듀애슬론 · 아쿠아슬론' },
     ];
     const SPORT_BY_VALUE = Object.fromEntries(SPORTS.map((s) => [s.value, s]));
 
     const DISTANCES: Record<string, string[]> = {
-        running: ['5K', '10K', '하프', '풀코스', '울트라'],
+        running:       ['5K', '10K', '하프', '풀코스', '울트라'],
         trail_running: ['10K↓', '10–30K', '30–50K', '50–100K', '100K↑'],
-        cycling: ['그란폰도', '100K', '200K', 'MTB XC', 'MTB DH'],
-        swimming: ['오픈워터 1.5K', '오픈워터 3K', '오픈워터 5K', '수영장 단축', '수영장 장축'],
-        triathlon: ['스프린트', '올림픽', '하프(70.3)', '풀(140.6)'],
+        cycling:       ['그란폰도', '100K', '200K', 'MTB XC', 'MTB DH'],
+        swimming:      ['오픈워터 1.5K', '오픈워터 3K', '오픈워터 5K', '수영장 단축', '수영장 장축'],
+        triathlon:     ['스프린트', '올림픽', '하프(70.3)', '풀(140.6)'],
     };
 
     const REGIONS = [
@@ -29,7 +29,14 @@
         '강원', '충북', '충남', '전북', '전남', '경북', '경남', '제주',
     ];
 
-    const STEP_LABELS = ['EMAIL', 'NICKNAME', 'SPORT', 'REGION', 'RECORDS'];
+    // Design step labels (matches design file STEPS array)
+    const STEP_META = [
+        { n: '01', l: '이메일' },
+        { n: '02', l: '닉네임' },
+        { n: '03', l: '종목' },
+        { n: '04', l: '지역' },
+        { n: '05', l: '기록' },
+    ];
 
     /* ─────────── Flow state ─────────── */
     let user = $state<AuthUser | null>(data.user);
@@ -73,11 +80,11 @@
         !!draft.distance && draft.distance !== '__custom__' && (!!draft.h || !!draft.m || !!draft.s)
     );
 
-    const sendErrors = $derived(flatten(form?.action === 'sendEmail' ? form?.sendErrors : undefined));
-    const sendMessage = $derived(form?.action === 'sendEmail' ? (form?.sendMessage ?? '') : '');
-    const verifyErrors = $derived(flatten(form?.action === 'verifyEmail' ? form?.verifyErrors : undefined));
+    const sendErrors   = $derived(flatten(form?.action === 'sendEmail'    ? form?.sendErrors    : undefined));
+    const sendMessage  = $derived(form?.action === 'sendEmail' ? (form?.sendMessage ?? '') : '');
+    const verifyErrors = $derived(flatten(form?.action === 'verifyEmail'  ? form?.verifyErrors  : undefined));
     const nicknameErrors = $derived(flatten(form?.action === 'setNickname' ? form?.nicknameErrors : undefined));
-    const completeErrors = $derived(flatten(form?.action === 'complete' ? form?.errors : undefined));
+    const completeErrors = $derived(flatten(form?.action === 'complete'   ? form?.errors        : undefined));
 
     function flatten(errs: Record<string, string[]> | undefined): Record<string, string> {
         if (!errs) return {};
@@ -181,7 +188,7 @@
     );
 
     function sportMeta(value: string): SportMeta {
-        return SPORT_BY_VALUE[value] ?? { value, code: value.toUpperCase(), ko: value, tag: 'run' };
+        return SPORT_BY_VALUE[value] ?? { value, code: value.toUpperCase(), ko: value, tag: 'run', desc: '' };
     }
 </script>
 
@@ -193,46 +200,39 @@
 <ProgressBar active={isSending || isVerifying || isSavingNick || isSubmitting} />
 
 <div class="ob-page">
+
+    <!-- Step tabs (visible for steps 0–4) -->
     {#if step <= 4}
         <div class="step-tabs">
-            {#each STEP_LABELS as label, i}
+            {#each STEP_META as s, i}
                 <button
                     type="button"
-                    class="tab"
+                    class="step-tab"
                     class:on={i === step}
                     class:done={i < step}
-                    onclick={() => goTo(i)}
+                    onclick={() => i < step && goTo(i)}
                 >
-                    {String(i + 1).padStart(2, '0')} · {label}
+                    <span class="n eh-data">{i < step ? '✓' : s.n}</span>
+                    <span class="l">{s.l}</span>
                 </button>
             {/each}
         </div>
     {/if}
 
-    {#if step >= 2 && step <= 4}
-        <div class="progress-row">
-            <div class="progress-track">
-                <div class="progress-fill" style="width: {((step - 1) / 3) * 100}%"></div>
-            </div>
-            <div class="progress-label"><b>{step - 1}</b> / 3</div>
-        </div>
-    {/if}
-
     <!-- ─────────── STEP 01 · EMAIL ─────────── -->
     {#if step === 0}
-        <div class="eyebrow">STEP 01 · EMAIL</div>
-        <h1 class="title">이메일 인증</h1>
-        <p class="subtitle">
+        <div class="eh-micro step-eyebrow"><span class="acc">STEP 01</span> · EMAIL</div>
+        <h1 class="ob-title">이메일 인증</h1>
+        <p class="ob-subtitle">
             {#if data.hasPendingSocialLogin}
-                소셜 로그인 가입을 완료하려면 이메일 인증이 필요합니다.
+                소셜 로그인 가입을 완료하려면 이메일 인증이 필요합니다. 대회 마감·일정 변경 알림이 이 주소로 전송됩니다.
             {:else}
                 인증 코드를 받을 이메일을 확인하고 인증을 완료해주세요.
             {/if}
         </p>
 
-        <div class="card">
-            <div class="step-row"><div class="step-num">1</div><h3>이메일 입력</h3></div>
-            <div class="field-label">이메일</div>
+        <div class="ob-body">
+            <!-- 1. 이메일 입력 -->
             <form
                 method="POST"
                 action="?/sendEmail"
@@ -247,46 +247,48 @@
                     };
                 }}
             >
-                <input
-                    class="input"
-                    name="email"
-                    placeholder="you@example.com"
-                    autocomplete="email"
-                    bind:value={email}
-                />
-                {#if sendErrors.email}
-                    <div class="field-help err">{sendErrors.email}</div>
-                {:else}
-                    <div class="field-help">인증 코드는 이 주소로 발송됩니다.</div>
-                {/if}
+                <div class="field">
+                    <label class="field-label" for="ob-email">Email</label>
+                    <input
+                        id="ob-email"
+                        class="ob-input"
+                        name="email"
+                        placeholder="you@example.com"
+                        autocomplete="email"
+                        bind:value={email}
+                    />
+                    {#if sendErrors.email}
+                        <div class="field-hint err">{sendErrors.email}</div>
+                    {:else}
+                        <div class="field-hint">인증 코드는 이 주소로 발송됩니다.</div>
+                    {/if}
+                </div>
 
                 <label class="consent">
                     <input type="checkbox" name="email_updates_opt_in" bind:checked={emailUpdatesOptIn} />
                     <span class="cb"></span>
                     <span class="consent-body">
-                        <span class="tag">선택</span>
-                        대회 소식, 업데이트, 이벤트 등 이메일 알림 수신에 동의합니다.
-                        <span class="sub">계정 관련 중요 안내는 동의 여부와 관계없이 발송됩니다.</span>
+                        서비스 이용약관 · 개인정보 처리방침에 동의합니다
                     </span>
                 </label>
 
-                <div style="height: 14px"></div>
-                <button
-                    class="btn {emailValid && resendIn === 0 ? 'primary' : 'muted'}"
-                    disabled={!emailValid || isSending || resendIn > 0}
-                >
-                    {resendIn > 0 ? `발송 완료 · ${resendLabel} 후 재전송` : '인증 코드 발송'}
-                    <span class="arrow">→</span>
-                </button>
+                <div class="nav-row" style="margin-top: var(--sp-6)">
+                    <span class="spacer"></span>
+                    <button
+                        class="ob-btn {emailValid && resendIn === 0 ? 'primary' : 'muted'}"
+                        disabled={!emailValid || isSending || resendIn > 0}
+                    >
+                        {resendIn > 0 ? `발송 완료 · ${resendLabel} 후 재전송` : '인증 메일 보내기'}
+                    </button>
+                </div>
                 {#if sendMessage}
-                    <div class="send-ok"><span class="send-ok-dot"></span>{sendMessage}</div>
+                    <div class="send-ok"><span class="send-dot"></span>{sendMessage}</div>
                 {/if}
             </form>
 
             <div class="divider"></div>
 
-            <div class="step-row"><div class="step-num">2</div><h3>인증 코드 입력</h3></div>
-            <div class="field-label">인증 코드 <span class="hint">6자리 숫자</span></div>
+            <!-- 2. OTP 입력 -->
             <form
                 method="POST"
                 action="?/verifyEmail"
@@ -308,28 +310,33 @@
                 <input type="hidden" name="code" value={code} />
                 <input type="hidden" name="email_updates_opt_in" value={emailUpdatesOptIn ? 'true' : 'false'} />
 
-                <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-                <div class="otp" onclick={() => otpInput?.focus()}>
-                    {#each Array.from({ length: 6 }) as _, i}
-                        <div class="cell" class:filled={!!code[i]}>{code[i] || '0'}</div>
-                    {/each}
-                    <input
-                        bind:this={otpInput}
-                        class="otp-hidden"
-                        value={code}
-                        inputmode="numeric"
-                        autocomplete="one-time-code"
-                        oninput={(e) => (code = normalizeOtp(e.currentTarget.value))}
-                    />
+                <div class="field">
+                    <label class="field-label">인증 코드 <span class="field-hint-inline">6자리 숫자</span></label>
+                    <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+                    <div class="otp" onclick={() => otpInput?.focus()}>
+                        {#each Array.from({ length: 6 }) as _, i}
+                            <div class="cell" class:filled={!!code[i]}>{code[i] || '0'}</div>
+                        {/each}
+                        <input
+                            bind:this={otpInput}
+                            class="otp-hidden"
+                            value={code}
+                            inputmode="numeric"
+                            autocomplete="one-time-code"
+                            oninput={(e) => (code = normalizeOtp(e.currentTarget.value))}
+                        />
+                    </div>
+                    {#if verifyErrors.code}
+                        <div class="field-hint err">{verifyErrors.code}</div>
+                    {/if}
                 </div>
-                {#if verifyErrors.code}
-                    <div class="field-help err">{verifyErrors.code}</div>
-                {/if}
 
-                <div style="height: 18px"></div>
-                <button class="btn {codeFilled ? 'primary' : 'muted'}" disabled={!codeFilled || isVerifying}>
-                    인증 확인 <span class="arrow">→</span>
-                </button>
+                <div class="nav-row" style="margin-top: var(--sp-5)">
+                    <span class="spacer"></span>
+                    <button class="ob-btn {codeFilled ? 'primary' : 'muted'}" disabled={!codeFilled || isVerifying}>
+                        인증 확인
+                    </button>
+                </div>
             </form>
         </div>
 
@@ -340,11 +347,11 @@
 
     <!-- ─────────── STEP 02 · NICKNAME ─────────── -->
     {#if step === 1}
-        <div class="eyebrow">STEP 02 · NICKNAME</div>
-        <h1 class="title">닉네임 설정</h1>
-        <p class="subtitle">커뮤니티에서 사용할 닉네임을 정해주세요.</p>
+        <div class="eh-micro step-eyebrow"><span class="acc">STEP 02</span> · NICKNAME</div>
+        <h1 class="ob-title">닉네임 설정</h1>
+        <p class="ob-subtitle">커뮤니티에서 사용할 닉네임을 정해주세요. 나중에 마이페이지에서 바꿀 수 있습니다.</p>
 
-        <div class="card">
+        <div class="ob-body">
             <form
                 method="POST"
                 action="?/setNickname"
@@ -363,47 +370,66 @@
                     };
                 }}
             >
-                <div class="field-label mono-label">NICKNAME *</div>
-                <input
-                    class="input"
-                    name="nickname"
-                    placeholder="2~50자, 한글/영문/숫자"
-                    minlength="2"
-                    maxlength="50"
-                    bind:value={nickname}
-                />
-                {#if nicknameErrors.nickname}
-                    <div class="field-help err">{nicknameErrors.nickname}</div>
-                {:else}
-                    <div class="field-help">한글, 영문, 숫자, 밑줄(_), 하이픈(-) 사용 가능</div>
-                {/if}
-                <div style="height: 18px"></div>
-                <button class="btn {nickOk ? 'primary' : 'muted'}" disabled={!nickOk || isSavingNick}>
-                    설정 완료 <span class="arrow">→</span>
-                </button>
+                <div class="field">
+                    <label class="field-label" for="ob-nick">Nickname</label>
+                    <input
+                        id="ob-nick"
+                        class="ob-input"
+                        name="nickname"
+                        placeholder="2–50자, 한글/영문/숫자"
+                        minlength="2"
+                        maxlength="50"
+                        bind:value={nickname}
+                    />
+                    {#if nicknameErrors.nickname}
+                        <div class="field-hint err">{nicknameErrors.nickname}</div>
+                    {:else}
+                        <div class="field-hint">한글, 영문, 숫자, 밑줄(_), 하이픈(-) 사용 가능</div>
+                    {/if}
+                </div>
+
+                <div class="nav-row">
+                    <button type="button" class="ob-btn ghost" onclick={() => goTo(0)}>← 이전</button>
+                    <span class="spacer"></span>
+                    <button class="ob-btn {nickOk ? 'primary' : 'muted'}" disabled={!nickOk || isSavingNick}>다음</button>
+                </div>
             </form>
         </div>
     {/if}
 
     <!-- ─────────── STEP 03 · SPORT ─────────── -->
     {#if step === 2}
-        <div class="eyebrow">STEP 03 · SPORT</div>
-        <h1 class="title">어떤 종목에<br />관심 있으세요?</h1>
-        <p class="subtitle">관심 종목을 선택하면 맞춤 대회 정보를 받을 수 있어요</p>
+        <div class="eh-micro step-eyebrow"><span class="acc">STEP 03</span> · SPORT</div>
+        <h1 class="ob-title">어떤 종목에<br />관심 있으세요?</h1>
+        <p class="ob-subtitle">관심 종목을 선택하면 맞춤 대회 정보를 받을 수 있어요. 복수 선택 가능합니다.</p>
 
-        <div class="sport-list">
+        <div class="pick-grid">
             {#each SPORTS as s}
-                <button type="button" class="sport-row" class:on={sports.includes(s.value)} onclick={() => toggleSport(s.value)}>
-                    <div class="code">{s.code}</div>
-                    <div class="name">{s.ko}</div>
-                    <div class="cb"></div>
+                <button
+                    type="button"
+                    class="pick"
+                    class:on={sports.includes(s.value)}
+                    onclick={() => toggleSport(s.value)}
+                >
+                    <span class="chk">✓</span>
+                    <span class="pick-sport-dot" style="background: var(--sport-{s.tag})"></span>
+                    <span class="pick-ko">{s.ko}</span>
+                    <span class="pick-desc">{s.desc}</span>
                 </button>
             {/each}
         </div>
 
-        <button class="btn {sports.length ? 'primary' : 'muted'}" onclick={() => (step = 3)}>
-            {sports.length ? '다음' : '건너뛰기'} <span class="arrow">→</span>
-        </button>
+        <div class="nav-row">
+            <button type="button" class="ob-btn ghost" onclick={() => goTo(1)}>← 이전</button>
+            <span class="spacer"></span>
+            <button
+                type="button"
+                class="ob-btn {sports.length ? 'primary' : 'muted'}"
+                onclick={() => (step = 3)}
+            >
+                {sports.length ? `다음 · ${sports.length}개 선택` : '건너뛰기'}
+            </button>
+        </div>
         <div class="footer-link">
             <button type="button" class="text-link" onclick={() => (step = 3)}>나중에 설정할게요</button>
         </div>
@@ -411,24 +437,31 @@
 
     <!-- ─────────── STEP 04 · REGION ─────────── -->
     {#if step === 3}
-        <div class="eyebrow">STEP 04 · REGION</div>
-        <h1 class="title">주로 어디서<br />활동하세요?</h1>
-        <p class="subtitle">관심 지역의 대회를 우선 추천해드릴게요</p>
+        <div class="eh-micro step-eyebrow"><span class="acc">STEP 04</span> · REGION</div>
+        <h1 class="ob-title">주로 어디서<br />활동하세요?</h1>
+        <p class="ob-subtitle">관심 지역의 대회를 우선 추천해드릴게요.</p>
 
-        <div class="region-grid">
+        <div class="region-chips">
             {#each REGIONS as r}
-                <button type="button" class="chip" class:on={regions.includes(r)} onclick={() => toggleRegion(r)}>{r}</button>
+                <button
+                    type="button"
+                    class="region-chip"
+                    class:on={regions.includes(r)}
+                    onclick={() => toggleRegion(r)}
+                >{r}</button>
             {/each}
         </div>
 
-        <div class="selected-bar">
-            <span class="key">SELECTED</span>
-            <span class="vals">{regions.length ? regions.join('  ·  ') : '(없음)'}</span>
-        </div>
-
-        <div class="button-row">
-            <button type="button" class="btn back" onclick={() => (step = 2)}>← 이전</button>
-            <button type="button" class="btn primary" onclick={() => (step = 4)}>다음 <span class="arrow">→</span></button>
+        <div class="nav-row">
+            <button type="button" class="ob-btn ghost" onclick={() => (step = 2)}>← 이전</button>
+            <span class="spacer"></span>
+            <button
+                type="button"
+                class="ob-btn {regions.length ? 'primary' : 'muted'}"
+                onclick={() => (step = 4)}
+            >
+                {regions.length ? `다음 · ${regions.length}개 선택` : '건너뛰기'}
+            </button>
         </div>
         <div class="footer-link">
             <button type="button" class="text-link" onclick={() => (step = 4)}>나중에 설정할게요</button>
@@ -437,80 +470,58 @@
 
     <!-- ─────────── STEP 05 · RECORDS ─────────── -->
     {#if step === 4}
-        <div class="eyebrow">STEP 05 · RECORDS</div>
-        <h1 class="title">최근 대회 기록을<br />알려주세요</h1>
-        <p class="subtitle">
-            최근 1년 이내 PB나 가장 기억에 남는 기록을 입력하면, 시즌 플래너와 페이스 도구를 자동으로 보정해드려요.
+        <div class="eh-micro step-eyebrow"><span class="acc">STEP 05</span> · RECORDS</div>
+        <h1 class="ob-title">최근 대회 기록을<br />알려주세요</h1>
+        <p class="ob-subtitle">
+            최근 1년 이내 PB나 기억에 남는 기록을 입력하면 시즌 플래너와 페이스 도구가 자동 보정됩니다. 건너뛰어도 됩니다.
         </p>
 
-        <div class="records-intro">
-            <div class="cell"><div class="key">01 · USE</div><div class="val">시즌 페이스 자동 보정</div></div>
-            <div class="cell"><div class="key">02 · USE</div><div class="val">맞춤 대회 추천 강화</div></div>
-            <div class="cell"><div class="key">03 · PRIVACY</div><div class="val">기본 비공개 · 본인만 열람</div></div>
-        </div>
-
         {#if records.length > 0}
-            <div class="summary-strip">
-                <span class="key">ENTERED</span>
-                <span class="stat"><b>{records.length}</b> 개</span>
-                <div class="sep"></div>
-                <span class="key">SPORTS</span>
-                <span class="stat">{[...new Set(records.map((r) => sportMeta(r.sport).code))].join(' · ')}</span>
-            </div>
-
-            <div class="records-list">
-                <div class="records-head">
-                    <div>SPORT</div><div>대회</div><div>거리</div><div>날짜</div>
-                    <div style="text-align:right">기록</div><div></div>
-                </div>
+            <div class="v-table" style="margin-bottom: var(--sp-4)">
                 {#each records as r (r.id)}
-                    <div class="record-item">
-                        <div class="record-tag {sportMeta(r.sport).tag}">{sportMeta(r.sport).code}</div>
-                        <div class="record-name">{r.name}</div>
-                        <div class="record-dist">{r.distance}</div>
-                        <div class="record-date">{r.date}</div>
-                        <div class="record-time" style="text-align:right">{r.time}</div>
-                        <button type="button" class="record-del" onclick={() => removeRecord(r.id)} aria-label="삭제">×</button>
+                    <div class="rec-item">
+                        <span class="rec-sport" style="background: var(--sport-{sportMeta(r.sport).tag})">{sportMeta(r.sport).code}</span>
+                        <span class="rec-name">
+                            {r.name}
+                            <span class="rec-dist">{r.distance}</span>
+                        </span>
+                        <b class="eh-data rec-time">{r.time}</b>
+                        <button type="button" class="rec-del" onclick={() => removeRecord(r.id)} aria-label="삭제">×</button>
                     </div>
                 {/each}
             </div>
         {/if}
 
         {#if adding}
-            <div class="add-form">
-                <div class="add-form-head">
-                    <div class="add-form-title">+ 기록 추가</div>
-                    {#if records.length > 0}
-                        <button type="button" class="text-link" onclick={() => (adding = false)}>접기</button>
-                    {/if}
-                </div>
-
-                <div class="add-form-row">
-                    <div class="field-label">종목 *</div>
-                    <div class="sport-chips">
+            <div class="rec-form">
+                <!-- Sport chips -->
+                <div class="rec-form-row">
+                    <div class="field-label-sm">종목</div>
+                    <div class="chip-row">
                         {#each SPORTS as s}
-                            <button type="button" class="sport-chip" class:on={draft.sport === s.value} onclick={() => setDraftSport(s.value)}>
-                                {s.code} <span class="ko">{s.ko}</span>
+                            <button type="button" class="pick-chip" class:on={draft.sport === s.value} onclick={() => setDraftSport(s.value)}>
+                                <span class="spot" style="background: var(--sport-{s.tag})"></span>
+                                {s.ko}
                             </button>
                         {/each}
                     </div>
                 </div>
 
-                <div class="add-form-row">
-                    <div class="field-label">거리 / 종목 카테고리 * <span class="hint">자주 쓰는 카테고리를 고르거나 직접 입력</span></div>
-                    <div class="dist-chips">
+                <!-- Distance chips -->
+                <div class="rec-form-row">
+                    <div class="field-label-sm">거리 / 카테고리</div>
+                    <div class="chip-row">
                         {#each draftDistances as d}
-                            <button type="button" class="dist-chip" class:on={draft.distance === d} onclick={() => pickDistance(d)}>{d}</button>
+                            <button type="button" class="pick-chip" class:on={draft.distance === d} onclick={() => pickDistance(d)}>{d}</button>
                         {/each}
-                        <button type="button" class="dist-chip custom-trigger" class:on={isCustomDistance} onclick={toggleCustomDistance}>
-                            + 직접 입력
-                        </button>
+                        <button type="button" class="pick-chip custom" class:on={isCustomDistance} onclick={toggleCustomDistance}>+ 직접 입력</button>
                     </div>
                     {#if isCustomDistance}
                         <!-- svelte-ignore a11y_autofocus -->
                         <input
-                            class="input dist-custom-input"
-                            placeholder="예: 21.0975K, 100마일, 2.4mi 수영 등"
+                            class="ob-input"
+                            style="margin-top: var(--sp-2)"
+                            placeholder="예: 21.0975K, 100마일"
                             autofocus
                             value={draft.distance === '__custom__' ? '' : draft.distance}
                             oninput={(e) => (draft = { ...draft, distance: e.currentTarget.value })}
@@ -519,8 +530,9 @@
                     {/if}
                 </div>
 
-                <div class="add-form-row">
-                    <div class="field-label">기록 (시:분:초) *</div>
+                <!-- Time -->
+                <div class="rec-form-row">
+                    <div class="field-label-sm">기록 (시:분:초)</div>
                     <div class="time-input">
                         <input placeholder="HH" maxlength="2" value={draft.h} oninput={(e) => (draft = { ...draft, h: e.currentTarget.value.replace(/\D/g, '') })} />
                         <span class="colon">:</span>
@@ -530,22 +542,23 @@
                     </div>
                 </div>
 
-                <div class="add-form-row two">
-                    <div>
-                        <div class="field-label">대회명 <span class="hint">선택</span></div>
-                        <input class="input" placeholder="예: 서울국제마라톤 2025" bind:value={draft.name} />
+                <!-- Race + date (2-col) -->
+                <div class="rec-grid2">
+                    <div class="field">
+                        <label class="field-label-sm">대회명 <span class="hint">선택</span></label>
+                        <input class="ob-input" placeholder="예: 서울국제마라톤 2025" bind:value={draft.name} />
                     </div>
-                    <div>
-                        <div class="field-label">대회 날짜 <span class="hint">선택</span></div>
-                        <input class="input" placeholder="2025-03-16" bind:value={draft.date} />
+                    <div class="field">
+                        <label class="field-label-sm">날짜 <span class="hint">선택</span></label>
+                        <input class="ob-input" placeholder="2025-03-16" bind:value={draft.date} />
                     </div>
                 </div>
 
-                <div class="add-form-actions">
-                    <button type="button" class="btn ghost tiny" onclick={() => { resetDraft(); if (records.length > 0) adding = false; }}>취소</button>
-                    <button type="button" class="btn tiny {canSaveRecord ? 'primary' : 'muted'}" disabled={!canSaveRecord} onclick={saveRecord}>
-                        저장 <span class="arrow">→</span>
-                    </button>
+                <div class="rec-form-actions">
+                    {#if records.length > 0}
+                        <button type="button" class="ob-btn ghost tiny" onclick={() => { resetDraft(); adding = false; }}>취소</button>
+                    {/if}
+                    <button type="button" class="ob-btn tiny {canSaveRecord ? 'primary' : 'muted'}" disabled={!canSaveRecord} onclick={saveRecord}>기록 추가</button>
                 </div>
             </div>
         {:else}
@@ -555,7 +568,7 @@
         {/if}
 
         {#if completeErrors.profile || completeErrors.preferred_sports || completeErrors.preferred_regions}
-            <div class="field-help err">{completeErrors.profile || completeErrors.preferred_sports || completeErrors.preferred_regions}</div>
+            <div class="field-hint err" style="margin-top: var(--sp-3)">{completeErrors.profile || completeErrors.preferred_sports || completeErrors.preferred_regions}</div>
         {/if}
 
         <form
@@ -577,14 +590,13 @@
             <input type="hidden" name="preferred_regions" value={regions.join(',')} />
             <input type="hidden" name="records" value={recordsPayload} />
 
-            <div class="button-row">
-                <button type="button" class="btn back" onclick={() => (step = 3)}>← 이전</button>
-                <button type="submit" class="btn primary" disabled={isSubmitting}>
-                    {records.length > 0 ? `${records.length}개 기록으로 시작하기` : '시작하기'} <span class="arrow">→</span>
+            <div class="nav-row" style="margin-top: var(--sp-8)">
+                <button type="button" class="ob-btn ghost" onclick={() => (step = 3)}>← 이전</button>
+                <span class="spacer"></span>
+                <button type="button" class="ob-btn ghost" onclick={() => (step = 5)} disabled={isSubmitting}>건너뛰기</button>
+                <button type="submit" class="ob-btn primary" disabled={isSubmitting}>
+                    {records.length > 0 ? `${records.length}개 기록으로 시작` : '완료'}
                 </button>
-            </div>
-            <div class="footer-link">
-                <button type="submit" class="text-link" disabled={isSubmitting}>나중에 입력할게요</button>
             </div>
         </form>
     {/if}
@@ -593,355 +605,599 @@
     {#if step === 5}
         <div class="done-wrap">
             <div class="done-mark">✓</div>
-            <div class="eyebrow">SETUP COMPLETE</div>
-            <h1 class="title" style="text-align:center">준비 완료</h1>
-            <p class="subtitle done-sub">입력하신 정보로 맞춤 대시보드를 구성했어요. 캘린더에서 곧 열릴 대회를 확인해보세요.</p>
+            <div class="eh-micro step-eyebrow" style="justify-content:center"><span class="acc">SETUP COMPLETE</span></div>
+            <h1 class="ob-title" style="text-align:center">준비 완료</h1>
+            <p class="ob-subtitle done-sub">입력하신 정보로 맞춤 캘린더를 구성했어요. 곧 열릴 대회부터 확인해 보세요.</p>
 
-            <div class="records-intro done-summary">
-                <div class="cell">
-                    <div class="key">SPORTS</div>
-                    <div class="val">{sports.length ? sports.map((s) => sportMeta(s).ko).join(' · ') : '—'}</div>
+            <div class="done-summary">
+                <div class="done-row">
+                    <span class="eh-micro">SPORT</span>
+                    <span class="done-val">{sports.length ? sports.map((s) => sportMeta(s).ko).join(' · ') : '—'}</span>
                 </div>
-                <div class="cell">
-                    <div class="key">REGIONS</div>
-                    <div class="val">{regions.length ? regions.join(' · ') : '—'}</div>
+                <div class="done-row">
+                    <span class="eh-micro">REGION</span>
+                    <span class="done-val">{regions.length ? regions.join(' · ') : '—'}</span>
                 </div>
-                <div class="cell">
-                    <div class="key">RECORDS</div>
-                    <div class="val">{records.length}개 등록</div>
+                <div class="done-row">
+                    <span class="eh-micro">RECORDS</span>
+                    <span class="done-val eh-data">{records.length > 0 ? `${records.length}개 기록 등록됨` : '건너뜀 — 마이페이지에서 추가 가능'}</span>
                 </div>
             </div>
 
-            <div style="height: 24px"></div>
-            <a href="/calendar" class="btn primary done-cta">캘린더로 이동 <span class="arrow">→</span></a>
+            <div style="height: var(--sp-8)"></div>
+            <div style="display:flex; gap: var(--sp-2); justify-content: center; flex-wrap: wrap">
+                <a href="/calendar" class="ob-btn primary">캘린더 보기 →</a>
+                <a href="/mypage" class="ob-btn ghost">마이페이지</a>
+            </div>
         </div>
     {/if}
 </div>
 
 <style>
     .ob-page {
-        max-width: 720px;
+        max-width: 640px;
         margin: 0 auto;
-        padding: 56px 24px 120px;
+        padding: 40px var(--container-pad-mobile) 80px;
     }
 
-    /* Step tabs */
+    /* ── Step tabs (design: border + active bottom ink rule) ── */
     .step-tabs {
         display: flex;
-        border: 1px solid var(--arena-line-soft);
-        margin-bottom: 40px;
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 0.14em;
+        gap: 0;
+        border: 1px solid var(--line);
+        margin-bottom: var(--sp-10);
     }
-    .step-tabs .tab {
+    .step-tab {
         flex: 1;
-        padding: 10px 8px;
-        text-align: center;
-        color: var(--arena-ink-mute);
+        padding: 10px 0 12px;
+        background: var(--paper-0);
         border: 0;
-        border-right: 1px solid var(--arena-line-soft);
+        border-right: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
         cursor: pointer;
-        text-transform: uppercase;
-        background: transparent;
-        font: inherit;
-        letter-spacing: inherit;
+        font-family: var(--font-sans);
+        transition: background var(--dur-fast) var(--ease-out);
     }
-    .step-tabs .tab:last-child { border-right: 0; }
-    .step-tabs .tab.on { background: var(--arena-ink); color: var(--arena-paper); }
-    .step-tabs .tab.done { color: var(--arena-accent-deep); }
-
-    /* Progress */
-    .progress-row { display: flex; align-items: center; gap: 16px; margin-bottom: 40px; }
-    .progress-track { flex: 1; height: 2px; background: var(--arena-line-soft); position: relative; }
-    .progress-fill { position: absolute; inset: 0 auto 0 0; background: var(--arena-ink); transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-    .progress-label { font-family: var(--arena-f-mono); font-size: 12px; color: var(--arena-ink-soft); white-space: nowrap; }
-    .progress-label b { color: var(--arena-ink); font-weight: 500; }
-
-    /* Eyebrow + title */
-    .eyebrow {
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        letter-spacing: 0.18em;
-        color: var(--arena-accent-deep);
-        text-transform: uppercase;
-        margin-bottom: 16px;
-    }
-    .title {
-        font-family: var(--arena-f-display);
-        font-size: 44px;
-        line-height: 1.1;
-        margin: 0 0 16px;
+    .step-tab:last-child { border-right: 0; }
+    .step-tab .n {
+        font-size: 10px;
         font-weight: 700;
-        letter-spacing: -0.025em;
-        color: var(--arena-ink);
+        letter-spacing: var(--track-micro);
+        color: var(--text-faint);
     }
-    .subtitle {
-        color: var(--arena-ink-soft);
+    .step-tab .l {
+        font-size: 11.5px;
+        font-weight: var(--w-strong);
+        color: var(--text-faint);
+    }
+    .step-tab.done .n,
+    .step-tab.done .l { color: var(--text-muted); }
+    /* Active: bottom ink rule */
+    .step-tab.on { box-shadow: inset 0 -2px 0 var(--ink-900); }
+    .step-tab.on .n { color: var(--text-accent); }
+    .step-tab.on .l { color: var(--text-strong); }
+
+    /* ── Eyebrow / title / subtitle ── */
+    .step-eyebrow {
+        margin-bottom: var(--sp-3);
+    }
+    .ob-title {
+        font-family: var(--font-sans);
+        font-size: clamp(30px, 5vw, 40px);
+        font-weight: var(--w-display);
+        letter-spacing: var(--track-display);
+        line-height: 1.08;
+        margin: var(--sp-3) 0 0;
+        color: var(--text-strong);
+    }
+    .ob-subtitle {
+        color: var(--text-muted);
         font-size: 15px;
-        line-height: 1.55;
-        margin: 0 0 40px;
-        max-width: 480px;
+        line-height: var(--leading-body);
+        margin: var(--sp-3) 0 0;
+        max-width: 460px;
+        word-break: keep-all;
     }
 
-    /* Card */
-    .card { border: 1px solid var(--arena-line); padding: 28px; background: var(--arena-paper); }
-    .step-row { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-    .step-num {
-        width: 26px; height: 26px;
-        background: var(--arena-ink); color: var(--arena-paper);
-        font-family: var(--arena-f-mono); font-size: 13px; font-weight: 500;
-        display: grid; place-items: center;
+    /* ── Body (step content column) ── */
+    .ob-body {
+        margin-top: var(--sp-8);
+        display: flex;
+        flex-direction: column;
+        gap: var(--sp-5);
     }
-    .step-row h3 { margin: 0; font-size: 15px; font-weight: 600; color: var(--arena-ink); }
-    .field-label { font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--arena-ink); }
-    .field-label.mono-label { font-family: var(--arena-f-mono); font-size: 11px; letter-spacing: 0.14em; color: var(--arena-ink-soft); }
-    .field-label .hint { font-weight: 400; color: var(--arena-ink-mute); margin-left: 8px; font-family: var(--arena-f-mono); font-size: 11px; }
-    .field-help { font-size: 12px; color: var(--arena-ink-mute); margin-top: 8px; }
-    .field-help.err { color: var(--arena-urgent); }
 
-    .input {
+    /* ── Inputs ── */
+    .field { display: flex; flex-direction: column; gap: var(--sp-2); }
+    .field-label {
+        font-size: var(--text-micro);
+        font-weight: var(--w-strong);
+        letter-spacing: var(--track-micro);
+        text-transform: uppercase;
+        color: var(--text-muted);
+    }
+    .ob-input {
         width: 100%;
-        border: 1px solid var(--arena-line);
-        background: transparent;
+        border: 1px solid var(--line);
+        background: var(--paper-0);
         padding: 14px 16px;
-        font-size: 14px;
-        font-family: var(--arena-f-body);
-        color: var(--arena-ink);
+        font-size: var(--text-body-sm);
+        font-family: var(--font-sans);
+        color: var(--text-strong);
         outline: none;
+        border-radius: var(--r-1);
+        box-sizing: border-box;
     }
-    .input::placeholder { color: var(--arena-ink-mute); }
-    .input:focus { border-color: var(--arena-accent); box-shadow: inset 0 0 0 1px var(--arena-accent); }
+    .ob-input::placeholder { color: var(--text-faint); }
+    .ob-input:focus { border-color: var(--ink-900); }
+    .field-hint {
+        font-size: 12px;
+        color: var(--text-faint);
+        margin-top: 2px;
+    }
+    .field-hint.err { color: var(--danger); }
+    .field-hint-inline {
+        font-size: 11px;
+        font-weight: 400;
+        color: var(--text-faint);
+        margin-left: var(--sp-2);
+        letter-spacing: 0;
+        text-transform: none;
+    }
 
-    /* Buttons */
-    .btn {
-        display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    /* ── Consent checkbox ── */
+    .consent {
+        display: flex;
+        gap: var(--sp-3);
+        align-items: flex-start;
+        background: var(--paper-50);
+        border: var(--border-hair);
+        padding: 14px 16px;
+        cursor: pointer;
+        font-size: 13.5px;
+        color: var(--text-body);
+        line-height: 1.55;
+    }
+    .consent input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+    .consent .cb {
+        width: 16px;
+        height: 16px;
+        border: 1px solid var(--line);
+        background: var(--paper-0);
+        flex-shrink: 0;
+        display: grid;
+        place-items: center;
+        margin-top: 2px;
+    }
+    .consent input:checked + .cb {
+        background: var(--ink-900);
+        border-color: var(--ink-900);
+    }
+    .consent input:checked + .cb::after {
+        content: '';
+        width: 8px;
+        height: 6px;
+        border: solid var(--paper-0);
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg) translate(0, -2px);
+    }
+
+    /* ── Buttons ── */
+    .ob-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
         padding: 16px 22px;
-        border: 1px solid var(--arena-line);
+        border: 1px solid var(--line);
         background: transparent;
-        font-family: var(--arena-f-body);
-        font-size: 14px; font-weight: 600;
-        color: var(--arena-ink);
-        width: 100%;
+        font-family: var(--font-sans);
+        font-size: var(--text-body-sm);
+        font-weight: var(--w-strong);
+        color: var(--text-strong);
         cursor: pointer;
         text-decoration: none;
+        border-radius: var(--r-1);
+        transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
     }
-    .btn.primary { background: var(--arena-ink); color: var(--arena-paper); border-color: var(--arena-ink); }
-    .btn.primary .arrow { color: var(--arena-accent); }
-    .btn.muted { background: var(--arena-ink-mute); color: var(--arena-paper); border-color: var(--arena-ink-mute); }
-    .btn.muted .arrow { color: var(--arena-accent); }
-    .btn:disabled { cursor: not-allowed; }
-    .btn.ghost { background: transparent; border-color: var(--arena-line); }
-    .btn.tiny { padding: 8px 12px; font-size: 12px; width: auto; font-weight: 500; }
-    .arrow { font-family: var(--arena-f-mono); }
+    .ob-btn:disabled { cursor: not-allowed; opacity: 0.45; }
+    .ob-btn.primary {
+        background: var(--ink-900);
+        color: var(--paper-0);
+        border-color: var(--ink-900);
+    }
+    .ob-btn.primary:hover:not(:disabled) { background: var(--ink-700); border-color: var(--ink-700); }
+    .ob-btn.muted {
+        background: var(--ink-300);
+        color: var(--paper-0);
+        border-color: var(--ink-300);
+    }
+    .ob-btn.ghost { background: transparent; border-color: var(--line); color: var(--text-muted); }
+    .ob-btn.ghost:hover:not(:disabled) { color: var(--text-strong); border-color: var(--ink-900); }
+    .ob-btn.tiny { padding: 8px 14px; font-size: 12px; font-weight: 500; }
 
-    .text-link {
-        background: transparent; border: 0; padding: 6px 0;
-        color: var(--arena-ink-soft); font-size: 13px; font-family: var(--arena-f-body);
-        border-bottom: 1px solid var(--arena-line-soft);
-        cursor: pointer;
+    /* ── Nav row ── */
+    .nav-row {
+        display: flex;
+        gap: var(--sp-2);
+        align-items: center;
+        margin-top: var(--sp-9);
+        flex-wrap: wrap;
     }
-    .text-link:hover { color: var(--arena-ink); border-bottom-color: var(--arena-ink); }
-    .text-link:disabled { opacity: 0.5; cursor: not-allowed; }
+    .spacer { flex: 1; }
 
-    /* Consent */
-    .consent {
-        display: flex; gap: 12px; align-items: flex-start;
-        background: var(--arena-paper-alt);
-        border: 1px solid var(--arena-line-soft);
-        padding: 14px 16px;
-        margin-top: 18px;
-        cursor: pointer;
+    /* ── Send OK ── */
+    .send-ok {
+        margin-top: var(--sp-3);
+        display: flex;
+        align-items: center;
+        gap: var(--sp-2);
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-accent);
     }
-    .consent input { position: absolute; opacity: 0; pointer-events: none; }
-    .consent .cb {
-        width: 18px; height: 18px; border: 1px solid var(--arena-line);
-        background: var(--arena-paper); flex-shrink: 0;
-        display: grid; place-items: center; margin-top: 2px;
+    .send-dot {
+        width: 8px;
+        height: 8px;
+        background: var(--accent);
+        flex-shrink: 0;
     }
-    .consent input:checked + .cb::after { content: ''; width: 10px; height: 10px; background: var(--arena-ink); }
-    .consent-body { font-size: 13px; line-height: 1.55; color: var(--arena-ink); }
-    .consent-body .tag {
-        display: inline-block;
-        background: var(--arena-ink); color: var(--arena-paper);
-        font-family: var(--arena-f-mono); font-size: 10px;
-        padding: 2px 6px; margin-right: 6px; vertical-align: 2px;
-    }
-    .consent-body .sub { display: block; margin-top: 4px; color: var(--arena-ink-mute); font-size: 12px; }
 
-    .send-ok { margin-top: 12px; display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; color: var(--arena-accent-deep); }
-    .send-ok-dot { width: 8px; height: 8px; background: var(--arena-accent); flex-shrink: 0; }
-
-    /* OTP */
-    .otp { display: flex; gap: 10px; border: 1px solid var(--arena-line); padding: 14px; justify-content: space-between; position: relative; cursor: text; }
+    /* ── OTP ── */
+    .otp {
+        display: flex;
+        gap: 10px;
+        border: 1px solid var(--line);
+        padding: 14px;
+        justify-content: space-between;
+        position: relative;
+        cursor: text;
+        border-radius: var(--r-1);
+    }
     .otp .cell {
-        flex: 1; aspect-ratio: 1 / 1.2;
-        display: grid; place-items: center;
-        font-family: var(--arena-f-mono); font-size: 28px; font-weight: 500;
-        color: var(--arena-ink-mute);
-        border-right: 1px dashed var(--arena-line-soft);
+        flex: 1;
+        aspect-ratio: 1 / 1.2;
+        display: grid;
+        place-items: center;
+        font-family: var(--font-sans);
+        font-size: 28px;
+        font-weight: 500;
+        color: var(--text-faint);
+        border-right: 1px dashed var(--line);
+        font-variant-numeric: tabular-nums;
     }
     .otp .cell:last-of-type { border-right: 0; }
-    .otp .cell.filled { color: var(--arena-ink); }
+    .otp .cell.filled { color: var(--text-strong); }
     .otp-hidden { position: absolute; opacity: 0; pointer-events: none; }
 
-    .divider { height: 1px; background: var(--arena-line-soft); margin: 28px 0; }
+    .divider { height: 1px; background: var(--line); margin: var(--sp-6) 0; }
 
-    /* Sport list */
-    .sport-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
-    .sport-row {
-        display: grid; grid-template-columns: 80px 1fr 24px;
-        align-items: center; gap: 16px;
-        border: 1px solid var(--arena-line-soft);
-        padding: 18px 20px;
-        cursor: pointer;
-        background: var(--arena-paper);
-        text-align: left;
-        font: inherit;
-        transition: background 0.15s, border-color 0.15s;
-    }
-    .sport-row:hover { border-color: var(--arena-line); }
-    .sport-row.on { border-color: var(--arena-ink); background: var(--arena-paper-alt); }
-    .sport-row .code { font-family: var(--arena-f-mono); font-size: 12px; color: var(--arena-ink-soft); letter-spacing: 0.06em; }
-    .sport-row .name { font-size: 16px; font-weight: 600; color: var(--arena-ink); }
-    .sport-row .cb { width: 22px; height: 22px; border: 1px solid var(--arena-line); display: grid; place-items: center; background: var(--arena-paper); }
-    .sport-row.on .cb { background: var(--arena-ink); border-color: var(--arena-ink); }
-    .sport-row.on .cb::after { content: ''; width: 8px; height: 12px; border: solid var(--arena-paper); border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px, -1px); }
-
-    /* Region chips */
-    .region-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
-    .chip {
-        border: 1px solid var(--arena-line-soft);
-        background: var(--arena-paper);
-        padding: 8px 14px;
-        font-size: 13px; font-weight: 500;
-        color: var(--arena-ink);
-        cursor: pointer;
-        font-family: var(--arena-f-body);
-    }
-    .chip:hover { border-color: var(--arena-line); }
-    .chip.on { background: var(--arena-ink); color: var(--arena-paper); border-color: var(--arena-ink); }
-    .selected-bar {
-        border: 1px solid var(--arena-line-soft);
-        background: var(--arena-paper-alt);
-        padding: 14px 16px;
-        font-size: 13px;
-        margin-bottom: 28px;
-        display: flex; align-items: center; gap: 12px;
-        min-height: 48px;
-    }
-    .selected-bar .key { font-family: var(--arena-f-mono); font-size: 11px; letter-spacing: 0.12em; color: var(--arena-ink-soft); }
-    .selected-bar .vals { color: var(--arena-ink); }
-
-    /* Button row */
-    .button-row { display: grid; grid-template-columns: auto 1fr; gap: 12px; margin-top: 32px; }
-    .button-row .back { width: auto; padding: 16px 22px; }
-    .footer-link { text-align: center; margin-top: 24px; }
-
-    /* Records intro */
-    .records-intro { display: grid; grid-template-columns: 1fr 1fr 1fr; border: 1px solid var(--arena-line-soft); margin-bottom: 28px; }
-    .records-intro .cell { padding: 16px 18px; border-right: 1px solid var(--arena-line-soft); }
-    .records-intro .cell:last-child { border-right: 0; }
-    .records-intro .key { font-family: var(--arena-f-mono); font-size: 10px; color: var(--arena-ink-soft); letter-spacing: 0.14em; margin-bottom: 6px; }
-    .records-intro .val { font-size: 14px; font-weight: 600; line-height: 1.4; color: var(--arena-ink); }
-
-    .summary-strip {
-        display: flex; align-items: center; gap: 14px;
-        padding: 14px 18px;
-        border: 1px solid var(--arena-line-soft);
-        background: var(--arena-paper-alt);
-        margin-bottom: 16px;
-        font-size: 13px;
-    }
-    .summary-strip .key { font-family: var(--arena-f-mono); font-size: 10px; letter-spacing: 0.14em; color: var(--arena-ink-soft); }
-    .summary-strip .stat b { font-family: var(--arena-f-mono); font-size: 16px; }
-    .summary-strip .sep { width: 1px; align-self: stretch; background: var(--arena-line-soft); }
-
-    .records-list { border: 1px solid var(--arena-line); background: var(--arena-paper); margin-bottom: 16px; }
-    .records-head, .record-item {
+    /* ── Sport pick grid ── */
+    .pick-grid {
         display: grid;
-        grid-template-columns: 60px 1.5fr 0.9fr 1fr 80px 28px;
-        gap: 12px;
-        padding: 12px 20px;
-        border-bottom: 1px solid var(--arena-line-soft);
-        align-items: center;
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--sp-3);
+        margin-top: var(--sp-8);
+        margin-bottom: var(--sp-4);
     }
-    .records-head { font-family: var(--arena-f-mono); font-size: 10px; letter-spacing: 0.14em; color: var(--arena-ink-soft); text-transform: uppercase; }
-    .record-item { padding: 18px 20px; }
-    .record-item:last-child { border-bottom: 0; }
-    .record-tag { font-family: var(--arena-f-mono); font-size: 11px; background: var(--arena-ink); color: var(--arena-paper); padding: 4px 6px; text-align: center; letter-spacing: 0.04em; }
-    .record-tag.run { background: oklch(40% 0.16 145); }
-    .record-tag.trl { background: oklch(45% 0.12 60); }
-    .record-tag.cycle { background: oklch(40% 0.14 240); }
-    .record-tag.swim { background: oklch(45% 0.12 220); }
-    .record-tag.tri { background: oklch(40% 0.18 330); }
-    .record-name { font-size: 14px; font-weight: 600; line-height: 1.3; color: var(--arena-ink); }
-    .record-dist { font-family: var(--arena-f-mono); font-size: 13px; color: var(--arena-ink); }
-    .record-time { font-family: var(--arena-f-mono); font-size: 15px; font-weight: 600; letter-spacing: -0.01em; color: var(--arena-ink); }
-    .record-date { font-family: var(--arena-f-mono); font-size: 12px; color: var(--arena-ink-soft); }
-    .record-del { background: transparent; border: 0; cursor: pointer; color: var(--arena-ink-mute); font-size: 18px; display: grid; place-items: center; width: 28px; height: 28px; }
-    .record-del:hover { color: var(--arena-urgent); }
-
-    /* Add form */
-    .add-form { border: 1px solid var(--arena-line); background: var(--arena-paper); padding: 24px; margin-bottom: 16px; }
-    .add-form-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
-    .add-form-title { font-size: 13px; font-weight: 600; font-family: var(--arena-f-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--arena-ink); }
-    .add-form-row { display: grid; gap: 16px; margin-bottom: 16px; }
-    .add-form-row.two { grid-template-columns: 1fr 1fr; }
-
-    .sport-chips { display: flex; gap: 8px; flex-wrap: wrap; }
-    .sport-chip {
-        border: 1px solid var(--arena-line-soft);
-        background: var(--arena-paper);
-        padding: 10px 14px;
-        font-family: var(--arena-f-mono);
-        font-size: 12px; letter-spacing: 0.06em;
+    .pick {
+        border: 1px solid var(--line);
+        background: var(--paper-0);
+        border-radius: var(--r-0);
+        padding: 18px 20px;
+        text-align: left;
+        display: flex;
+        flex-direction: column;
+        gap: var(--sp-2);
         cursor: pointer;
-        display: flex; align-items: center; gap: 8px;
-        color: var(--arena-ink);
+        position: relative;
+        transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+        font-family: var(--font-sans);
     }
-    .sport-chip .ko { font-family: var(--arena-f-body); font-weight: 600; font-size: 13px; letter-spacing: 0; }
-    .sport-chip.on { background: var(--arena-ink); color: var(--arena-paper); border-color: var(--arena-ink); }
+    .pick:hover { border-color: var(--ink-900); }
+    .pick.on {
+        border-color: var(--ink-900);
+        box-shadow: inset 0 0 0 1px var(--ink-900);
+    }
+    .pick .chk {
+        position: absolute;
+        top: 14px;
+        right: 16px;
+        font-size: 13px;
+        font-weight: 800;
+        color: var(--accent-strong);
+        opacity: 0;
+    }
+    .pick.on .chk { opacity: 1; }
+    .pick-sport-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+    }
+    .pick-ko {
+        font-size: 17px;
+        font-weight: 700;
+        letter-spacing: var(--track-heading);
+        color: var(--text-strong);
+    }
+    .pick-desc {
+        font-size: 12px;
+        color: var(--text-muted);
+        line-height: 1.5;
+    }
 
-    .dist-chips { display: flex; gap: 6px; flex-wrap: wrap; }
-    .dist-chip { border: 1px solid var(--arena-line-soft); background: var(--arena-paper); padding: 8px 12px; font-family: var(--arena-f-mono); font-size: 12px; cursor: pointer; color: var(--arena-ink); }
-    .dist-chip.on { background: var(--arena-ink); color: var(--arena-paper); border-color: var(--arena-ink); }
-    .dist-chip.custom-trigger { border-style: dashed; color: var(--arena-ink-soft); }
-    .dist-chip.custom-trigger.on { border-style: solid; }
-    .dist-custom-input { margin-top: 10px; font-family: var(--arena-f-mono); font-size: 13px; }
+    /* ── Region chips ── */
+    .region-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--sp-2);
+        margin-top: var(--sp-8);
+        margin-bottom: var(--sp-4);
+    }
+    .region-chip {
+        border: 1px solid var(--line);
+        background: var(--paper-0);
+        padding: 8px 14px;
+        font-size: 13px;
+        font-weight: var(--w-strong);
+        color: var(--text-strong);
+        cursor: pointer;
+        font-family: var(--font-sans);
+        border-radius: var(--r-1);
+        transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+    }
+    .region-chip:hover { border-color: var(--ink-900); }
+    .region-chip.on {
+        background: var(--ink-900);
+        color: var(--paper-0);
+        border-color: var(--ink-900);
+    }
 
-    .time-input { display: grid; grid-template-columns: 1fr 12px 1fr 12px 1fr; align-items: center; gap: 6px; border: 1px solid var(--arena-line); padding: 12px 14px; }
-    .time-input input { border: 0; background: transparent; outline: none; font-family: var(--arena-f-mono); font-size: 18px; font-weight: 500; text-align: center; width: 100%; color: var(--arena-ink); padding: 0; }
-    .time-input input::placeholder { color: var(--arena-ink-mute); }
-    .time-input .colon { font-family: var(--arena-f-mono); font-size: 16px; color: var(--arena-ink-mute); text-align: center; }
+    /* ── Records table ── */
+    .rec-item {
+        display: grid;
+        grid-template-columns: auto 1fr auto auto;
+        gap: 14px;
+        align-items: center;
+        padding: 13px 16px;
+        border-bottom: var(--border-hair);
+        font-size: var(--text-body-sm);
+    }
+    .rec-item:last-child { border-bottom: 0; }
+    .rec-sport {
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: var(--track-micro);
+        text-transform: uppercase;
+        color: #fff;
+        padding: 3px 6px;
+    }
+    .rec-name {
+        font-weight: var(--w-strong);
+        font-size: var(--text-body-sm);
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--text-strong);
+    }
+    .rec-dist {
+        font-weight: 400;
+        color: var(--text-faint);
+        margin-left: var(--sp-2);
+    }
+    .rec-time {
+        font-size: 15px;
+        text-align: right;
+        color: var(--text-strong);
+        font-variant-numeric: tabular-nums;
+    }
+    .rec-del {
+        background: transparent;
+        border: 0;
+        cursor: pointer;
+        color: var(--text-faint);
+        font-size: 18px;
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        padding: 0;
+    }
+    .rec-del:hover { color: var(--danger); }
 
-    .add-form-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 8px; padding-top: 18px; border-top: 1px solid var(--arena-line-soft); }
+    /* ── Record add form ── */
+    .rec-form {
+        border: 1px solid var(--ink-900);
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: var(--sp-4);
+        margin-top: var(--sp-4);
+    }
+    .rec-form-row { display: flex; flex-direction: column; gap: var(--sp-2); }
+    .field-label-sm {
+        font-size: 12px;
+        font-weight: var(--w-strong);
+        color: var(--text-muted);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+    .hint {
+        font-weight: 400;
+        color: var(--text-faint);
+        margin-left: var(--sp-2);
+        font-size: 11px;
+        letter-spacing: 0;
+        text-transform: none;
+    }
+    .chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--sp-2);
+    }
+    .pick-chip {
+        border: 1px solid var(--line);
+        background: var(--paper-0);
+        padding: 8px 12px;
+        font-family: var(--font-sans);
+        font-size: 12px;
+        font-weight: var(--w-strong);
+        cursor: pointer;
+        color: var(--text-strong);
+        display: flex;
+        align-items: center;
+        gap: var(--sp-2);
+        border-radius: var(--r-1);
+        transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+    }
+    .pick-chip.on {
+        background: var(--ink-900);
+        color: var(--paper-0);
+        border-color: var(--ink-900);
+    }
+    .pick-chip.custom { border-style: dashed; color: var(--text-muted); }
+    .pick-chip.custom.on { border-style: solid; }
+    .spot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex: none;
+    }
 
+    /* ── Time input ── */
+    .time-input {
+        display: grid;
+        grid-template-columns: 1fr 12px 1fr 12px 1fr;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid var(--line);
+        padding: 12px 14px;
+        border-radius: var(--r-1);
+    }
+    .time-input input {
+        border: 0;
+        background: transparent;
+        outline: none;
+        font-family: var(--font-sans);
+        font-size: 18px;
+        font-weight: 500;
+        text-align: center;
+        width: 100%;
+        color: var(--text-strong);
+        padding: 0;
+        font-variant-numeric: tabular-nums;
+    }
+    .time-input input::placeholder { color: var(--text-faint); }
+    .colon {
+        font-size: 16px;
+        color: var(--text-faint);
+        text-align: center;
+    }
+
+    .rec-grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--sp-3);
+    }
+    .rec-form-actions {
+        display: flex;
+        gap: var(--sp-2);
+        justify-content: flex-end;
+        padding-top: var(--sp-4);
+        border-top: var(--border-hair);
+        margin-top: var(--sp-2);
+    }
+
+    /* ── Add trigger button ── */
     .add-trigger {
-        border: 1px dashed var(--arena-line);
+        border: 1px dashed var(--line);
         background: transparent;
         padding: 18px;
         width: 100%;
-        color: var(--arena-ink-soft);
-        font-size: 14px; font-family: var(--arena-f-body);
-        display: flex; align-items: center; justify-content: center; gap: 10px;
-        margin-bottom: 16px;
+        color: var(--text-muted);
+        font-size: var(--text-body-sm);
+        font-family: var(--font-sans);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--sp-2);
+        margin-top: var(--sp-4);
         cursor: pointer;
+        border-radius: var(--r-1);
     }
-    .add-trigger:hover { color: var(--arena-ink); border-color: var(--arena-ink); border-style: solid; }
-    .add-trigger .plus { width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid currentColor; font-size: 16px; line-height: 1; }
+    .add-trigger:hover { color: var(--text-strong); border-color: var(--ink-900); border-style: solid; }
+    .add-trigger .plus {
+        width: 22px;
+        height: 22px;
+        display: grid;
+        place-items: center;
+        border: 1px solid currentColor;
+        font-size: 16px;
+        line-height: 1;
+    }
 
-    /* Done */
-    .done-wrap { text-align: center; padding: 40px 0; }
-    .done-mark { width: 72px; height: 72px; border: 2px solid var(--arena-ink); margin: 0 auto 28px; display: grid; place-items: center; font-size: 32px; color: var(--arena-accent-deep); }
-    .done-sub { margin: 0 auto 36px; }
-    .done-summary { text-align: left; }
-    .done-cta { max-width: 320px; margin: 0 auto; }
+    /* ── Text links ── */
+    .text-link {
+        background: transparent;
+        border: 0;
+        padding: 6px 0;
+        color: var(--text-muted);
+        font-size: 13px;
+        font-family: var(--font-sans);
+        border-bottom: 1px solid var(--line);
+        cursor: pointer;
+        text-decoration: none;
+    }
+    .text-link:hover { color: var(--text-strong); border-bottom-color: var(--ink-900); }
+    .text-link:disabled { opacity: 0.5; cursor: not-allowed; }
+    .footer-link { text-align: center; margin-top: var(--sp-6); }
+
+    /* ── Done screen ── */
+    .done-wrap { text-align: center; padding: var(--sp-6) 0 var(--sp-10); }
+    .done-mark {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto var(--sp-6);
+        background: var(--accent);
+        color: #fff;
+        font-size: 30px;
+        font-weight: 800;
+        display: grid;
+        place-items: center;
+    }
+    .done-sub { margin: var(--sp-3) auto 0; }
+    .done-summary {
+        border: var(--border-hair);
+        margin-top: var(--sp-8);
+        text-align: left;
+    }
+    .done-row {
+        display: grid;
+        grid-template-columns: 130px 1fr;
+        gap: 16px;
+        padding: 14px 18px;
+        border-bottom: var(--border-hair);
+        font-size: var(--text-body-sm);
+        align-items: baseline;
+    }
+    .done-row:last-child { border-bottom: 0; }
+    .done-val {
+        font-weight: var(--w-strong);
+        color: var(--text-strong);
+    }
 
     @media (max-width: 560px) {
-        .title { font-size: 34px; }
-        .records-head, .record-item { grid-template-columns: 48px 1.3fr 0.8fr 64px 24px; }
-        .records-head > :nth-child(4), .record-item > :nth-child(4) { display: none; }
-        .add-form-row.two { grid-template-columns: 1fr; }
+        .ob-title { font-size: 30px; }
+        .pick-grid { grid-template-columns: 1fr; }
+        .step-tab .l { display: none; }
+        .rec-grid2 { grid-template-columns: 1fr; }
     }
 </style>
