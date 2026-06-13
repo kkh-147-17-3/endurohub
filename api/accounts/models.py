@@ -46,14 +46,27 @@ class RaceRecord(models.Model):
         on_delete=models.CASCADE,
         related_name='race_records',
     )
+    # Optional link to a curated catalogue race. When set, this record is the
+    # user's 완주 기록 for that race and powers the "logged" state in 내 시즌.
+    # Free-form onboarding records leave this null.
+    race = models.ForeignKey(
+        'races.Race',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='records',
+    )
     # Sport key matching races.constants.SPORT_LABELS (running, trail_running, ...)
     sport = models.CharField(max_length=20)
     # Distance / category — a preset label (e.g. '풀코스') or free-form custom text.
     distance = models.CharField(max_length=80)
+    # Which course/종목 of the linked race was run (e.g. 'HM'); blank for free-form records.
+    course_code = models.CharField(max_length=20, blank=True, default='')
     name = models.CharField(max_length=200, blank=True, default='')
     # Free-form race date as entered (e.g. '2025-03-16'); blank when skipped.
     record_date = models.CharField(max_length=20, blank=True, default='')
     duration_seconds = models.PositiveIntegerField()
+    is_personal_best = models.BooleanField(default=False)
     is_public = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

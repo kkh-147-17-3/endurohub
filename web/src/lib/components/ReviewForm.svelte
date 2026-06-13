@@ -1,8 +1,11 @@
 <script lang="ts">
     import { enhance } from '$app/forms';
+    import { Button } from '$lib/components/eh';
 
     interface Props {
         raceSlug: string;
+        raceTitle: string;
+        raceMeta?: string;
         hasReviewed: boolean;
         raceDate: string | null;
         raceEndDate?: string | null;
@@ -13,6 +16,8 @@
 
     let {
         raceSlug,
+        raceTitle,
+        raceMeta = '',
         hasReviewed,
         raceDate,
         raceEndDate,
@@ -29,26 +34,9 @@
         return new Date(endDate + 'T00:00:00') <= today;
     });
 
-    let rating = $state(0);
-    let hoverRating = $state(0);
-    let comment = $state('');
-    let completionTime = $state('');
-    let courseDifficulty = $state('');
-    let operationSatisfaction = $state(0);
-    let operationHover = $state(0);
-    let selectedTags = $state<string[]>([]);
-    let isSubmitting = $state(false);
-    let showOptional = $state(false);
-
-    let commentLength = $derived(comment.length);
-
-    const RATING_LABELS: Record<number, string> = {
-        1: '별로예요',
-        2: '그저 그래요',
-        3: '보통이에요',
-        4: '좋아요',
-        5: '최고예요',
-    };
+    const STAR_PATH =
+        'M12 2.2l2.95 6.32 6.85.74-5.1 4.63 1.42 6.75L12 17.6l-6.12 3.84 1.42-6.75-5.1-4.63 6.85-.74z';
+    const RV_MAX = 200;
 
     const RECOMMENDATION_TAGS = [
         '초보자 추천', '경치 좋은', '잘 운영된', '기념품 좋은',
@@ -60,6 +48,28 @@
         ['normal', '보통'],
         ['hard', '어려움'],
     ];
+
+    let rating = $state(0);
+    let hoverRating = $state(0);
+    let comment = $state('');
+    let completionTime = $state('');
+    let courseDifficulty = $state('');
+    let operationSatisfaction = $state(0);
+    let operationHover = $state(0);
+    let selectedTags = $state<string[]>([]);
+    let isSubmitting = $state(false);
+    let showOptional = $state(false);
+
+    const lit = $derived(hoverRating || rating);
+    const opsLit = $derived(operationHover || operationSatisfaction);
+    const over = $derived(comment.length > RV_MAX);
+    const canSubmit = $derived(rating > 0 && comment.trim().length >= 5 && !over);
+    const moreCount = $derived(
+        (completionTime ? 1 : 0)
+        + (courseDifficulty ? 1 : 0)
+        + (operationSatisfaction ? 1 : 0)
+        + selectedTags.length,
+    );
 
     function toggleTag(tag: string) {
         selectedTags = selectedTags.includes(tag)
@@ -87,618 +97,511 @@
         selectedTags = [];
         showOptional = false;
     }
-
-    const optionalFilled = $derived(
-        !!completionTime
-        || !!courseDifficulty
-        || operationSatisfaction > 0
-        || selectedTags.length > 0,
-    );
 </script>
 
 {#if open}
     <div
-        class="rv-modal"
+        class="v-scrim"
         role="dialog"
         aria-modal="true"
-        aria-label="리뷰 작성"
-        onclick={(e) => { if (e.target === e.currentTarget) close(); }}
+        aria-label="대회 리뷰 작성"
+        onmousedown={(e) => { if (e.target === e.currentTarget) close(); }}
         onkeydown={handleKeydown}
         tabindex="-1"
     >
-        <div class="rv-box">
-            <div class="rv-head">
-                <span class="rv-kicker">리뷰 작성</span>
-                <button class="rv-close" onclick={close} aria-label="닫기">✕</button>
+        <div class="v-modal rvm">
+            <button class="rvm-close" onclick={close} aria-label="닫기">×</button>
+
+            <div class="rvm-head">
+                <span class="eh-micro"><span class="acc">WRITE REVIEW</span> · 리뷰 작성</span>
+                <h2 class="race">{raceTitle}</h2>
+                {#if raceMeta}
+                    <p class="meta eh-data">{raceMeta}</p>
+                {/if}
             </div>
 
-            <div class="rv-body">
-                {#if !isFinished}
-                    <div class="rv-state">
-                        <div class="rv-state-tag">작성 불가</div>
-                        <h3>대회가 끝난 뒤에 리뷰를 작성할 수 있어요.</h3>
-                        <p>대회가 종료되면 다시 방문해주세요.</p>
-                    </div>
-                {:else if hasReviewed}
-                    <div class="rv-state">
-                        <div class="rv-state-tag accent">작성 완료</div>
-                        <h3>이미 이 대회의 리뷰를 작성하셨어요.</h3>
-                        <p>소중한 후기 감사합니다.</p>
-                    </div>
-                {:else}
-                    <form
-                        method="POST"
-                        action="?/review"
-                        use:enhance={() => {
-                            isSubmitting = true;
-                            return async ({ result, update }) => {
-                                isSubmitting = false;
-                                if (result.type === 'success') {
-                                    resetForm();
-                                    close();
-                                }
-                                await update();
-                            };
-                        }}
-                        class="rv-form"
-                    >
-                        <!-- Rating -->
-                        <div class="rv-field">
-                            <div class="rv-label">
-                                <span class="rv-flabel">별점</span>
-                                <span class="rv-required">*</span>
+            {#if !isFinished}
+                <div class="rvm-state">
+                    <div class="rvm-state__tag">작성 불가</div>
+                    <h3>대회가 끝난 뒤에 리뷰를 작성할 수 있어요</h3>
+                    <p>대회가 종료되면 다시 방문해주세요.</p>
+                </div>
+                <div class="rvm-foot">
+                    <span style="flex:1"></span>
+                    <Button variant="ghost" onclick={close}>닫기</Button>
+                </div>
+            {:else if hasReviewed}
+                <div class="rvm-state">
+                    <div class="rvm-state__tag rvm-state__tag--acc">작성 완료</div>
+                    <h3>이미 이 대회의 리뷰를 작성하셨어요</h3>
+                    <p>소중한 후기 감사합니다.</p>
+                </div>
+                <div class="rvm-foot">
+                    <span style="flex:1"></span>
+                    <Button variant="ghost" onclick={close}>닫기</Button>
+                </div>
+            {:else}
+                <form
+                    method="POST"
+                    action="?/review"
+                    class="rvm-form"
+                    use:enhance={() => {
+                        isSubmitting = true;
+                        return async ({ result, update }) => {
+                            isSubmitting = false;
+                            if (result.type === 'success') {
+                                resetForm();
+                                close();
+                            }
+                            await update();
+                        };
+                    }}
+                >
+                    <div class="rvm-scroll">
+                        <!-- 별점 -->
+                        <div class="rvm-sec">
+                            <div class="rvm-flabel">
+                                <span class="l">별점<span class="req">*</span></span>
                             </div>
-                            <div class="rv-stars-input" role="radiogroup" aria-label="별점">
-                                {#each [1, 2, 3, 4, 5] as star}
+                            <div class="rv-stars" role="group" aria-label="별점 선택" onmouseleave={() => (hoverRating = 0)}>
+                                {#each [1, 2, 3, 4, 5] as n (n)}
                                     <button
                                         type="button"
-                                        class="rv-star {(hoverRating || rating) >= star ? 'on' : ''}"
-                                        onclick={() => (rating = star)}
-                                        onmouseenter={() => (hoverRating = star)}
-                                        onmouseleave={() => (hoverRating = 0)}
-                                        aria-label="{star}점"
-                                    >★</button>
+                                        class="rv-star {n <= lit ? 'on' : ''}"
+                                        onmouseenter={() => (hoverRating = n)}
+                                        onclick={() => (rating = rating === n ? 0 : n)}
+                                        aria-label="{n}점"
+                                    >
+                                        <svg viewBox="0 0 24 24" fill={n <= lit ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d={STAR_PATH}></path></svg>
+                                    </button>
                                 {/each}
-                                {#if (hoverRating || rating) > 0}
-                                    <span class="rv-rating-label">{RATING_LABELS[hoverRating || rating]}</span>
-                                {/if}
+                                <span class="rv-score {rating ? '' : 'empty'}">
+                                    {#if rating}<span class="n eh-data">{rating}</span> / 5{:else}평가 안 함{/if}
+                                </span>
                             </div>
                             <input type="hidden" name="rating" value={rating} />
-                            {#if errors.rating}
-                                <p class="rv-error" role="alert">{errors.rating[0]}</p>
-                            {/if}
+                            {#if errors.rating}<p class="rvm-err" role="alert">{errors.rating[0]}</p>{/if}
                         </div>
 
-                        <!-- Comment -->
-                        <div class="rv-field">
-                            <div class="rv-label">
-                                <span class="rv-flabel">한줄평</span>
-                                <span class="rv-required">*</span>
-                                <span class="rv-counter {commentLength > 180 ? 'warn' : ''}">{commentLength}/200</span>
+                        <!-- 한줄평 -->
+                        <div class="rvm-sec">
+                            <div class="rvm-flabel">
+                                <span class="l">한줄평<span class="req">*</span></span>
+                                <span class="r eh-data {over ? 'over' : ''}">{comment.length} / {RV_MAX}</span>
                             </div>
                             <textarea
-                                id="review-comment"
+                                class="rvm-ta"
                                 name="comment"
                                 bind:value={comment}
-                                placeholder="대회에 대한 솔직한 후기를 남겨주세요 (5–200자)"
-                                maxlength="200"
-                                rows="3"
-                                class="rv-input"
+                                placeholder="대회에 대한 솔직한 후기를 남겨주세요. 코스·급수·운영 등 다음 러너에게 도움이 될 정보를 사실 위주로. (5–200자)"
                             ></textarea>
-                            {#if errors.comment}
-                                <p class="rv-error" role="alert">{errors.comment[0]}</p>
-                            {/if}
+                            {#if errors.comment}<p class="rvm-err" role="alert">{errors.comment[0]}</p>{/if}
                         </div>
 
-                        <!-- Nickname -->
-                        <div class="rv-field">
-                            <div class="rv-label">
-                                <span class="rv-flabel">닉네임</span>
-                                <span class="rv-hint">미입력 시 익명</span>
+                        <!-- 닉네임 -->
+                        <div class="rvm-sec">
+                            <div class="rvm-flabel">
+                                <span class="l">닉네임</span>
+                                <span class="r">미입력 시 익명</span>
                             </div>
                             <input
+                                class="rvm-text"
                                 type="text"
-                                id="review-nickname"
                                 name="nickname"
                                 placeholder="닉네임을 입력하세요"
-                                maxlength="50"
-                                class="rv-input"
+                                maxlength="20"
                             />
                         </div>
 
-                        <!-- Optional toggle -->
-                        <button
-                            type="button"
-                            class="rv-toggle"
-                            onclick={() => (showOptional = !showOptional)}
-                        >
-                            <span class="rv-toggle-arrow {showOptional ? 'open' : ''}">▸</span>
-                            <span>추가 정보 입력 (선택)</span>
-                            {#if optionalFilled}
-                                <span class="rv-toggle-badge">입력됨</span>
-                            {/if}
-                        </button>
-
-                        {#if showOptional}
-                            <div class="rv-optional">
-                                <div class="rv-field">
-                                    <div class="rv-label">
-                                        <span class="rv-flabel">완주 기록</span>
-                                    </div>
-                                    <input
-                                        type="text"
-                                        id="review-completion-time"
-                                        name="completion_time"
-                                        bind:value={completionTime}
-                                        placeholder="예: 4:30:00"
-                                        maxlength="20"
-                                        class="rv-input rv-input-mono"
-                                    />
-                                </div>
-
-                                <div class="rv-field">
-                                    <div class="rv-label">
-                                        <span class="rv-flabel">코스 난이도</span>
-                                    </div>
-                                    <div class="rv-diff">
-                                        {#each DIFFICULTY_OPTIONS as [val, label]}
-                                            <button
-                                                type="button"
-                                                class="rv-diff-btn {courseDifficulty === val ? 'on' : ''}"
-                                                onclick={() => (courseDifficulty = courseDifficulty === val ? '' : val)}
-                                            >
-                                                {label}
-                                            </button>
-                                        {/each}
-                                    </div>
-                                    <input type="hidden" name="course_difficulty" value={courseDifficulty} />
-                                </div>
-
-                                <div class="rv-field">
-                                    <div class="rv-label">
-                                        <span class="rv-flabel">운영 만족도</span>
-                                    </div>
-                                    <div class="rv-stars-input" role="radiogroup" aria-label="운영 만족도">
-                                        {#each [1, 2, 3, 4, 5] as star}
-                                            <button
-                                                type="button"
-                                                class="rv-star sm {(operationHover || operationSatisfaction) >= star ? 'on' : ''}"
-                                                onclick={() => (operationSatisfaction = star)}
-                                                onmouseenter={() => (operationHover = star)}
-                                                onmouseleave={() => (operationHover = 0)}
-                                                aria-label="{star}점"
-                                            >★</button>
-                                        {/each}
-                                    </div>
-                                    <input type="hidden" name="operation_satisfaction" value={operationSatisfaction || ''} />
-                                </div>
-
-                                <div class="rv-field">
-                                    <div class="rv-label">
-                                        <span class="rv-flabel">추천 태그</span>
-                                    </div>
-                                    <div class="rv-tags">
-                                        {#each RECOMMENDATION_TAGS as tag}
-                                            <button
-                                                type="button"
-                                                class="rv-tag {selectedTags.includes(tag) ? 'on' : ''}"
-                                                onclick={() => toggleTag(tag)}
-                                            >
-                                                {#if selectedTags.includes(tag)}
-                                                    <span class="rv-tag-check">✓</span>
-                                                {/if}
-                                                {tag}
-                                            </button>
-                                        {/each}
-                                    </div>
-                                    {#each selectedTags as tag}
-                                        <input type="hidden" name="recommendation_tags" value={tag} />
-                                    {/each}
-                                </div>
-                            </div>
-                        {/if}
-
-                        {#if errors.review}
-                            <div class="rv-alert" role="alert">! {errors.review[0]}</div>
-                        {/if}
-
-                        <div class="rv-submit">
-                            <button
-                                type="submit"
-                                disabled={isSubmitting || rating === 0 || commentLength < 5}
-                                class="rv-btn-primary"
-                            >
-                                <span>{isSubmitting ? '등록 중…' : '리뷰 등록'}</span>
-                                <span class="rv-arrow">→</span>
+                        <!-- 추가 정보 (선택) -->
+                        <div class="rvm-more">
+                            <button type="button" class="rvm-toggle" aria-expanded={showOptional} onclick={() => (showOptional = !showOptional)}>
+                                <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"></polyline></svg>
+                                <span class="t">추가 정보 입력 <span class="opt">(선택)</span></span>
+                                {#if moreCount > 0}<span class="h eh-data">{moreCount}개 입력됨</span>{/if}
                             </button>
-                            {#if rating === 0 || commentLength < 5}
-                                <p class="rv-hint-center">
-                                    {rating === 0 ? '별점을 선택해주세요' : '한줄평을 5자 이상 입력해주세요'}
-                                </p>
+
+                            {#if showOptional}
+                                <div class="rvm-morebody">
+                                    <!-- 완주 기록 -->
+                                    <div class="rvm-sub">
+                                        <span class="sl">완주 기록</span>
+                                        <input
+                                            class="rvm-text"
+                                            type="text"
+                                            name="completion_time"
+                                            bind:value={completionTime}
+                                            placeholder="예: 4:30:00"
+                                            inputmode="numeric"
+                                            maxlength="20"
+                                        />
+                                    </div>
+
+                                    <!-- 코스 난이도 -->
+                                    <div class="rvm-sub">
+                                        <span class="sl">코스 난이도</span>
+                                        <div class="seg3" role="group" aria-label="코스 난이도">
+                                            {#each DIFFICULTY_OPTIONS as [val, label] (val)}
+                                                <button
+                                                    type="button"
+                                                    class={courseDifficulty === val ? 'on' : ''}
+                                                    onclick={() => (courseDifficulty = courseDifficulty === val ? '' : val)}
+                                                >{label}</button>
+                                            {/each}
+                                        </div>
+                                        <input type="hidden" name="course_difficulty" value={courseDifficulty} />
+                                    </div>
+
+                                    <!-- 운영 만족도 -->
+                                    <div class="rvm-sub">
+                                        <span class="sl">운영 만족도</span>
+                                        <div class="rv-stars sm" role="group" aria-label="운영 만족도 선택" onmouseleave={() => (operationHover = 0)}>
+                                            {#each [1, 2, 3, 4, 5] as n (n)}
+                                                <button
+                                                    type="button"
+                                                    class="rv-star ink {n <= opsLit ? 'on' : ''}"
+                                                    onmouseenter={() => (operationHover = n)}
+                                                    onclick={() => (operationSatisfaction = operationSatisfaction === n ? 0 : n)}
+                                                    aria-label="{n}점"
+                                                >
+                                                    <svg viewBox="0 0 24 24" fill={n <= opsLit ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d={STAR_PATH}></path></svg>
+                                                </button>
+                                            {/each}
+                                        </div>
+                                        <input type="hidden" name="operation_satisfaction" value={operationSatisfaction || ''} />
+                                    </div>
+
+                                    <!-- 추천 태그 -->
+                                    <div class="rvm-sub">
+                                        <span class="sl">추천 태그</span>
+                                        <div class="rvm-tags">
+                                            {#each RECOMMENDATION_TAGS as tag (tag)}
+                                                <button
+                                                    type="button"
+                                                    class="rvm-tag {selectedTags.includes(tag) ? 'on' : ''}"
+                                                    onclick={() => toggleTag(tag)}
+                                                >{tag}</button>
+                                            {/each}
+                                        </div>
+                                        {#each selectedTags as tag (tag)}
+                                            <input type="hidden" name="recommendation_tags" value={tag} />
+                                        {/each}
+                                    </div>
+                                </div>
                             {/if}
                         </div>
-                    </form>
-                {/if}
-            </div>
+
+                        {#if errors.review}
+                            <div class="rvm-alert" role="alert">! {errors.review[0]}</div>
+                        {/if}
+                    </div>
+
+                    <div class="rvm-foot">
+                        <p class="note">공개 후기로 등록되며 <b>검수 후 노출</b>됩니다</p>
+                        <span style="flex:1"></span>
+                        <Button variant="ghost" type="button" onclick={close}>취소</Button>
+                        <span class="grow">
+                            <Button variant="primary" type="submit" disabled={!canSubmit || isSubmitting} fullWidth>
+                                {isSubmitting ? '등록 중…' : '등록하기 →'}
+                            </Button>
+                        </span>
+                    </div>
+                </form>
+            {/if}
         </div>
     </div>
 {/if}
 
 <style>
-    .rv-modal {
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.85);
-        z-index: 200;
+    .rvm {
+        max-width: 600px;
+        display: flex;
+        flex-direction: column;
+        max-height: min(90vh, 800px);
+    }
+    .rvm-close {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        z-index: 3;
+        width: 34px;
+        height: 34px;
+        border: 0;
+        background: transparent;
+        color: var(--text-faint);
+        font-size: 20px;
+        line-height: 1;
         display: grid;
         place-items: center;
-        padding: 24px;
         cursor: pointer;
+        transition: color var(--dur-fast) var(--ease-out);
+    }
+    .rvm-close:hover { color: var(--text-strong); }
+
+    .rvm-head {
+        padding: 30px 32px 18px;
+        border-bottom: var(--border-rule);
+    }
+    .rvm-head .race {
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: -0.022em;
+        line-height: 1.12;
+        margin: 11px 0 0;
+        padding-right: 28px;
+        text-wrap: balance;
+        color: var(--text-strong);
+    }
+    .rvm-head .meta {
+        font-size: 12.5px;
+        color: var(--text-muted);
+        margin: 8px 0 0;
+        letter-spacing: 0.01em;
     }
 
-    .rv-box {
-        background: var(--arena-paper);
-        border: 1px solid var(--arena-ink);
-        box-shadow: 6px 6px 0 var(--arena-ink);
-        max-width: 540px;
-        width: 100%;
-        max-height: 90vh;
+    /* form fills remaining height; scroll body + sticky foot */
+    .rvm-form {
         display: flex;
         flex-direction: column;
-        cursor: default;
+        flex: 1;
+        min-height: 0;
     }
-
-    .rv-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 14px 18px;
-        border-bottom: 1px solid var(--arena-line);
-        background: var(--arena-paper-alt);
-        flex-shrink: 0;
-    }
-
-    .rv-kicker {
-        font-family: var(--arena-f-mono);
-        font-size: 12px;
-        letter-spacing: 1.5px;
-        text-transform: uppercase;
-        color: var(--arena-ink);
-        font-weight: 600;
-    }
-
-    /* Form field label — readable, not a tiny instrumentation kicker */
-    .rv-flabel {
-        font-family: var(--arena-f-body);
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--arena-ink);
-    }
-
-    .rv-close {
-        background: transparent;
-        border: 1px solid var(--arena-line);
-        padding: 4px 10px;
-        font-size: 14px;
-        cursor: pointer;
-        line-height: 1;
-        color: var(--arena-ink);
-        font-family: var(--arena-f-mono);
-    }
-    .rv-close:hover {
-        background: var(--arena-ink);
-        color: var(--arena-paper);
-    }
-
-    .rv-body {
+    .rvm-scroll {
         overflow-y: auto;
         overscroll-behavior: contain;
+        padding: 4px 32px;
         flex: 1;
     }
-
-    /* States (unavailable / already reviewed) */
-    .rv-state {
-        padding: 48px 28px;
-        text-align: center;
+    .rvm-sec {
+        padding: 24px 0;
+        border-bottom: var(--border-hair);
+    }
+    .rvm-flabel {
         display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 10px;
-    }
-    .rv-state-tag {
-        display: inline-block;
-        padding: 5px 12px;
-        border: 1px solid var(--arena-ink);
-        font-family: var(--arena-f-body);
-        font-weight: 600;
-        font-size: 13px;
-        letter-spacing: 0.5px;
-        margin-bottom: 8px;
-        color: var(--arena-ink);
-    }
-    .rv-state-tag.accent {
-        background: var(--arena-accent);
-        border-color: var(--arena-accent);
-    }
-    .rv-state h3 {
-        font-family: var(--arena-f-display);
-        font-size: 20px;
-        font-weight: 700;
-        letter-spacing: -0.4px;
-        margin: 0;
-        color: var(--arena-ink);
-        line-height: 1.4;
-    }
-    .rv-state p {
-        font-size: 14px;
-        color: var(--arena-ink-soft);
-        margin: 0;
-    }
-
-    /* Form */
-    .rv-form {
-        padding: 18px 22px 22px;
-        display: flex;
-        flex-direction: column;
-        gap: 18px;
-    }
-    .rv-field {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-    .rv-label {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .rv-required {
-        color: var(--arena-urgent);
-        font-size: 14px;
-        font-weight: 700;
-        line-height: 1;
-    }
-    .rv-hint {
-        color: var(--arena-ink-soft);
-        font-family: var(--arena-f-body);
-        font-size: 12px;
-        margin-left: auto;
-    }
-    .rv-counter {
-        margin-left: auto;
-        font-family: var(--arena-f-mono);
-        font-size: 13px;
-        color: var(--arena-ink-soft);
-    }
-    .rv-counter.warn {
-        color: var(--arena-urgent);
-    }
-
-    .rv-input {
-        font-family: var(--arena-f-body);
-        font-size: 14px;
-        padding: 10px 12px;
-        border: 1px solid var(--arena-line);
-        background: var(--arena-paper);
-        color: var(--arena-ink);
-        outline: none;
-        width: 100%;
-        line-height: 1.5;
-        resize: vertical;
-        border-radius: 0;
-    }
-    .rv-input::placeholder {
-        color: var(--arena-ink-mute);
-    }
-    .rv-input:focus {
-        border-color: var(--arena-ink);
-        box-shadow: 2px 2px 0 var(--arena-ink);
-    }
-    .rv-input-mono {
-        font-family: var(--arena-f-mono);
-    }
-
-    /* Star rating input */
-    .rv-stars-input {
-        display: flex;
-        align-items: center;
-        gap: 2px;
-    }
-    .rv-star {
-        background: transparent;
-        border: none;
-        padding: 0 3px;
-        font-size: 32px;
-        line-height: 1;
-        cursor: pointer;
-        color: var(--arena-line-soft);
-        font-family: var(--arena-f-mono);
-        transition: color 0.1s, transform 0.1s;
-    }
-    .rv-star:hover { transform: scale(1.1); }
-    .rv-star.on { color: var(--arena-ink); }
-    .rv-star.sm { font-size: 24px; }
-    .rv-rating-label {
-        margin-left: 12px;
-        font-family: var(--arena-f-body);
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--arena-ink);
-    }
-
-    /* Optional toggle */
-    .rv-toggle {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        background: transparent;
-        border: none;
-        padding: 6px 0;
-        font-family: var(--arena-f-body);
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--arena-ink-soft);
-        cursor: pointer;
-        text-align: left;
-    }
-    .rv-toggle:hover { color: var(--arena-ink); }
-    .rv-toggle-arrow {
-        font-size: 12px;
-        transition: transform 0.15s;
-        display: inline-block;
-    }
-    .rv-toggle-arrow.open { transform: rotate(90deg); }
-    .rv-toggle-badge {
-        margin-left: auto;
-        padding: 3px 8px;
-        background: var(--arena-accent);
-        color: var(--arena-ink);
-        font-family: var(--arena-f-body);
-        font-weight: 600;
-        font-size: 12px;
-    }
-
-    .rv-optional {
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-        padding-left: 14px;
-        border-left: 1px solid var(--arena-line);
-    }
-
-    /* Difficulty buttons */
-    .rv-diff {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 6px;
-    }
-    .rv-diff-btn {
-        font-family: var(--arena-f-body);
-        font-size: 13px;
-        font-weight: 600;
-        padding: 9px 12px;
-        background: var(--arena-paper);
-        color: var(--arena-ink);
-        border: 1px solid var(--arena-line);
-        cursor: pointer;
-        transition: transform 0.1s;
-        border-radius: 0;
-    }
-    .rv-diff-btn:hover { background: var(--arena-paper-alt); }
-    .rv-diff-btn:active { transform: translateY(1px); }
-    .rv-diff-btn.on {
-        background: var(--arena-ink);
-        color: var(--arena-paper);
-        border-color: var(--arena-ink);
-    }
-
-    /* Tags */
-    .rv-tags {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-    }
-    .rv-tag {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        padding: 7px 12px;
-        border: 1px solid var(--arena-line);
-        background: var(--arena-paper);
-        color: var(--arena-ink);
-        font-family: var(--arena-f-body);
-        font-size: 13px;
-        font-weight: 500;
-        cursor: pointer;
-        border-radius: 0;
-        transition: transform 0.1s;
-    }
-    .rv-tag:hover { background: var(--arena-paper-alt); }
-    .rv-tag:active { transform: translateY(1px); }
-    .rv-tag.on {
-        background: var(--arena-ink);
-        color: var(--arena-paper);
-        border-color: var(--arena-ink);
-    }
-    .rv-tag-check {
-        font-family: var(--arena-f-mono);
-        font-size: 12px;
-        font-weight: 700;
-    }
-
-    /* Errors */
-    .rv-error {
-        font-family: var(--arena-f-body);
-        font-size: 13px;
-        color: var(--arena-urgent);
-        margin: 0;
-    }
-    .rv-alert {
-        padding: 11px 14px;
-        border: 1px solid var(--arena-urgent);
-        color: var(--arena-urgent);
-        font-family: var(--arena-f-body);
-        font-size: 14px;
-        background: var(--arena-paper);
-    }
-
-    /* Submit */
-    .rv-submit {
-        padding-top: 4px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-    .rv-btn-primary {
-        display: flex;
-        align-items: center;
+        align-items: baseline;
         justify-content: space-between;
         gap: 12px;
-        width: 100%;
-        padding: 12px 14px;
-        font-family: var(--arena-f-body);
+        margin-bottom: 13px;
+    }
+    .rvm-flabel .l {
         font-size: 14px;
-        font-weight: 600;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        color: var(--text-strong);
+    }
+    .rvm-flabel .l .req { color: var(--accent); font-weight: 800; margin-left: 4px; }
+    .rvm-flabel .r { font-size: 11px; color: var(--text-faint); letter-spacing: 0.02em; }
+    .rvm-flabel .r.over { color: var(--danger); }
+
+    /* star rating */
+    .rv-stars { display: flex; align-items: center; gap: 6px; }
+    .rv-star {
+        width: 38px;
+        height: 38px;
+        border: 0;
+        background: transparent;
+        padding: 0;
+        display: grid;
+        place-items: center;
+        color: var(--line);
         cursor: pointer;
+        transition: color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+    }
+    .rv-star:active { transform: translateY(1px); }
+    .rv-star.on { color: var(--accent); }
+    .rv-star.on.ink { color: var(--ink-900); }
+    .rv-star svg { width: 100%; height: 100%; }
+    .rv-stars.sm .rv-star { width: 30px; height: 30px; }
+    .rv-score {
+        margin-left: 10px;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text-muted);
+        letter-spacing: 0.01em;
+        align-self: center;
+    }
+    .rv-score .n {
+        font-size: 19px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: var(--text-strong);
+    }
+    .rv-score.empty { color: var(--text-faint); font-weight: 600; }
+
+    /* textarea / inputs */
+    .rvm-ta {
+        width: 100%;
+        min-height: 104px;
+        resize: vertical;
+        border: 1px solid var(--line);
+        border-radius: var(--r-2);
+        padding: 13px 15px;
+        font-size: 14.5px;
+        line-height: 1.6;
+        color: var(--text-body);
+        background: var(--paper-0);
+        font-family: inherit;
+    }
+    .rvm-ta:focus { outline: 0; border-color: var(--ink-900); }
+    .rvm-ta::placeholder { color: var(--text-faint); }
+    .rvm-text {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: var(--r-2);
+        padding: 11px 14px;
+        font-size: 14px;
+        color: var(--text-body);
+        background: var(--paper-0);
+        font-family: inherit;
+        font-variant-numeric: tabular-nums;
+    }
+    .rvm-text:focus { outline: 0; border-color: var(--ink-900); }
+    .rvm-text::placeholder { color: var(--text-faint); font-variant-numeric: normal; }
+
+    /* collapsible 추가 정보 */
+    .rvm-more { border-top: var(--border-hair); }
+    .rvm-toggle {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 18px 0;
+        border: 0;
+        background: transparent;
         text-align: left;
-        transition: transform 0.1s;
-        background: var(--arena-ink);
-        color: var(--arena-paper);
-        border: 1px solid var(--arena-ink);
-        border-radius: 0;
+        cursor: pointer;
     }
-    .rv-btn-primary:hover:not(:disabled) {
-        background: var(--arena-accent-deep);
-        border-color: var(--arena-accent-deep);
+    .rvm-toggle .chev {
+        width: 16px;
+        height: 16px;
+        color: var(--text-faint);
+        transition: transform var(--dur-base) var(--ease-out);
+        flex-shrink: 0;
     }
-    .rv-btn-primary:active:not(:disabled) {
-        transform: translateY(1px);
+    .rvm-toggle[aria-expanded='true'] .chev { transform: rotate(90deg); }
+    .rvm-toggle .t { font-size: 13px; font-weight: 700; color: var(--text-strong); }
+    .rvm-toggle .t .opt { color: var(--text-faint); font-weight: 500; }
+    .rvm-toggle .h { font-size: 11.5px; color: var(--text-faint); margin-left: auto; letter-spacing: 0.02em; }
+    .rvm-morebody { padding-bottom: 4px; }
+    .rvm-sub { padding: 16px 0; border-top: var(--border-hair); }
+    .rvm-sub:first-child { border-top: 0; padding-top: 4px; }
+    .rvm-sub .sl {
+        font-size: var(--text-micro);
+        font-weight: 700;
+        letter-spacing: var(--track-micro);
+        text-transform: uppercase;
+        color: var(--text-faint);
+        display: block;
+        margin-bottom: 11px;
     }
-    .rv-btn-primary:disabled {
-        opacity: 0.4;
-        cursor: not-allowed;
+
+    /* 3-way difficulty */
+    .seg3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        border: 1px solid var(--line);
+        border-radius: var(--r-2);
+        overflow: hidden;
     }
-    .rv-arrow {
-        font-family: var(--arena-f-mono);
+    .seg3 button {
+        border: 0;
+        border-left: 1px solid var(--line);
+        background: var(--paper-0);
+        padding: 11px 8px;
         font-size: 13px;
-        opacity: 0.7;
+        font-weight: 600;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
     }
-    .rv-hint-center {
+    .seg3 button:first-child { border-left: 0; }
+    .seg3 button:hover { background: var(--paper-50); }
+    .seg3 button.on { background: var(--ink-900); color: var(--paper-0); }
+
+    /* recommend tags */
+    .rvm-tags { display: flex; flex-wrap: wrap; gap: 7px; }
+    .rvm-tag {
+        border: 1px solid var(--line);
+        border-radius: var(--r-4);
+        background: var(--paper-0);
+        padding: 7px 13px;
+        font-size: 12.5px;
+        font-weight: 500;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+    }
+    .rvm-tag:hover { border-color: var(--ink-700); color: var(--text-strong); }
+    .rvm-tag.on { background: var(--ink-900); border-color: var(--ink-900); color: var(--paper-0); }
+
+    /* inline errors */
+    .rvm-err {
+        font-size: 13px;
+        color: var(--danger);
+        margin: 10px 0 0;
+    }
+    .rvm-alert {
+        margin: 4px 0 20px;
+        padding: 11px 14px;
+        border: 1px solid var(--danger);
+        color: var(--danger);
+        font-size: 14px;
+        background: var(--paper-0);
+    }
+
+    /* footer */
+    .rvm-foot {
+        padding: 16px 32px 22px;
+        border-top: var(--border-rule);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .rvm-foot .note { font-size: 11.5px; color: var(--text-faint); line-height: 1.45; margin: 0; }
+    .rvm-foot .note b { color: var(--text-muted); font-weight: 700; }
+    .rvm-foot .grow { display: flex; }
+
+    /* state (작성 불가 / 작성 완료) */
+    .rvm-state {
+        flex: 1;
+        padding: 44px 32px;
         text-align: center;
-        font-family: var(--arena-f-body);
-        font-size: 13px;
-        color: var(--arena-ink-soft);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+    }
+    .rvm-state__tag {
+        display: inline-block;
+        padding: 5px 12px;
+        border: 1px solid var(--ink-900);
+        font-weight: 700;
+        font-size: 12px;
+        letter-spacing: 0.04em;
+        margin-bottom: 6px;
+        color: var(--text-strong);
+    }
+    .rvm-state__tag--acc { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .rvm-state h3 {
+        font-size: 18px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
         margin: 0;
+        color: var(--text-strong);
+        line-height: 1.35;
+    }
+    .rvm-state p { font-size: 14px; color: var(--text-muted); margin: 0; }
+
+    @media (max-width: 768px) {
+        .rvm { max-height: 92vh; }
+        .rvm-head { padding: 26px 22px 16px; }
+        .rvm-scroll { padding: 0 22px; }
+        .rvm-foot { padding: 14px 22px 20px; }
+        .rvm-foot .note { display: none; }
+        .rvm-foot .grow { flex: 1; display: flex; }
     }
 
     @media (max-width: 480px) {
-        .rv-modal { padding: 0; }
-        .rv-box {
-            max-width: 100%;
-            max-height: 100vh;
-            box-shadow: none;
-            border: none;
-        }
-        .rv-form { padding: 16px 16px 18px; }
+        .rvm { max-width: 100%; max-height: 100vh; }
     }
 </style>

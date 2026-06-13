@@ -115,6 +115,29 @@ def sanitize_html(html: str) -> str:
     return cleaned
 
 
+# Notices allow tables in addition to the standard rich-text tags.
+NOTICE_ALLOWED_TAGS = ALLOWED_TAGS | {
+    'table', 'thead', 'tbody', 'tr', 'th', 'td',
+}
+
+
+def sanitize_notice_html(html: str) -> str:
+    """Sanitize notice HTML — same rules as sanitize_html but allows tables."""
+    if not html:
+        return ''
+
+    cleaned = nh3.clean(
+        html,
+        tags=NOTICE_ALLOWED_TAGS,
+        attributes=ALLOWED_ATTRIBUTES,
+        url_schemes=ALLOWED_URL_SCHEMES,
+        attribute_filter=_attribute_filter,
+        link_rel='nofollow noopener noreferrer',
+    )
+
+    return cleaned
+
+
 def html_to_text(html: str) -> str:
     """Strip all HTML tags and return plain text."""
     if not html:

@@ -35,4 +35,13 @@ claude.md
 .svelte-kit/
 build/
 endurohub-design/
+
+# Django file cache
 .cache/
+
+# Playwright MCP artifacts
+.playwright-mcp/
+
+# Working artifacts (screenshots, handoff bundles)
+/*.png
+*.zip

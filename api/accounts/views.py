@@ -24,6 +24,7 @@ from .serializers import (
     ProfilePreferencesSerializer,
     RaceRecordCreateSerializer,
     RaceRecordSerializer,
+    RaceResultCreateSerializer,
     UserMeSerializer,
 )
 from .tokens import create_access_token
@@ -760,3 +761,199 @@ class MyFavoriteRacesView(APIView):
             context={'favorite_race_ids': favorite_set},
         )
         return paginator.get_paginated_response(serializer.data)
+
+
+class MySeasonView(APIView):
+    """GET /api/v1/me/season/?year=2026 — 내 시즌 타임라인 집계.
+
+    Returns every race in the user's season for the year (관심·참가 예정·완주
+    기록의 합집합) with a flat participation/result overlay merged into each
+    race, plus aggregate stats. Drives /timeline on the web.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from races.models import Race, RaceFavorite, RaceParticipation
+        from races.serializers import RaceSerializer
+
+        today = timezone.localdate()
+        try:
+            year = int(request.query_params.get('year') or today.year)
+        except (TypeError, ValueError):
+            year = today.year
+
+        user = request.user
+        favorite_ids = set(
+            RaceFavorite.objects.filter(user=user).values_list('race_id', flat=True)
+        )
+        parts = {
+            p.race_id: p for p in RaceParticipation.objects.filter(user=user)
+        }
+        records = {
+            r.race_id: r
+            for r in RaceRecord.objects.filter(user=user, race__isnull=False)
+        }
+
+        race_ids = favorite_ids | set(parts) | set(records)
+        races = list(
+            Race.objects.filter(id__in=race_ids, race_date__year=year).order_by('race_date')
+        )
+        payload = RaceSerializer(
+            races, many=True, context={'favorite_race_ids': favorite_ids}
+        ).data
+
+        out = []
+        for race, data in zip(races, payload):
+            data.update(self._overlay(race, parts.get(race.id), records.get(race.id), today))
+            out.append(data)
+
+        return Response({'year': year, 'races': out, 'stats': self._stats(out, today)})
+
+    # ── overlay helpers ──────────────────────────────────────────────────
+    def _overlay(self, race, part, record, today):
+        if record is not None:
+            return {
+                'user_status': 'logged',
+                'logged_code': record.course_code,
+                'planned_codes': [record.course_code] if record.course_code else [],
+                'main_goal': part.main_goal if part else False,
+                'note': part.note if part else '',
+                'result': self._result(race, record),
+            }
+        if part is not None:
+            return {
+                'user_status': part.status,  # 'maybe' | 'confirmed_going'
+                'planned_codes': part.planned_codes or [],
+                'main_goal': part.main_goal,
+                'note': part.note,
+                'result': None,
+            }
+        # Favourited only — no declared intent. Future → 관심, past → 미확인.
+        return {
+            'user_status': 'maybe' if race.race_date >= today else 'unknown',
+            'planned_codes': [],
+            'main_goal': False,
+            'note': '',
+            'result': None,
+        }
+
+    def _course_km(self, race, code):
+        from .serializers import course_code_for
+        for d in race.distances or []:
+            if isinstance(d, dict) and course_code_for(d) == code:
+                meters = d.get('distance_meter')
+                if meters and meters > 0:
+                    return meters / 1000
+        return None
+
+    def _result(self, race, record):
+        total = record.duration_seconds or 0
+        hours, rem = divmod(total, 3600)
+        minutes, seconds = divmod(rem, 60)
+        time = f'{hours}:{minutes:02d}:{seconds:02d}' if hours else f'{minutes}:{seconds:02d}'
+        pace = ''
+        km = self._course_km(race, record.course_code)
+        if km and total:
+            per_km = int(round(total / km))
+            pm, ps = divmod(per_km, 60)
+            pace = f'{pm}\'{ps:02d}"/K'
+        return {'time': time, 'pace': pace, 'pb': record.is_personal_best}
+
+    def _stats(self, races, today):
+        from datetime import date
+
+        iso = today.isoformat()
+        upcoming = [r for r in races if r['race_date'] >= iso]
+        nxt = upcoming[0] if upcoming else None
+        goal = next((r for r in races if r.get('main_goal')), None) or (
+            upcoming[-1] if upcoming else None
+        )
+
+        def dday(r):
+            return max(0, (date.fromisoformat(r['race_date']) - today).days)
+
+        return {
+            'total_races': len(races),
+            'logged': sum(1 for r in races if r.get('user_status') == 'logged'),
+            'confirmed_going': sum(1 for r in races if r.get('user_status') == 'confirmed_going'),
+            'maybe': sum(1 for r in races if r.get('user_status') == 'maybe'),
+            'next_race_days': dday(nxt) if nxt else None,
+            'main_goal_days': dday(goal) if goal else None,
+            'main_goal_name': goal['title'] if goal else None,
+        }
+
+
+class RaceParticipationView(APIView):
+    """PUT/DELETE /api/v1/me/races/{slug}/participation/ — 관심·참가 예정 설정."""
+
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, slug):
+        from races.models import Race, RaceParticipation
+        from races.serializers import RaceParticipationWriteSerializer
+
+        race = Race.objects.filter(slug=slug).first()
+        if not race:
+            return Response({'error': '대회를 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = RaceParticipationWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        part, _ = RaceParticipation.objects.update_or_create(
+            user=request.user, race=race, defaults=serializer.validated_data,
+        )
+        return Response({
+            'success': True,
+            'participation': {
+                'slug': race.slug,
+                'status': part.status,
+                'planned_codes': part.planned_codes,
+                'main_goal': part.main_goal,
+                'note': part.note,
+            },
+        })
+
+    def delete(self, request, slug):
+        from races.models import RaceParticipation
+
+        deleted, _ = RaceParticipation.objects.filter(
+            user=request.user, race__slug=slug,
+        ).delete()
+        if not deleted:
+            return Response(
+                {'error': '참가 정보를 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response({'success': True})
+
+
+class RaceResultCreateView(APIView):
+    """POST/DELETE /api/v1/me/races/{slug}/result/ — 완주 기록 등록·삭제."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, slug):
+        from races.models import Race
+
+        race = Race.objects.filter(slug=slug).first()
+        if not race:
+            return Response({'error': '대회를 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = RaceResultCreateSerializer(
+            data=request.data, context={'race': race, 'user': request.user},
+        )
+        serializer.is_valid(raise_exception=True)
+        record = serializer.save()
+        return Response(
+            {'success': True, 'record': RaceRecordSerializer(record).data},
+            status=status.HTTP_201_CREATED,
+        )
+
+    def delete(self, request, slug):
+        deleted, _ = RaceRecord.objects.filter(
+            user=request.user, race__slug=slug,
+        ).delete()
+        if not deleted:
+            return Response(
+                {'error': '기록을 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response({'success': True})

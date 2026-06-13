@@ -6,18 +6,20 @@
 <script lang="ts">
     import { page } from '$app/stores';
     import { goto } from '$app/navigation';
-    import RaceCard from '$lib/components/arena/RaceCard.svelte';
-    import WeatherIcon from '$lib/components/arena/WeatherIcon.svelte';
     import ReviewForm from '$lib/components/ReviewForm.svelte';
-    import type { Race, Review, ReviewStats, Post, Distance, FavoriteToggleResponse } from '$lib/types';
-    import { formatDateFull, formatDateDay, formatDateShort, formatDateSlash, formatDistanceToNow } from '$lib/date';
+    import { Badge, Button } from '$lib/components/eh';
+    import { dsBadgeStatus, SPORT_META, dsSport } from '$lib/components/eh/meta';
+    import type { Race, Review, ReviewStats, Distance, FavoriteToggleResponse } from '$lib/types';
+    import { formatDateFull, formatDateDay, formatDateShort, formatDistanceToNow } from '$lib/date';
     import {
         arenaDday,
         arenaDdayLabel,
+        arenaDistLabel,
         arenaFeeFull,
         arenaFeeRange,
         arenaFeeShort,
-        arenaSportCode,
+        arenaMinFee,
+        arenaShortDate,
     } from '$lib/arena';
     import { track, trackOutboundClick } from '$lib/analytics';
     import { clientApiFetch } from '$lib/api.client';
@@ -31,7 +33,6 @@
 
     const race: Race = $derived(data.race);
     const relatedRaceSlots: RaceSlot[] = $derived((data.relatedRaces as unknown as RaceSlot[]) || []);
-    const relatedPosts: Post[] = $derived(data.relatedPosts);
     const reviews: Review[] = $derived(data.reviews);
     const reviewStats: ReviewStats = $derived(data.reviewStats);
     const hasReviewed: boolean = $derived(data.hasReviewed);
@@ -41,7 +42,7 @@
     const isAdmin: boolean = $derived(data.isAdmin ?? false);
     const pageUrl = $derived(`${appUrl}${$page.url.pathname}`);
 
-    const sportCode = $derived(arenaSportCode[race.sport]);
+    const badgeStatus = $derived(dsBadgeStatus(race.status, race.daysUntilRegistrationEnd));
     const dday = $derived(arenaDday(race));
     const ddayLabel = $derived(arenaDdayLabel(race));
     const feeRange = $derived(arenaFeeRange(race));
@@ -52,17 +53,15 @@
                 ? arenaFeeShort(feeRange.min)
                 : `${arenaFeeShort(feeRange.min)} – ${arenaFeeShort(feeRange.max)}`,
     );
-    const courseCodes = $derived(
-        (race.distances ?? [])
-            .map((d) => (typeof d === 'string' ? d : d.name))
-            .slice(0, 4)
-            .join(' · '),
-    );
 
     const distanceList = $derived((race.distances ?? []) as Distance[]);
     const hasFee = $derived(distanceList.some((d) => d.fee));
     const hasCutoff = $derived(distanceList.some((d) => d.cutoff));
-    const hasDistanceStart = $derived(distanceList.some((d) => d.start_time));
+    const hasDistanceStart = $derived(distanceList.some((d) => d.startTime));
+    const feeDistances = $derived(distanceList.filter((d) => d.fee));
+
+    /** AI summary — used as the 개요 lead/description fallback. */
+    const tagline = $derived(race.aiSummary?.trim() || '');
 
     function isValidUrl(url: string | null | undefined): url is string {
         if (!url) return false;
@@ -74,6 +73,14 @@
         }
     }
     const validOfficialUrl = $derived(isValidUrl(race.officialUrl) ? race.officialUrl : null);
+    const officialHost = $derived.by(() => {
+        if (!validOfficialUrl) return '';
+        try {
+            return new URL(validOfficialUrl).hostname.replace(/^www\./, 'www.');
+        } catch {
+            return validOfficialUrl;
+        }
+    });
 
     const distanceNames = $derived(
         race.distances
@@ -94,11 +101,95 @@
 
     const ogImage = $derived(`${appUrl}/og/races/${race.slug}`);
 
+    // ── hero ──────────────────────────────────────────────
+    const sportMeta = $derived(SPORT_META[dsSport(race.sport)]);
+    const lastUpdated = $derived(race.updatedAt ? formatDistanceToNow(race.updatedAt) : '');
+
+    const venueName = $derived((race.location ?? '').split(' (')[0]);
+    const venueHead = $derived.by(() => {
+        const v = venueName.trim();
+        const sp = v.indexOf(' ');
+        return sp > 0 ? v.slice(0, sp) : v;
+    });
+    const venueSub = $derived.by(() => {
+        const v = venueName.trim();
+        const sp = v.indexOf(' ');
+        const rest = sp > 0 ? v.slice(sp + 1) : '';
+        return [rest, race.region].filter(Boolean).join(' · ');
+    });
+
+    /** Race-day stat: "06.13" with weekday · start time. */
+    const heroDate = $derived.by(() => {
+        if (!race.raceDate) return '';
+        const [, mm, dd] = race.raceDate.split('-');
+        return `${mm}.${dd}`;
+    });
+
+    /** ENTRY hero stat — registration status + deadline. */
+    const entryStat = $derived.by(() => {
+        const regEnd = race.registrationEnd ? arenaShortDate(race.registrationEnd) : '';
+        const regStart = race.registrationStart ? arenaShortDate(race.registrationStart) : '';
+        if (race.status === 'registration_open') {
+            const d = race.daysUntilRegistrationEnd;
+            const value =
+                d == null ? '접수 중' : d < 0 ? '마감' : d === 0 ? '오늘' : `D-${String(d).padStart(2, '0')}`;
+            return { value, sub: regEnd ? `${regEnd} 마감` : '접수 중' };
+        }
+        if (race.status === 'upcoming') {
+            return { value: '예정', sub: regStart ? `${regStart} 오픈` : '오픈 예정' };
+        }
+        return { value: '마감', sub: regEnd ? `${regEnd} 종료` : race.statusLabel || '마감' };
+    });
+
+    /** Distance chips for the hero sport line: "21.0975KM · 10KM · 5KM". */
+    const heroDistLabels = $derived.by<string[]>(() =>
+        distanceList
+            .map((d) => {
+                if (d.distanceMeter && d.distanceMeter > 0) {
+                    const km = Math.round((d.distanceMeter / 1000) * 10000) / 10000;
+                    return `${km}KM`;
+                }
+                return (d.name || '').toUpperCase();
+            })
+            .filter(Boolean),
+    );
+
+    /** Hero weather strip (race-window forecast). */
+    const heroWeather = $derived.by(() => {
+        const w = race.weatherForecast;
+        if (!w) return null;
+        const rw = w.raceWindow;
+        const condition = rw?.condition ?? w.condition;
+        const tempMin = rw?.tempMin ?? w.tempLow;
+        const tempMax = rw?.tempMax ?? w.tempHigh;
+        const rain = rw?.rainProbMax ?? w.rainProb;
+        const wind = rw?.wind ?? w.wind;
+        const hasTemp = tempMin != null && tempMax != null;
+        if (!condition && !hasTemp && rain == null && !wind) return null;
+        return { condition, tempMin, tempMax, rain, wind, hasTemp };
+    });
+
+    // ── register card ─────────────────────────────────────
+    const regBig = $derived.by(() => {
+        if (dday.value == null) return race.statusLabel || '—';
+        if (dday.value < 0) return '접수 마감';
+        if (dday.value === 0) return '오늘 마감';
+        return `D-${String(dday.value).padStart(2, '0')}`;
+    });
+
+    /** km label for the courses table (trim trailing zeros): 21098 → "21.098K" */
+    function fmtKm(m: number | null | undefined): string {
+        if (!m || m <= 0) return '';
+        const s = (m / 1000).toFixed(3).replace(/\.?0+$/, '');
+        return `${s}K`;
+    }
+
     let modalOpen = $state(false);
     let modalImageSrc = $state('');
     let modalImageAlt = $state('');
     let shareModalOpen = $state(false);
     let reviewModalOpen = $state(false);
+    let descExpanded = $state(false);
 
     let favoriteOverride = $state<boolean | null>(null);
     const isFavorited = $derived(favoriteOverride ?? race.isFavorited);
@@ -110,6 +201,7 @@
         shareModalOpen = false;
         reviewModalOpen = false;
         favoriteOverride = null;
+        descExpanded = false;
     });
 
     async function toggleFavorite() {
@@ -184,7 +276,7 @@
     function showToast(message: string) {
         const toast = document.createElement('div');
         toast.style.cssText =
-            'position:fixed;top:24px;left:50%;transform:translateX(-50%);background:var(--arena-ink);color:var(--arena-paper);padding:10px 18px;font-family:var(--arena-f-mono);font-size:12px;letter-spacing:1px;z-index:200;border:1px solid var(--arena-ink);';
+            'position:fixed;top:24px;left:50%;transform:translateX(-50%);background:var(--ink-900);color:var(--paper-0);padding:10px 18px;font-family:var(--font-sans);font-size:12px;letter-spacing:1px;z-index:200;border:1px solid var(--ink-900);';
         toast.textContent = message;
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 2500);
@@ -295,7 +387,7 @@
 
     function initMap(lat: number | null, lng: number | null, locationName: string) {
         kakao.maps.load(() => {
-            const container = document.getElementById('arena-kakao-map');
+            const container = document.getElementById('detail-kakao-map');
             if (container) {
                 const position = new kakao.maps.LatLng(lat, lng);
                 const map = new kakao.maps.Map(container, { center: position, level: 5 });
@@ -324,22 +416,7 @@
         }
     });
 
-    const statusLabelEn = $derived(
-        race.status === 'registration_open'
-            ? '진행중'
-            : race.status === 'registration_closed'
-                ? '마감'
-                : race.status === 'finished'
-                    ? '종료'
-                    : '예정',
-    );
-
     type TimelineStatus = 'done' | 'now' | 'upcoming';
-    const timelineStatusLabel: Record<TimelineStatus, string> = {
-        done: '완료',
-        now: '진행중',
-        upcoming: '예정',
-    };
     function timelineStatus(start: string | null | undefined, end?: string | null): TimelineStatus {
         if (!start) return 'upcoming';
         const today = new Date();
@@ -364,6 +441,35 @@
         return 'now';
     }
 
+    interface TimelineItem {
+        date: string;
+        label: string;
+        done: boolean;
+        current: boolean;
+        bold: boolean;
+    }
+    /** Registration milestones for the 타임라인 section. */
+    const timelineItems = $derived.by<TimelineItem[]>(() => {
+        const raw: { date: string; label: string; end?: string | null; bold?: boolean }[] = [];
+        if (race.registrationStart) raw.push({ date: race.registrationStart, label: '접수 오픈' });
+        for (const p of race.registrationPhases ?? []) {
+            if (p.start || p.end) raw.push({ date: (p.start ?? p.end) as string, label: p.label, end: p.end });
+        }
+        if (race.registrationEnd) raw.push({ date: race.registrationEnd, label: '접수 마감' });
+        if (race.raceDate) raw.push({ date: race.raceDate, label: '대회일', bold: true });
+
+        let currentAssigned = false;
+        return raw.map((r) => {
+            const done = timelineStatus(r.date, r.end) === 'done';
+            let current = false;
+            if (!done && !currentAssigned) {
+                current = true;
+                currentAssigned = true;
+            }
+            return { date: r.date, label: r.label, done, current, bold: !!r.bold };
+        });
+    });
+
     function reviewStarLine(rating: number): string {
         const r = Math.max(0, Math.min(5, Math.round(rating)));
         return '★'.repeat(r) + '☆'.repeat(5 - r);
@@ -378,30 +484,99 @@
         return m ? m[1] : '';
     }
 
-    const atAGlanceLabels: Record<string, { surface: string; difficulty: string; aid: string }> = {
-        running: { surface: '노면', difficulty: '코스 난이도', aid: '급수대' },
-        trail_running: { surface: '지형', difficulty: '난이도/고도', aid: '보급소' },
-    };
-    const atAGlance = $derived(atAGlanceLabels[race.sport]);
-    const showAtAGlance = $derived(!!atAGlance);
+    // ── 개요 info table (folds in organizer + course meta) ─
+    const overviewRows = $derived.by<{ k: string; v: string; href?: string }[]>(() => {
+        const rows: { k: string; v: string; href?: string }[] = [];
+        if (race.organizer) rows.push({ k: '주최', v: race.organizer });
+        if (validOfficialUrl) rows.push({ k: '공식 사이트', v: officialHost, href: validOfficialUrl });
+        if (race.registrationStart || race.registrationEnd) {
+            const s = race.registrationStart ? arenaShortDate(race.registrationStart) : '';
+            const e = race.registrationEnd ? arenaShortDate(race.registrationEnd) : '';
+            rows.push({ k: '접수 기간', v: s && e ? `${s} — ${e}` : s || e });
+        }
+        if (race.organizerContact) rows.push({ k: '문의', v: race.organizerContact });
+        const surfaceLabel = race.sport === 'trail_running' ? '지형' : '노면';
+        if (race.courseSurface) rows.push({ k: surfaceLabel, v: race.courseSurface });
+        if (race.courseDifficulty) rows.push({ k: '코스 난이도', v: race.courseDifficulty });
+        if (race.aidStations)
+            rows.push({ k: race.sport === 'trail_running' ? '보급소' : '급수대', v: race.aidStations });
+        if (race.timingMethod) rows.push({ k: '기록 측정', v: race.timingMethod });
+        if (race.parking) rows.push({ k: '주차', v: race.parking });
+        return rows;
+    });
 
+    const descBody = $derived(race.description?.trim() || tagline || '');
+    const descNeedsClamp = $derived(descBody.replace(/<[^>]+>/g, '').length > 140);
+    const hasOverview = $derived(!!descBody || overviewRows.length > 0);
+
+    // ── related races (flattened, deduped) ───────────────
+    const relatedFlat = $derived.by<Race[]>(() => {
+        const seen = new Set<number>();
+        const out: Race[] = [];
+        for (const s of relatedRaceSlots) {
+            for (const r of s.races) {
+                if (!seen.has(r.id)) {
+                    seen.add(r.id);
+                    out.push(r);
+                }
+            }
+        }
+        return out.slice(0, 6);
+    });
+
+    /** Dynamic grid-template-columns for the courses table */
+    const coursesGridTemplate = $derived.by(() => {
+        const parts: string[] = ['minmax(0, 1fr)'];
+        if (hasDistanceStart) parts.push('86px');
+        if (hasCutoff) parts.push('86px');
+        if (hasFee) parts.push('104px');
+        return parts.join(' ');
+    });
+
+    // ── section list + table of contents ─────────────────
     const sections = $derived.by(() => {
-        const list: { id: string; label: string; show: boolean }[] = [];
-        list.push({ id: 'overview', label: '개요', show: true });
-        list.push({ id: 'courses', label: '종목 · 참가비', show: distanceList.length > 0 });
-        list.push({ id: 'course-map', label: '코스 지도', show: !!race.courseImageSrcs?.length });
-        list.push({ id: 'location', label: '위치', show: !!(race.latitude && race.longitude) });
-        list.push({ id: 'timeline', label: '타임라인', show: !!(race.registrationStart || race.registrationEnd || race.raceDate) });
-        list.push({ id: 'includes', label: '구성품', show: !!race.giveaways?.length || !!race.giveawayImageSrcs?.length });
-        list.push({ id: 'reviews', label: '후기', show: true });
-        list.push({ id: 'related', label: '연관 대회', show: relatedRaceSlots.some((s) => s.races.length > 0) });
-        list.push({ id: 'recap', label: '리캡', show: !!race.recapUrl });
-        list.push({ id: 'posts', label: '게시글', show: (relatedPosts?.length ?? 0) > 0 });
+        const list: { id: string; label: string; show: boolean }[] = [
+            { id: 'overview', label: '개요', show: hasOverview },
+            { id: 'courses', label: '종목 · 참가비', show: distanceList.length > 0 },
+            { id: 'course-map', label: '코스 지도', show: !!race.courseImageSrcs?.length },
+            { id: 'location', label: '위치', show: !!(race.latitude && race.longitude) },
+            { id: 'timeline', label: '타임라인', show: timelineItems.length > 0 },
+            {
+                id: 'includes',
+                label: '구성품',
+                show: !!race.giveaways?.length || !!race.giveawayImageSrcs?.length,
+            },
+            { id: 'reviews', label: '후기', show: true },
+            { id: 'related', label: '연관 대회', show: relatedFlat.length > 0 },
+        ];
         return list.filter((s) => s.show).map((s, i) => ({ ...s, n: String(i).padStart(2, '0') }));
     });
     function secN(id: string): string {
         return sections.find((s) => s.id === id)?.n ?? '00';
     }
+
+    // ── scroll-spy for the table of contents ─────────────
+    let activeSection = $state('overview');
+    $effect(() => {
+        const ids = sections.map((s) => s.id);
+        if (ids.length === 0) return;
+        function syncActive() {
+            const y = window.scrollY + 120;
+            let cur = ids[0];
+            for (const id of ids) {
+                const el = document.getElementById(id);
+                if (el && el.getBoundingClientRect().top + window.scrollY <= y) cur = id;
+            }
+            activeSection = cur;
+        }
+        syncActive();
+        window.addEventListener('scroll', syncActive, { passive: true });
+        window.addEventListener('resize', syncActive);
+        return () => {
+            window.removeEventListener('scroll', syncActive);
+            window.removeEventListener('resize', syncActive);
+        };
+    });
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -422,249 +597,223 @@
     {@html `<script type="application/ld+json">${JSON.stringify(breadcrumbSchema)}</script>`}
 </svelte:head>
 
-<div class="arena-detail">
-    <!-- ── TOP MONO BAND ────────────────────────── -->
-    <div class="detail-head">
-        <div class="head-inner">
-            <span class="bread-mono">
-                <a href="/" class="bm-item">대회</a>
-                <span class="sep">/</span>
-                <a href="/races" class="bm-item">{race.sportLabel}</a>
-                <span class="sep bm-slug-sep">/</span>
-                <span class="ellipsis-inline bm-slug">{race.slug}</span>
-            </span>
-            <span class="bread-meta">
-                {#if race.updatedAt}<span class="bm-meta-prefix">마지막 업데이트 : </span>{formatDistanceToNow(race.updatedAt)}{/if}
-            </span>
+<!-- Reusable numbered section head -->
+{#snippet sechead(n: string, title: string, aux?: string)}
+    <div class="rd-sh">
+        <div class="rd-sh__l">
+            <span class="eh-micro eh-data rd-sh__n">{n}</span>
+            <h2 class="rd-sh__t">{title}</h2>
         </div>
+        {#if aux}<span class="eh-micro rd-sh__aux">{aux}</span>{/if}
     </div>
+{/snippet}
 
-    <!-- ── HERO BAND ────────────────────────── -->
-    <section class="detail-hero">
-        <div class="hero-inner">
-            <div class="hero-kicker">
-                {#if race.edition}
-                    <span class="hk-edition">▌{race.edition}</span>
-                    <span class="hk-sep">|</span>
+<!-- ══════════════════════════════════════════════════
+     HERO — INK BLOCK
+══════════════════════════════════════════════════ -->
+<section class="rd-hero">
+    <div class="rd-hero__inner">
+        <div class="rd-hero__top">
+            <nav class="rd-crumb" aria-label="breadcrumb">
+                <a href="/races">대회</a><span class="rd-crumb__sep">/</span>
+                <a href={`/races?sport=${race.sport}`}>{race.sportLabel}</a>
+                {#if race.region}
+                    <span class="rd-crumb__sep">/</span>
+                    <span class="rd-crumb__cur">{race.region}</span>
                 {/if}
-                <span class="hk-courses">{race.sportLabel} · {sportCode}{courseCodes ? ' · ' + courseCodes : ''}</span>
-                <span class="hk-chip">
-                    {#if race.status === 'registration_open'}
-                        <span class="arena-live-dot"></span>
-                    {/if}
-                    {statusLabelEn}{ddayLabel && ddayLabel !== statusLabelEn ? ' · ' + ddayLabel : ''}
-                </span>
-            </div>
-            <h1 class="hero-title">{race.title}</h1>
-            <div class="hero-subtitle">
-                {#if race.raceDate}{formatDateFull(race.raceDate)} ({formatDateDay(race.raceDate)}){/if}{race.startTime ? ' · ' + race.startTime + ' 출발' : ''}{race.location ? ' · ' + race.location : ''}
-            </div>
-
-            <div class="hero-meta">
-                <div class="meta-cell">
-                    <div class="meta-label">일정</div>
-                    <div class="meta-value">{race.raceDate ? formatDateShort(race.raceDate) : '—'}</div>
-                    <div class="meta-sub">
-                        {#if race.raceDate}{formatDateDay(race.raceDate)}{/if}{race.startTime ? ' · ' + race.startTime : ''}
-                    </div>
-                </div>
-                <div class="meta-cell">
-                    <div class="meta-label">장소</div>
-                    <div class="meta-value ellipsis-inline">{race.location ?? '—'}</div>
-                    <div class="meta-sub">{race.region ?? ''}</div>
-                </div>
-                <div class="meta-cell">
-                    <div class="meta-label">코스</div>
-                    <div class="meta-value">{distanceList.length || 0}개 종목</div>
-                    <div class="meta-sub ellipsis-inline">{courseCodes || '—'}</div>
-                </div>
-                {#if race.weatherForecast}
-                    {@const w = race.weatherForecast}
-                    {@const rw = w.raceWindow}
-                    <div class="meta-cell">
-                        <div class="meta-label">
-                            날씨 예보
-                            {#if rw}<span class="weather-badge">대회시간 기준</span>{/if}
-                        </div>
-                        <div class="meta-value">
-                            {#if rw}
-                                {#if rw.weatherCode != null || rw.condition}
-                                    <span class="weather-cond">
-                                        <span class="weather-icon">
-                                            <WeatherIcon
-                                                weatherCode={rw.weatherCode}
-                                                label={rw.condition}
-                                                size={20}
-                                            />
-                                        </span>
-                                        {#if rw.condition}{rw.condition}{/if}
-                                    </span>
-                                {/if}
-                                {#if rw.tempMin != null && rw.tempMax != null}
-                                    <span class="weather-temp">{rw.tempMin}° / {rw.tempMax}°</span>
-                                {/if}
-                            {:else}
-                                {#if w.weatherCode != null || w.condition}
-                                    <span class="weather-cond">
-                                        <span class="weather-icon">
-                                            <WeatherIcon
-                                                weatherCode={w.weatherCode}
-                                                label={w.condition}
-                                                size={20}
-                                            />
-                                        </span>
-                                        {#if w.condition}{w.condition}{/if}
-                                    </span>
-                                {/if}
-                                {#if w.tempLow != null && w.tempHigh != null}
-                                    <span class="weather-temp">{w.tempLow}° / {w.tempHigh}°</span>
-                                {:else if !(w.weatherCode != null || w.condition)}
-                                    —
-                                {/if}
-                            {/if}
-                        </div>
-                        <div class="meta-sub">
-                            {#if rw}
-                                {#if rw.apparentTempMin != null && rw.apparentTempMax != null}체감 {rw.apparentTempMin}~{rw.apparentTempMax}°{/if}
-                                {#if rw.rainProbMax != null} · 비 {rw.rainProbMax}%{/if}
-                                {#if rw.wind} · {rw.wind}{/if}
-                            {:else}
-                                {#if w.rainProb != null}비 {w.rainProb}%{/if}
-                                {#if w.rainProb != null && w.wind} · {/if}
-                                {w.wind ?? ''}
-                            {/if}
-                        </div>
-                        {#if rw && w.tempLow != null && w.tempHigh != null}
-                            <div class="meta-sub weather-day">
-                                하루 전체 {w.tempLow}° / {w.tempHigh}°
-                                {#if w.rainProb != null} · 비 {w.rainProb}%{/if}
-                            </div>
-                        {/if}
-                    </div>
-                {:else}
-                    <div class="meta-cell">
-                        <div class="meta-label">참가비</div>
-                        <div class="meta-value">{feeRangeLabel}</div>
-                        <div class="meta-sub">참가비 범위</div>
-                    </div>
-                {/if}
-            </div>
+            </nav>
+            {#if lastUpdated}
+                <span class="rd-hero__updated">마지막 업데이트 {lastUpdated}</span>
+            {/if}
         </div>
-    </section>
 
-    <!-- ── MAIN GRID ────────────────────────── -->
-    <div class="detail-main">
-        <!-- ── TOC ────────────────────────── -->
-        <nav class="toc" aria-label="목차">
-            <div class="toc-title">목차</div>
-            {#each sections as s (s.id)}
-                <a class="toc-item" href={`#${s.id}`}>
-                    <span class="toc-n">{s.n}</span>
-                    <span>{s.label}</span>
-                </a>
-            {/each}
+        <div class="rd-hero__meta">
+            <div class="rd-hero__sport">
+                <span class="rd-hero__dot" style="background:{sportMeta.color}"></span>
+                <span class="rd-hero__sportcode eh-data">{sportMeta.label}</span>
+                {#if heroDistLabels.length > 0}
+                    <span class="rd-hero__dists eh-data">{heroDistLabels.join(' · ')}</span>
+                {/if}
+            </div>
+            <Badge status={badgeStatus} />
+        </div>
+
+        <h1 class="rd-hero__title">{race.title}</h1>
+
+        <div class="rd-hstats">
+            <div class="rd-hstat">
+                <div class="rd-hstat__k">ENTRY</div>
+                <div class="rd-hstat__v eh-data">
+                    {entryStat.value}{#if entryStat.sub}<small>{entryStat.sub}</small>{/if}
+                </div>
+            </div>
+            {#if race.raceDate}
+                <div class="rd-hstat">
+                    <div class="rd-hstat__k">RACE DAY</div>
+                    <div class="rd-hstat__v eh-data">
+                        {heroDate}<small>{formatDateDay(race.raceDate)}{race.startTime ? ` · ${race.startTime}` : ''}</small>
+                    </div>
+                </div>
+            {/if}
+            {#if distanceList.length > 0}
+                <div class="rd-hstat">
+                    <div class="rd-hstat__k">COURSES</div>
+                    <div class="rd-hstat__v eh-data">{distanceList.length}<small>개 종목</small></div>
+                </div>
+            {/if}
+            {#if venueName}
+                <div class="rd-hstat">
+                    <div class="rd-hstat__k">VENUE</div>
+                    <div class="rd-hstat__v rd-hstat__v--venue">
+                        {venueHead}{#if venueSub}<small>{venueSub}</small>{/if}
+                    </div>
+                </div>
+            {/if}
+        </div>
+
+        {#if heroWeather}
+            <div class="rd-hero__wx">
+                <span class="rd-hero__wx-label eh-micro">WEATHER · 대회시간 기준</span>
+                {#if heroWeather.condition || heroWeather.hasTemp}
+                    <span class="rd-hero__wx-item">
+                        {#if heroWeather.condition}<b>{heroWeather.condition}</b>{/if}
+                        {#if heroWeather.hasTemp}<span class="eh-data">{heroWeather.tempMin}° / {heroWeather.tempMax}°</span>{/if}
+                    </span>
+                {/if}
+                {#if heroWeather.rain != null}
+                    <span class="rd-hero__wx-item"><i>강수</i> <b class="eh-data">{heroWeather.rain}%</b></span>
+                {/if}
+                {#if heroWeather.wind}
+                    <span class="rd-hero__wx-item"><i>바람</i> <b class="eh-data">{heroWeather.wind}</b></span>
+                {/if}
+            </div>
+        {/if}
+    </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     BODY — 3-COLUMN GRID
+══════════════════════════════════════════════════ -->
+<main class="rd-wrap">
+    <div class="rd-grid">
+
+        <!-- ── TABLE OF CONTENTS ──────────────────── -->
+        <nav class="rd-toc" aria-label="목차">
+            <div class="rd-toc__label eh-micro">CONTENTS</div>
+            <ul class="rd-toc__list">
+                {#each sections as s (s.id)}
+                    <li>
+                        <a
+                            href={`#${s.id}`}
+                            class="rd-toc__link"
+                            class:rd-toc__link--active={activeSection === s.id}
+                        >
+                            <span class="rd-toc__n eh-data">{s.n}</span>
+                            <span class="rd-toc__t">{s.label}</span>
+                        </a>
+                    </li>
+                {/each}
+            </ul>
         </nav>
 
-        <!-- ── BODY ────────────────────────── -->
-        <div class="body">
-            <section id="overview" class="sec">
-                <div class="sec-head">
-                    <span class="sec-n">{secN('overview')} ·</span>
-                    <h2 class="sec-title">개요</h2>
-                </div>
-                {#if race.aiSummary}
-                    <div class="ai-block">
-                        <div class="ai-kicker">간단 후기</div>
-                        <p>{race.aiSummary}</p>
-                    </div>
-                {/if}
-                {#if race.description}
-                    <div class="prose">{@html race.description.replace(/\n/g, '<br>')}</div>
-                {/if}
-                {#if race.organizer || validOfficialUrl || race.registrationStart || race.registrationEnd || race.organizerContact}
-                    <table class="meta-table">
-                        <tbody>
-                            {#if race.organizer}
-                                <tr><td class="mt-key">주최</td><td>{race.organizer}</td></tr>
-                            {/if}
-                            {#if validOfficialUrl}
-                                <tr>
-                                    <td class="mt-key">공식 사이트</td>
-                                    <td>
-                                        <a href={validOfficialUrl} target="_blank" rel="noopener" class="ext">{validOfficialUrl}</a>
-                                    </td>
-                                </tr>
-                            {/if}
-                            {#if race.registrationStart || race.registrationEnd}
-                                <tr>
-                                    <td class="mt-key">접수 기간</td>
-                                    <td>
-                                        {race.registrationStart ? formatDateSlash(race.registrationStart) : '—'} — {race.registrationEnd ? formatDateSlash(race.registrationEnd) : '—'}
-                                    </td>
-                                </tr>
-                            {/if}
-                            {#if race.organizerContact}
-                                <tr><td class="mt-key">문의</td><td>{race.organizerContact}</td></tr>
-                            {/if}
-                        </tbody>
-                    </table>
-                {/if}
-            </section>
+        <!-- ── MAIN COLUMN ──────────────────────── -->
+        <div class="rd-main">
 
+            <!-- 개요 -->
+            {#if hasOverview}
+                <section id="overview" class="rd-sec">
+                    {@render sechead(
+                        secN('overview'),
+                        '개요',
+                    )}
+                    {#if descBody}
+                        <div
+                            class="rd-prose rd-ov-desc"
+                            class:rd-ov-desc--clamp={descNeedsClamp && !descExpanded}
+                        >
+                            {@html descBody.replace(/\n/g, '<br>')}
+                        </div>
+                        {#if descNeedsClamp}
+                            <button class="rd-more" onclick={() => (descExpanded = !descExpanded)}>
+                                {descExpanded ? '접기' : '더보기'}
+                            </button>
+                        {/if}
+                    {/if}
+                    {#if overviewRows.length > 0}
+                        <div class="v-table rd-ov-table">
+                            {#each overviewRows as row (row.k)}
+                                <div class="v-trow rd-meta-row">
+                                    <span class="eh-micro rd-meta-key">{row.k}</span>
+                                    {#if row.href}
+                                        <a
+                                            class="rd-meta-link"
+                                            href={row.href}
+                                            target="_blank"
+                                            rel="noopener"
+                                            onclick={() => trackOutboundClick(row.href as string, race.title)}
+                                        >
+                                            {row.v} <span class="rd-meta-link__arrow">↗</span>
+                                        </a>
+                                    {:else}
+                                        <span class="rd-meta-val">{row.v}</span>
+                                    {/if}
+                                </div>
+                            {/each}
+                        </div>
+                    {/if}
+                </section>
+            {/if}
+
+            <!-- 종목 · 참가비 -->
             {#if distanceList.length > 0}
-                <section id="courses" class="sec">
-                    <div class="sec-head">
-                        <span class="sec-n">{secN('courses')} ·</span>
-                        <h2 class="sec-title">종목 · 참가비</h2>
-                    </div>
-                    <div class="table-scroll">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>종목</th>
-                                    <th>거리</th>
-                                    {#if hasDistanceStart}<th>출발 시각</th>{/if}
-                                    {#if hasCutoff}<th>제한 시간</th>{/if}
-                                    {#if hasFee}<th class="right">참가비</th>{/if}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {#each distanceList as d, i (d.name + i)}
-                                    <tr>
-                                        <td class="body-font">{d.name}</td>
-                                        <td>
-                                            {#if d.distance_meter}
-                                                {(d.distance_meter / 1000).toFixed(1)} km
-                                            {:else}
-                                                —
-                                            {/if}
-                                        </td>
-                                        {#if hasDistanceStart}<td>{d.start_time || (race.startTime ?? '—')}</td>{/if}
-                                        {#if hasCutoff}<td>{d.cutoff || '—'}</td>{/if}
-                                        {#if hasFee}<td class="right bold">{d.fee ? arenaFeeFull(Number(d.fee)) : '—'}</td>{/if}
-                                    </tr>
-                                {/each}
-                            </tbody>
-                        </table>
+                <section id="courses" class="rd-sec">
+                    {@render sechead(
+                        secN('courses'),
+                        '종목 · 참가비',
+                        race.registrationEnd ? `ENTRY CLOSES ${arenaShortDate(race.registrationEnd)}` : undefined,
+                    )}
+                    <div class="rd-table-scroll">
+                        <div class="v-table">
+                            <div class="v-thead rd-crow" style="grid-template-columns: {coursesGridTemplate}">
+                                <span>코스</span>
+                                {#if hasDistanceStart}<span class="rd-hide-m">START</span>{/if}
+                                {#if hasCutoff}<span class="rd-hide-m">CUT-OFF</span>{/if}
+                                {#if hasFee}<span class="rd-cell-r">FEE</span>{/if}
+                            </div>
+                            {#each distanceList as d, i (d.name + i)}
+                                <div class="v-trow rd-crow" style="grid-template-columns: {coursesGridTemplate}">
+                                    <span class="rd-cname">
+                                        {d.name}
+                                        {#if d.distanceMeter}<span class="rd-cdist eh-data">{fmtKm(d.distanceMeter)}</span>{/if}
+                                    </span>
+                                    {#if hasDistanceStart}
+                                        <span class="rd-hide-m rd-cmuted eh-data">{d.startTime || race.startTime || '—'}</span>
+                                    {/if}
+                                    {#if hasCutoff}
+                                        <span class="rd-hide-m rd-cmuted">{d.cutoff || '—'}</span>
+                                    {/if}
+                                    {#if hasFee}
+                                        <b class="rd-cell-r eh-data">{d.fee ? arenaFeeFull(Number(d.fee)) : '—'}</b>
+                                    {/if}
+                                </div>
+                            {/each}
+                        </div>
                     </div>
                 </section>
             {/if}
 
+            <!-- 코스 지도 -->
             {#if race.courseImageSrcs && race.courseImageSrcs.length > 0}
-                <section id="course-map" class="sec">
-                    <div class="sec-head">
-                        <span class="sec-n">{secN('course-map')} ·</span>
-                        <h2 class="sec-title">코스 지도</h2>
-                        {#if validOfficialUrl}
-                            <span class="sec-meta">
-                                <a href={validOfficialUrl} target="_blank" rel="noopener" class="link">공식 페이지에서 원본 확인 →</a>
-                            </span>
-                        {/if}
-                    </div>
-                    <div class="map-images" class:multi={race.courseImageSrcs.length > 1}>
+                <section id="course-map" class="rd-sec">
+                    {@render sechead(
+                        secN('course-map'),
+                        '코스 지도',
+                        race.courseImageSrcs.length > 1 ? `${race.courseImageSrcs.length} IMAGES` : undefined,
+                    )}
+                    <div class="rd-map-images" class:rd-map-images--multi={race.courseImageSrcs.length > 1}>
                         {#each race.courseImageSrcs as src, idx}
                             <button
-                                class="map-image-btn"
+                                class="rd-map-btn"
                                 onclick={() => openImageModal(src, `${race.title} 코스 ${idx + 1}`)}
                             >
                                 <img src={src} alt={`${race.title} 코스 ${idx + 1}`} loading="lazy" />
@@ -674,93 +823,55 @@
                 </section>
             {/if}
 
+            <!-- 위치 -->
             {#if race.latitude && race.longitude}
-                <section id="location" class="sec">
-                    <div class="sec-head">
-                        <span class="sec-n">{secN('location')} ·</span>
-                        <h2 class="sec-title">위치</h2>
-                        {#if race.address}<span class="sec-meta">{race.address}</span>{/if}
-                    </div>
-                    <div id="arena-kakao-map" class="map-frame"></div>
+                <section id="location" class="rd-sec">
+                    {@render sechead(secN('location'), '위치', race.address || undefined)}
+                    <div id="detail-kakao-map" class="rd-map-frame"></div>
                 </section>
             {/if}
 
-            {#if race.registrationStart || race.registrationEnd || race.raceDate}
-                <section id="timeline" class="sec">
-                    <div class="sec-head">
-                        <span class="sec-n">{secN('timeline')} ·</span>
-                        <h2 class="sec-title">타임라인</h2>
-                    </div>
-                    <div class="detail-timeline">
-                        {#if race.registrationStart}
-                            {@const st = timelineStatus(race.registrationStart)}
-                            <div class="t-row" class:current={st === 'now'} class:done={st === 'done'}>
-                                <span class="t-dot" class:done={st === 'done'} class:accent={st === 'now'}></span>
-                                <span class="t-date">{formatDateSlash(race.registrationStart)}</span>
-                                <span class="t-label">접수 오픈</span>
-                                <span class="t-status">{timelineStatusLabel[st]}</span>
+            <!-- 타임라인 -->
+            {#if timelineItems.length > 0}
+                <section id="timeline" class="rd-sec">
+                    {@render sechead(secN('timeline'), '타임라인', '접수 → 대회일')}
+                    <div class="rd-tl">
+                        {#each timelineItems as t, i (i)}
+                            <div
+                                class="rd-tl__item"
+                                class:rd-tl__item--done={t.done}
+                                class:rd-tl__item--current={t.current}
+                                class:rd-tl__item--bold={t.bold}
+                            >
+                                <span class="rd-tl__mark"></span>
+                                <span class="rd-tl__date eh-data">{formatDateShort(t.date)}</span>
+                                <span class="rd-tl__label">{t.label}</span>
                             </div>
-                        {/if}
-                        {#if race.registrationPhases}
-                            {#each race.registrationPhases as p, i (i)}
-                                {@const st = timelineStatus(p.start, p.end)}
-                                <div class="t-row" class:current={st === 'now'} class:done={st === 'done'}>
-                                    <span class="t-dot" class:done={st === 'done'} class:accent={st === 'now'}></span>
-                                    <span class="t-date">
-                                        {#if p.start}{formatDateSlash(p.start)}{/if}{p.end ? ' ~ ' + formatDateSlash(p.end) : ''}
-                                    </span>
-                                    <span class="t-label">{p.label}</span>
-                                    <span class="t-status">{timelineStatusLabel[st]}</span>
-                                </div>
-                            {/each}
-                        {/if}
-                        {#if race.registrationEnd}
-                            {@const st = timelineStatus(race.registrationEnd)}
-                            <div class="t-row" class:current={st === 'now'} class:done={st === 'done'}>
-                                <span class="t-dot" class:done={st === 'done'} class:accent={st === 'now'}></span>
-                                <span class="t-date">{formatDateSlash(race.registrationEnd)}</span>
-                                <span class="t-label">접수 마감</span>
-                                <span class="t-status">{timelineStatusLabel[st]}</span>
-                            </div>
-                        {/if}
-                        {#if race.raceDate}
-                            {@const st = timelineStatus(race.raceDate, race.raceEndDate)}
-                            <div class="t-row" class:current={st === 'now'} class:done={st === 'done'}>
-                                <span class="t-dot" class:done={st === 'done'} class:accent={st === 'now'}></span>
-                                <span class="t-date">{formatDateSlash(race.raceDate)}</span>
-                                <span class="t-label bold">대회일</span>
-                                <span class="t-status">{timelineStatusLabel[st]}</span>
-                            </div>
-                        {/if}
+                        {/each}
                     </div>
                 </section>
             {/if}
 
+            <!-- 구성품 -->
             {#if (race.giveaways && race.giveaways.length > 0) || (race.giveawayImageSrcs && race.giveawayImageSrcs.length > 0)}
-                <section id="includes" class="sec">
-                    <div class="sec-head">
-                        <span class="sec-n">{secN('includes')} ·</span>
-                        <h2 class="sec-title">참가비에 포함</h2>
-                    </div>
+                <section id="includes" class="rd-sec">
+                    {@render sechead(
+                        secN('includes'),
+                        '구성품',
+                        race.giveaways?.length ? `${race.giveaways.length} ITEMS` : undefined,
+                    )}
                     {#if race.giveaways && race.giveaways.length > 0}
-                        <div class="includes">
+                        <div class="rd-incl-grid">
                             {#each race.giveaways as inc, i (i)}
-                                <div class="include-item">
-                                    <span class="check">[✓]</span>
-                                    <span>{inc}</span>
-                                </div>
+                                <div class="rd-incl-cell">{inc}</div>
                             {/each}
                         </div>
                     {/if}
                     {#if race.giveawayImageSrcs && race.giveawayImageSrcs.length > 0}
-                        <div
-                            class="map-images"
-                            class:multi={race.giveawayImageSrcs.length > 1}
-                            style="margin-top: 16px;"
-                        >
+                        <div class="rd-map-images rd-map-images--mt" class:rd-map-images--multi={race.giveawayImageSrcs.length > 1}>
                             {#each race.giveawayImageSrcs as src, idx}
                                 <button
-                                    class="map-image-btn"
+                                    class="rd-map-btn"
                                     onclick={() => openImageModal(src, `${race.title} 사은품 ${idx + 1}`)}
                                 >
                                     <img src={src} alt={`${race.title} 사은품 ${idx + 1}`} loading="lazy" />
@@ -771,50 +882,46 @@
                 </section>
             {/if}
 
-            <section id="reviews" class="sec">
-                <div class="sec-head">
-                    <span class="sec-n">{secN('reviews')} ·</span>
-                    <h2 class="sec-title">지난 대회 후기</h2>
-                    {#if reviewStats.count > 0}
-                        <span class="sec-meta">
-                            ★ {reviewStats.average.toFixed(1)} · {reviewStats.count}개
-                        </span>
-                    {/if}
-                </div>
+            <!-- 후기 -->
+            <section id="reviews" class="rd-sec">
+                {@render sechead(
+                    secN('reviews'),
+                    '후기',
+                    reviewStats.count > 0 ? `${reviewStats.count} REVIEWS · ★ ${reviewStats.average.toFixed(1)}` : undefined,
+                )}
                 {#if reviews.length === 0}
-                    <div class="rv-empty">
-                        <div class="rv-empty-msg">아직 작성된 후기가 없습니다.</div>
+                    <div class="rd-rv-empty">
+                        <p class="rd-rv-empty__msg">아직 작성된 후기가 없습니다.</p>
                         {#if !hasReviewed}
-                            <button class="rv-empty-btn" onclick={() => (reviewModalOpen = true)}>
-                                <span>리뷰 작성하기</span>
-                                <span class="rv-empty-arrow">→</span>
+                            <button class="rd-rv-empty__btn" onclick={() => (reviewModalOpen = true)}>
+                                리뷰 작성하기 →
                             </button>
                         {/if}
                     </div>
                 {:else}
-                    <div class="review-grid">
+                    <div class="rd-rv-list">
                         {#each reviews as review (review.id)}
-                            <article class="review-card">
-                                <div class="rv-head">
-                                    <span class="rv-user">@{review.nickname}{reviewYear(review.createdAt) ? ' · ' + reviewYear(review.createdAt) : ''}</span>
-                                    <span class="rv-stars" aria-label={`${review.rating}점`}>{reviewStarLine(review.rating)}</span>
+                            <article class="v-card rd-review">
+                                <div class="rd-review__head">
+                                    <span class="rd-review__stars" aria-label={`${review.rating}점`}>{reviewStarLine(review.rating)}</span>
+                                    <span class="eh-micro rd-review__user">@{review.nickname}{reviewYear(review.createdAt) ? ` · ${reviewYear(review.createdAt)}` : ''}</span>
                                 </div>
-                                <div class="rv-body">{review.comment}</div>
+                                <p class="rd-review__body">{review.comment}</p>
                                 {#if review.completionTime || review.courseDifficulty || review.operationSatisfaction || (review.recommendationTags && review.recommendationTags.length > 0)}
-                                    <div class="rv-foot">
+                                    <div class="rd-review__foot">
                                         {#if review.courseDifficulty && difficultyLabel[review.courseDifficulty]}
-                                            <span class="rv-meta">난이도 {difficultyLabel[review.courseDifficulty]}</span>
+                                            <span class="eh-micro rd-review__meta">난이도 <b>{difficultyLabel[review.courseDifficulty]}</b></span>
                                         {/if}
                                         {#if review.completionTime}
-                                            <span class="rv-meta">기록 {review.completionTime}</span>
+                                            <span class="eh-micro rd-review__meta">기록 <b class="eh-data">{review.completionTime}</b></span>
                                         {/if}
                                         {#if review.operationSatisfaction}
-                                            <span class="rv-meta">운영 {reviewStarLine(review.operationSatisfaction)}</span>
+                                            <span class="eh-micro rd-review__meta">운영 <b>{reviewStarLine(review.operationSatisfaction)}</b></span>
                                         {/if}
                                         {#if review.recommendationTags && review.recommendationTags.length > 0}
-                                            <span class="rv-tags">
+                                            <span class="rd-review__tags">
                                                 {#each review.recommendationTags as tag}
-                                                    <span class="rv-tag">#{tag}</span>
+                                                    <span class="rd-review__tag">#{tag}</span>
                                                 {/each}
                                             </span>
                                         {/if}
@@ -822,130 +929,125 @@
                                 {/if}
                             </article>
                         {/each}
+                        {#if !hasReviewed}
+                            <button class="rd-rv-write-btn" onclick={() => (reviewModalOpen = true)}>
+                                후기 작성하기 →
+                            </button>
+                        {/if}
                     </div>
                 {/if}
             </section>
 
-            {#each relatedRaceSlots as slot, slotIdx (slotIdx)}
-                {#if slot.races.length > 0}
-                    <section id={slotIdx === 0 ? 'related' : `related-${slotIdx}`} class="sec">
-                        <div class="sec-head">
-                            <span class="sec-n">{secN('related')} ·</span>
-                            <h2 class="sec-title">{slot.label}</h2>
-                        </div>
-                        <div class="related-grid">
-                            {#each slot.races.slice(0, 4) as related (related.id)}
-                                <RaceCard race={related} />
-                            {/each}
-                        </div>
-                    </section>
-                {/if}
-            {/each}
-
-            {#if race.recapUrl}
-                <section id="recap" class="sec">
-                    <div class="sec-head">
-                        <span class="sec-n">{secN('recap')} ·</span>
-                        <h2 class="sec-title">대회 후기 블로그</h2>
-                    </div>
-                    <a href={race.recapUrl} target="_blank" rel="noopener" class="ext-card">
-                        <span>블로그에서 후기 보기</span>
-                        <span class="ext-arrow">↗</span>
-                    </a>
-                </section>
-            {/if}
-
-            {#if relatedPosts && relatedPosts.length > 0}
-                <section id="posts" class="sec">
-                    <div class="sec-head">
-                        <span class="sec-n">{secN('posts')} ·</span>
-                        <h2 class="sec-title">관련 게시글</h2>
-                        <span class="sec-meta"><a href="/posts?race={race.id}" class="link">전체 →</a></span>
-                    </div>
-                    <ul class="post-list">
-                        {#each relatedPosts as p (p.id)}
-                            <li>
-                                <a href={`/posts/${p.id}`} class="post-row">
-                                    <span class="post-cat">{p.category?.trim() || '자유'}</span>
-                                    <span class="post-row-title">{p.title}</span>
-                                    <span class="post-row-meta">@{p.nickname} · 💬 {p.commentCount}</span>
-                                </a>
-                            </li>
+            <!-- 연관 대회 -->
+            {#if relatedFlat.length > 0}
+                <section id="related" class="rd-sec">
+                    {@render sechead(secN('related'), '연관 대회', `${relatedFlat.length} RACES`)}
+                    <div class="rd-rel-grid">
+                        {#each relatedFlat as r (r.id)}
+                            <a class="v-card rd-relcard" href={`/races/${r.slug}`}>
+                                <div class="rd-relcard__top">
+                                    <span class="rd-relcard__sport eh-data" style="color:{SPORT_META[dsSport(r.sport)].color}">{SPORT_META[dsSport(r.sport)].label}</span>
+                                    <Badge status={dsBadgeStatus(r.status, r.daysUntilRegistrationEnd)}>
+                                        <span class="eh-data">{arenaDdayLabel(r)}</span>
+                                    </Badge>
+                                </div>
+                                <div class="rd-relcard__nm">{r.title}</div>
+                                <div class="rd-relcard__meta eh-data">
+                                    {r.raceDate ? formatDateShort(r.raceDate) : '—'} · {arenaDistLabel(r)} · {arenaFeeShort(arenaMinFee(r))}
+                                </div>
+                            </a>
                         {/each}
-                    </ul>
+                    </div>
                 </section>
             {/if}
-        </div>
 
-        <!-- ── ASIDE ────────────────────────── -->
-        <aside class="aside">
-            <div class="aside-cta">
-                <div class="cta-label">접수마감</div>
-                <div class="cta-num">{ddayLabel}</div>
-                <div class="cta-sub">
+        </div><!-- /rd-main -->
+
+        <!-- ── RAIL ─────────────────────────────── -->
+        <aside class="rd-rail">
+
+            <!-- Register card -->
+            <div class="v-card rd-reg">
+                <div class="rd-reg__top">
+                    <Badge status={badgeStatus} />
                     {#if race.registrationEnd}
-                        마감 {formatDateSlash(race.registrationEnd)}
-                    {:else if race.raceDate}
-                        대회일 {formatDateSlash(race.raceDate)}
+                        <span class="eh-micro eh-data rd-reg__closes">CLOSES {arenaShortDate(race.registrationEnd)}</span>
                     {/if}
                 </div>
-                <div class="cta-stats">
-                    <div class="cs-row"><span class="cs-key">참가비</span><span>{feeRangeLabel}</span></div>
-                    {#if courseCodes}
-                        <div class="cs-row"><span class="cs-key">종목</span><span class="ellipsis-inline">{courseCodes}</span></div>
+                <div class="rd-reg__dday">
+                    <span class="eh-data rd-reg__num">{regBig}</span>
+                    {#if race.raceDate}
+                        <span class="rd-reg__date">{formatDateFull(race.raceDate)} ({formatDateDay(race.raceDate)})</span>
                     {/if}
-                    <div class="cs-row">
-                        <span class="cs-key">접수</span>
-                        <span class="cs-status">
-                            {#if race.status === 'registration_open'}<span class="arena-live-dot"></span>{/if}
-                            {statusLabelEn}
-                        </span>
+                </div>
+
+                {#if feeDistances.length > 0}
+                    <div class="rd-reg__fees">
+                        {#each feeDistances as d (d.name)}
+                            <div class="rd-reg__fee">
+                                <span class="rd-reg__fee-nm">{d.name}</span>
+                                <b class="eh-data">{arenaFeeFull(Number(d.fee))}</b>
+                            </div>
+                        {/each}
                     </div>
-                </div>
+                {:else if feeRangeLabel !== '—'}
+                    <div class="rd-reg__fees">
+                        <div class="rd-reg__fee">
+                            <span class="rd-reg__fee-nm">참가비</span>
+                            <b class="eh-data">{feeRangeLabel}</b>
+                        </div>
+                    </div>
+                {/if}
+
                 {#if validOfficialUrl}
-                    <a
+                    <Button
+                        variant={race.status === 'registration_open' ? 'signal' : 'primary'}
+                        size="lg"
+                        fullWidth
                         href={validOfficialUrl}
                         target="_blank"
                         rel="noopener"
-                        class="cta-btn"
                         onclick={() => handleRegisterClick('desktop')}
                     >
-                        <span>{race.status === 'registration_open' ? '공식 페이지에서 신청' : '공식 페이지로'} →</span>
-                        <span class="cta-tag">외부</span>
-                    </a>
+                        {race.status === 'registration_open' ? '접수하기 ↗' : '공식 페이지로 ↗'}
+                    </Button>
                 {/if}
-                <div class="cta-actions">
-                    <button onclick={toggleFavorite} aria-pressed={isFavorited}>
-                        {isFavorited ? '♥' : '♡'} 찜
-                    </button>
-                    <button onclick={openShareModal}>↗ 공유</button>
-                </div>
-            </div>
 
-            {#if showAtAGlance}
-                <div class="aside-card">
-                    <div class="ac-title">한눈에 보기</div>
-                    <div class="ac-list">
-                        <div class="ac-row"><span>{atAGlance.surface}</span><span>{race.courseSurface || '—'}</span></div>
-                        <div class="ac-row"><span>{atAGlance.difficulty}</span><span>{race.courseDifficulty || '—'}</span></div>
-                        <div class="ac-row"><span>{atAGlance.aid}</span><span>{race.aidStations || '—'}</span></div>
-                        <div class="ac-row"><span>기록 측정</span><span>{race.timingMethod || '—'}</span></div>
-                        <div class="ac-row"><span>주차</span><span>{race.parking || '—'}</span></div>
-                    </div>
+                <div class="rd-reg__acts">
+                    <button
+                        class="rd-reg__act"
+                        onclick={toggleFavorite}
+                        aria-pressed={isFavorited}
+                        disabled={isTogglingFavorite}
+                    >
+                        {isFavorited ? '♥' : '♡'} 관심 대회 저장
+                    </button>
+                    <button class="rd-reg__act" onclick={openShareModal}>↗ 공유하기</button>
                 </div>
+            </div><!-- /rd-reg -->
+
+            <!-- Contact note -->
+            {#if race.organizer || race.organizerContact}
+                <p class="rd-railnote">
+                    {#if race.organizer}주최 {race.organizer}{/if}{#if race.organizer && race.organizerContact} · {/if}{#if race.organizerContact}문의 {race.organizerContact}{/if}<br />
+                    정보 오류 제보는 <a href="mailto:contact@endurohub.kr" class="rd-railnote__link">문의하기</a> 페이지를 이용해 주세요.
+                </p>
             {/if}
 
             {#if isAdmin}
-                <a class="admin-link" href="/admin/races/{race.slug}">
-                    🔧 관리자 페이지에서 수정 →
-                </a>
+                <a class="rd-admin-link" href="/admin/races/{race.slug}">관리자 페이지에서 수정 →</a>
             {/if}
-        </aside>
-    </div>
-</div>
 
+        </aside><!-- /rd-rail -->
+
+    </div>
+</main>
+
+<!-- Review form modal -->
 <ReviewForm
     raceSlug={race.slug}
+    raceTitle={race.title}
+    raceMeta={[race.raceDate ? race.raceDate.slice(0, 4) : null, race.sportLabel, race.region].filter(Boolean).join(' · ')}
     {hasReviewed}
     raceDate={race.raceDate}
     raceEndDate={race.raceEndDate}
@@ -954,83 +1056,114 @@
 />
 
 <!-- Mobile sticky CTA -->
-{#if validOfficialUrl}
-    <div class="mobile-cta">
-        <a
-            href={validOfficialUrl}
-            target="_blank"
-            rel="noopener"
-            class="arena-btn arena-btn-accent mobile-cta-btn"
-            onclick={() => handleRegisterClick('mobile')}
-        >
-            {race.status === 'registration_open' ? '공식 사이트에서 접수' : '공식 사이트로 이동'} ↗
-        </a>
+<div class="rd-mcta">
+    <div class="rd-mcta__info">
+        {#if race.status === 'registration_open'}
+            <span class="rd-mcta__lbl eh-data" style="color: var(--text-accent);">
+                {dday.value != null && dday.value > 0 ? `D-${String(dday.value).padStart(2, '0')} 접수` : '접수 중'}
+            </span>
+            <b class="eh-data">{arenaFeeShort(arenaMinFee(race))}~</b>
+        {:else}
+            <span class="rd-mcta__lbl" style="color: var(--text-faint);">{race.statusLabel}</span>
+            <b class="eh-data">{heroDate}{race.raceDate ? ` (${formatDateDay(race.raceDate)})` : ''}</b>
+        {/if}
     </div>
-{/if}
 
+    <button
+        class="eh-iconbtn eh-iconbtn--outline {isFavorited ? 'eh-iconbtn--active' : ''}"
+        onclick={toggleFavorite}
+        aria-pressed={isFavorited}
+        aria-label="관심 대회 저장"
+        disabled={isTogglingFavorite}
+    >
+        <svg viewBox="0 0 24 24" width="20" height="20" fill={isFavorited ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z" />
+        </svg>
+    </button>
+    <button class="eh-iconbtn eh-iconbtn--outline" onclick={openShareModal} aria-label="공유하기">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+            <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z" />
+        </svg>
+    </button>
+
+    <span class="rd-mcta__sep"></span>
+
+    <span class="rd-mcta__action">
+        {#if race.status === 'registration_open' && validOfficialUrl}
+            <a
+                href={validOfficialUrl}
+                target="_blank"
+                rel="noopener"
+                class="eh-btn eh-btn--md eh-btn--signal eh-btn--full"
+                onclick={() => handleRegisterClick('mobile')}
+            >
+                접수하기 ↗
+            </a>
+        {:else if validOfficialUrl}
+            <a
+                href={validOfficialUrl}
+                target="_blank"
+                rel="noopener"
+                class="eh-btn eh-btn--md eh-btn--primary eh-btn--full"
+                onclick={() => handleRegisterClick('mobile')}
+            >
+                공식 페이지
+            </a>
+        {:else}
+            <button class="eh-btn eh-btn--md eh-btn--primary eh-btn--full" type="button" disabled>
+                {race.statusLabel}
+            </button>
+        {/if}
+    </span>
+</div>
+
+<!-- Image lightbox -->
 {#if modalOpen}
     <div
-        class="arena-modal"
+        class="rd-modal"
         role="dialog"
         aria-modal="true"
         aria-label="이미지 확대 보기"
-        onclick={(e) => {
-            if (e.target === e.currentTarget) closeImageModal();
-        }}
+        onclick={(e) => { if (e.target === e.currentTarget) closeImageModal(); }}
         onkeydown={(e) => e.key === 'Escape' && closeImageModal()}
         tabindex="-1"
     >
-        <button
-            class="modal-close"
-            onclick={closeImageModal}
-            aria-label="닫기">×</button
-        >
-        <img
-            src={modalImageSrc}
-            alt={modalImageAlt}
-            class="modal-img"
-        />
+        <button class="rd-modal__close" onclick={closeImageModal} aria-label="닫기">×</button>
+        <img src={modalImageSrc} alt={modalImageAlt} class="rd-modal__img" />
     </div>
 {/if}
 
+<!-- Share modal -->
 {#if shareModalOpen}
     <div
-        class="arena-modal"
+        class="rd-modal"
         role="dialog"
         aria-modal="true"
         aria-label="공유하기"
-        onclick={(e) => {
-            if (e.target === e.currentTarget) closeShareModal();
-        }}
+        onclick={(e) => { if (e.target === e.currentTarget) closeShareModal(); }}
         onkeydown={(e) => e.key === 'Escape' && closeShareModal()}
         tabindex="-1"
     >
-        <div class="share-box">
-            <div class="share-head">
-                <span class="arena-kicker">공유</span>
-                <button class="share-close mono" onclick={closeShareModal} aria-label="닫기">✕</button>
+        <div class="rd-share-box">
+            <div class="rd-share-head">
+                <span class="rd-share-head__label">공유</span>
+                <button class="rd-share-head__close" onclick={closeShareModal} aria-label="닫기">✕</button>
             </div>
-            <h3>대회 공유하기</h3>
-            <div class="share-actions">
+            <h3 class="rd-share-title">대회 공유하기</h3>
+            <div class="rd-share-actions">
                 <button
-                    class="share-btn primary"
-                    onclick={() => {
-                        shareKakao();
-                        closeShareModal();
-                    }}
+                    class="rd-share-btn rd-share-btn--primary"
+                    onclick={() => { shareKakao(); closeShareModal(); }}
                 >
                     <span>카카오톡으로 공유</span>
-                    <span class="mono share-arrow">↗</span>
+                    <span class="rd-share-btn__arrow">↗</span>
                 </button>
                 <button
-                    class="share-btn ghost"
-                    onclick={() => {
-                        copyLink();
-                        closeShareModal();
-                    }}
+                    class="rd-share-btn rd-share-btn--ghost"
+                    onclick={() => { copyLink(); closeShareModal(); }}
                 >
                     <span>링크 복사</span>
-                    <span class="mono share-arrow">⎘</span>
+                    <span class="rd-share-btn__arrow">⎘</span>
                 </button>
             </div>
         </div>
@@ -1038,1077 +1171,670 @@
 {/if}
 
 <style>
-    .arena-detail {
-        background: var(--arena-paper);
-        color: var(--arena-ink);
-        font-family: var(--arena-f-body);
-        min-width: 0;
-        padding-bottom: 60px;
+    /* ══════════════════════════════════════════
+       HERO — INK BLOCK
+    ══════════════════════════════════════════ */
+    .rd-hero {
+        background: var(--bg-inverse);
+        color: var(--text-inverse);
+        border-bottom: var(--border-rule);
+    }
+    .rd-hero__inner {
+        max-width: var(--container-max);
+        margin: 0 auto;
+        padding: 44px var(--container-pad) 36px;
+    }
+    @media (max-width: 768px) {
+        .rd-hero__inner { padding: 28px var(--container-pad-mobile) 24px; }
     }
 
-    /* ── Top mono band ────────────────── */
-    .detail-head {
-        border-bottom: 1px solid var(--arena-line);
-        padding: 18px 0;
-    }
-    .head-inner {
-        max-width: 1400px;
-        margin: 0 auto;
-        padding: 0 24px;
+    .rd-hero__top {
         display: flex;
+        align-items: baseline;
         justify-content: space-between;
-        align-items: center;
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        color: var(--arena-ink-soft);
-        letter-spacing: 1px;
         gap: 16px;
+        flex-wrap: wrap;
     }
-    @media (min-width: 1024px) {
-        .head-inner {
-            padding: 0 32px;
-        }
-    }
-    .bread-mono {
-        display: inline-flex;
+    .rd-crumb {
+        display: flex;
         gap: 8px;
         align-items: center;
-        min-width: 0;
-        overflow: hidden;
-        word-break: keep-all;
-    }
-    .bread-mono a {
-        color: inherit;
-        text-decoration: none;
-    }
-    .bread-mono .bm-item {
-        white-space: nowrap;
-        flex-shrink: 0;
-    }
-    .bread-mono a:hover {
-        color: var(--arena-ink);
-    }
-    .bread-mono .sep {
-        color: var(--arena-line);
-        flex-shrink: 0;
-    }
-    .bread-meta {
-        white-space: nowrap;
-    }
-    @media (max-width: 720px) {
-        .bm-slug,
-        .bm-slug-sep {
-            display: none;
-        }
-        .bm-meta-prefix {
-            display: none;
-        }
-    }
-    .ellipsis-inline {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        min-width: 0;
-    }
-
-    /* ── Hero band ────────────────── */
-    .detail-hero {
-        border-bottom: 1px solid var(--arena-line);
-        padding: 36px 0 44px;
-    }
-    .hero-inner {
-        max-width: 1400px;
-        margin: 0 auto;
-        padding: 0 24px;
-    }
-    @media (min-width: 1024px) {
-        .hero-inner {
-            padding: 0 32px;
-        }
-    }
-    .hero-kicker {
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        letter-spacing: 1.5px;
-        color: var(--arena-ink-soft);
-        text-transform: uppercase;
-        margin-bottom: 16px;
-        display: flex;
-        gap: 14px;
-        align-items: center;
+        font-size: 13px;
         flex-wrap: wrap;
     }
-    .hk-courses {
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
+    .rd-crumb a {
+        color: inherit;
+        opacity: 0.55;
+        text-decoration: none;
+    }
+    .rd-crumb a:hover { opacity: 1; }
+    .rd-crumb__sep { opacity: 0.35; }
+    .rd-crumb__cur { opacity: 1; }
+    .rd-hero__updated {
+        font-size: var(--text-micro);
+        letter-spacing: var(--track-micro);
+        text-transform: uppercase;
+        opacity: 0.45;
         white-space: nowrap;
-        max-width: 100%;
     }
-    .hk-sep {
-        color: var(--arena-line);
-    }
-    .hk-chip {
-        display: inline-flex;
-        gap: 6px;
+
+    .rd-hero__meta {
+        display: flex;
         align-items: center;
-        background: var(--arena-paper-alt);
-        border: 1px solid var(--arena-line);
-        padding: 3px 10px;
-        font-size: 10px;
-        letter-spacing: 1px;
+        justify-content: space-between;
+        gap: 16px;
+        margin-top: 22px;
     }
-    .hero-title {
-        font-family: var(--arena-f-display);
-        font-size: clamp(36px, 6vw, 56px);
-        font-weight: 700;
-        letter-spacing: -2px;
-        line-height: 1;
-        margin: 0 0 14px;
-        color: var(--arena-ink);
+    .rd-hero__sport {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+        flex-wrap: wrap;
+    }
+    .rd-hero__dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        flex: none;
+    }
+    .rd-hero__sportcode {
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+    }
+    .rd-hero__dists {
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        opacity: 0.66;
+    }
+
+    .rd-hero__title {
+        font-size: clamp(32px, 4.4vw, 56px);
+        font-weight: var(--w-display);
+        letter-spacing: var(--track-display);
+        line-height: var(--leading-display);
+        margin-top: 16px;
+        color: var(--text-inverse);
         text-wrap: balance;
     }
-    .hero-subtitle {
-        font-family: var(--arena-f-mono);
-        font-size: 13px;
-        color: var(--arena-ink-soft);
-        margin-bottom: 28px;
-    }
-    .hero-meta {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        border: 1px solid var(--arena-line);
-        background: var(--arena-line);
-        gap: 1px;
-    }
-    @media (min-width: 1024px) {
-        .hero-meta {
-            grid-template-columns: repeat(4, 1fr);
-        }
-    }
-    .meta-cell {
-        padding: 10px 12px;
-        background: var(--arena-paper-alt);
-        font-family: var(--arena-f-mono);
-        font-size: 12px;
-        min-width: 0;
-    }
-    @media (min-width: 720px) {
-        .meta-cell {
-            padding: 14px 18px;
-        }
-    }
-    .meta-label {
-        font-size: 10px;
-        letter-spacing: 1.5px;
-        color: var(--arena-ink-soft);
-        text-transform: uppercase;
-        margin-bottom: 4px;
-    }
-    .meta-value {
-        font-family: var(--arena-f-display);
-        font-size: 15px;
-        font-weight: 600;
-        letter-spacing: -0.3px;
-        line-height: 1.2;
-    }
-    @media (min-width: 720px) {
-        .meta-value {
-            font-size: 18px;
-        }
-    }
-    .meta-sub {
-        font-size: 11px;
-        color: var(--arena-ink-soft);
-        margin-top: 3px;
-    }
-    .weather-rain {
-        font-size: 13px;
-        color: var(--arena-ink-soft);
-        font-weight: 500;
-        letter-spacing: 0;
-        margin-left: 4px;
-    }
-    .weather-cond {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        margin-right: 6px;
-    }
-    .weather-icon {
-        display: inline-flex;
-        align-items: center;
-        color: var(--arena-accent-deep, #1f2937);
-        line-height: 1;
-    }
-    .weather-temp {
-        color: var(--arena-ink-soft);
-        font-weight: 500;
-    }
-    .weather-badge {
-        display: inline-block;
-        margin-left: 6px;
-        padding: 1px 6px;
-        font-size: 10px;
-        font-weight: 600;
-        line-height: 1.4;
-        color: var(--arena-accent, #2563eb);
-        background: rgba(37, 99, 235, 0.1);
-        border-radius: 999px;
-        letter-spacing: 0;
-        vertical-align: 1px;
-    }
-    .weather-day {
-        margin-top: 2px;
-        opacity: 0.7;
-        font-size: 12px;
-    }
 
-    /* ── Main 3-col grid ────────────────── */
-    .detail-main {
-        max-width: 1400px;
-        margin: 0 auto;
-        padding: 36px 24px;
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 32px;
+    .rd-hstats {
+        display: flex;
+        gap: var(--sp-10);
+        margin-top: 32px;
+        flex-wrap: wrap;
         align-items: flex-start;
     }
-    @media (min-width: 1024px) {
-        .detail-main {
-            grid-template-columns: 200px minmax(0, 1fr) 280px;
-            gap: 40px;
-            padding: 40px 32px;
-        }
+    @media (max-width: 768px) {
+        .rd-hstats { gap: var(--sp-6); margin-top: 24px; }
     }
-
-    /* ── TOC ────────────────── */
-    .toc {
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        order: 1;
-    }
-    @media (min-width: 1024px) {
-        .toc {
-            position: sticky;
-            top: 80px;
-        }
-    }
-    .toc-title {
-        font-size: 10px;
-        letter-spacing: 2px;
-        color: var(--arena-ink-soft);
+    .rd-hstat__k {
+        font-size: var(--text-micro);
+        font-weight: 600;
+        letter-spacing: var(--track-micro);
         text-transform: uppercase;
-        margin-bottom: 14px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid var(--arena-line);
+        opacity: 0.55;
+        white-space: nowrap;
     }
-    .toc-item {
+    .rd-hstat__v {
+        font-size: 32px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1;
+        margin-top: 8px;
+        white-space: nowrap;
         display: flex;
-        gap: 10px;
-        padding: 7px 0;
-        color: var(--arena-ink-soft);
-        text-decoration: none;
-        letter-spacing: 1px;
+        align-items: flex-end;
+        gap: 7px;
+        min-height: 32px;
     }
-    .toc-item:hover {
-        color: var(--arena-ink);
+    @media (max-width: 768px) {
+        .rd-hstat__v { font-size: 24px; min-height: 24px; }
     }
-    .toc-n {
-        color: var(--arena-ink-mute);
+    .rd-hstat__v small { font-size: 14px; font-weight: 600; opacity: 0.6; letter-spacing: 0; }
+    .rd-hstat__v--venue {
+        font-size: 23px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        max-width: 280px;
+        overflow: hidden;
     }
+    .rd-hstat__v--venue small { font-size: 13px; }
 
-    /* ── Body ────────────────── */
-    .body {
-        order: 2;
-        min-width: 0;
+    .rd-hero__wx {
         display: flex;
-        flex-direction: column;
-        gap: 56px;
-    }
-    .sec {
-        scroll-margin-top: 80px;
-    }
-    .sec-head {
-        display: flex;
-        align-items: baseline;
-        gap: 16px;
-        margin-bottom: 20px;
-        padding-bottom: 12px;
-        border-bottom: 1px solid var(--arena-line);
+        align-items: center;
+        gap: 22px;
+        margin-top: 28px;
+        padding-top: 20px;
+        border-top: 1px solid rgba(255, 255, 255, 0.16);
         flex-wrap: wrap;
     }
-    .sec-n {
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        color: var(--arena-ink-soft);
-        letter-spacing: 1.5px;
-    }
-    .sec-title {
-        font-family: var(--arena-f-display);
-        font-size: 24px;
-        font-weight: 700;
-        letter-spacing: -0.5px;
-        margin: 0;
-    }
-    .sec-meta {
-        margin-left: auto;
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        color: var(--arena-ink-soft);
+    .rd-hero__wx-label { opacity: 0.45; white-space: nowrap; }
+    .rd-hero__wx-item {
         display: inline-flex;
-        gap: 14px;
         align-items: baseline;
-    }
-
-    .ai-block {
-        background: var(--arena-paper-alt);
-        border-left: 3px solid var(--arena-accent);
-        padding: 14px 18px;
-        margin-bottom: 16px;
-    }
-    .ai-kicker {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 1.5px;
-        color: var(--arena-ink-soft);
-        text-transform: uppercase;
-        margin-bottom: 6px;
-    }
-    .ai-block p {
-        margin: 0;
-        font-size: 13px;
-        line-height: 1.6;
-        color: var(--arena-ink-soft);
-    }
-    .prose {
+        gap: 7px;
         font-size: 14px;
-        line-height: 1.7;
-        color: var(--arena-ink);
-        margin-bottom: 16px;
+        white-space: nowrap;
+    }
+    .rd-hero__wx-item i { font-style: normal; opacity: 0.5; font-size: var(--text-micro); letter-spacing: var(--track-micro); text-transform: uppercase; }
+    .rd-hero__wx-item b { font-weight: 700; }
+
+    /* ══════════════════════════════════════════
+       BODY GRID — 3 COLUMN
+    ══════════════════════════════════════════ */
+    .rd-wrap {
+        max-width: var(--container-max);
+        margin: 0 auto;
+        padding: 0 var(--container-pad);
+    }
+    @media (max-width: 768px) {
+        .rd-wrap { padding: 0 var(--container-pad-mobile); }
+    }
+    .rd-grid {
+        display: grid;
+        grid-template-columns: 192px minmax(0, 1fr) 344px;
+        gap: var(--sp-10);
+        padding-top: var(--sp-10);
+        padding-bottom: var(--sp-16);
+        align-items: start;
+    }
+    @media (max-width: 1180px) {
+        .rd-grid { grid-template-columns: minmax(0, 1fr) 320px; }
+        .rd-toc { display: none; }
+    }
+    @media (max-width: 960px) {
+        .rd-grid { grid-template-columns: 1fr; gap: var(--sp-8); padding-bottom: 96px; }
     }
 
-    /* ── Tables ────────────────── */
-    .table-scroll {
-        max-width: 100%;
-        overflow-x: auto;
+    /* ── table of contents ── */
+    .rd-toc {
+        position: sticky;
+        top: 84px;
+        align-self: start;
+        min-width: 0;
     }
-    .meta-table,
-    .data-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-family: var(--arena-f-mono);
-        font-size: 12px;
-        border: 1px solid var(--arena-line);
-        margin-top: 4px;
+    .rd-toc__label {
+        color: var(--text-faint);
+        padding-bottom: 12px;
+        border-bottom: var(--border-hair);
     }
-    .meta-table td,
-    .data-table td {
-        padding: 12px 14px;
-        border-bottom: 1px solid var(--arena-line-soft);
-        vertical-align: top;
-    }
-    .meta-table tr:last-child td,
-    .data-table tr:last-child td {
-        border-bottom: none;
-    }
-    .data-table th {
-        text-align: left;
-        padding: 10px 14px;
-        background: var(--arena-paper-alt);
-        border-bottom: 1px solid var(--arena-line);
-        font-size: 10px;
-        letter-spacing: 1.5px;
-        color: var(--arena-ink-soft);
-        text-transform: uppercase;
+    .rd-toc__list { list-style: none; margin: 6px 0 0; padding: 0; }
+    .rd-toc__link {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        padding: 9px 0 9px 13px;
+        margin-left: -2px;
+        border-left: 2px solid transparent;
+        text-decoration: none;
+        color: var(--text-muted);
+        font-size: 13.5px;
         font-weight: 500;
-        white-space: nowrap;
+        transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
     }
-    .data-table th.right,
-    .data-table td.right {
-        text-align: right;
-    }
-    .meta-table .mt-key {
-        background: var(--arena-paper-alt);
-        color: var(--arena-ink-soft);
-        width: 140px;
-        white-space: nowrap;
-    }
-    .meta-table td:not(.mt-key) {
-        overflow-wrap: anywhere;
-        word-break: break-word;
-    }
-    .data-table td.bold {
+    .rd-toc__n { font-size: 11px; font-weight: 600; color: var(--text-faint); }
+    .rd-toc__link:hover { color: var(--text-strong); }
+    .rd-toc__link--active {
+        border-left-color: var(--accent);
+        color: var(--text-strong);
         font-weight: 700;
     }
-    .data-table td.body-font {
-        font-family: var(--arena-f-body);
-        font-weight: 600;
+    .rd-toc__link--active .rd-toc__n { color: var(--text-accent); }
+
+    /* ── main column ── */
+    .rd-main { min-width: 0; display: flex; flex-direction: column; gap: var(--sp-12); }
+
+    /* section head */
+    .rd-sec { scroll-margin-top: 80px; }
+    .rd-sh {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--sp-4);
+        flex-wrap: wrap;
+        border-top: 1.5px solid var(--ink-900);
+        padding-top: 14px;
+        margin-bottom: 18px;
+    }
+    .rd-sh__l { display: flex; align-items: baseline; gap: 12px; }
+    .rd-sh__n { color: var(--text-accent); }
+    .rd-sh__t {
+        font-size: var(--text-h3);
+        font-weight: var(--w-strong);
+        letter-spacing: var(--track-heading);
+        color: var(--text-strong);
+    }
+    .rd-sh__aux { color: var(--text-faint); }
+
+    /* overview prose */
+    .rd-prose {
+        font-size: 15px;
+        line-height: var(--leading-body);
+        color: var(--text-body);
+        max-width: 640px;
+    }
+    .rd-ov-desc { white-space: normal; word-break: break-word; }
+    .rd-ov-desc--clamp {
+        display: -webkit-box;
+        -webkit-line-clamp: 4;
+        line-clamp: 4;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .rd-more {
+        margin-top: 10px;
+        background: none;
+        border: none;
+        padding: 0;
         font-size: 13px;
+        font-weight: 600;
+        color: var(--text-strong);
+        cursor: pointer;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+    }
+    .rd-more:hover { color: var(--text-accent); }
+    .rd-ov-table { margin-top: 22px; }
+
+    /* meta table (개요 정보) */
+    .rd-meta-row { grid-template-columns: 120px 1fr; gap: 16px; }
+    .rd-meta-key { color: var(--text-faint); white-space: nowrap; }
+    .rd-meta-val { font-weight: 600; color: var(--text-body); }
+    .rd-meta-link {
+        font-weight: 600;
+        color: var(--text-strong);
+        text-decoration: none;
+        border-bottom: 1px solid var(--line);
+        width: fit-content;
+    }
+    .rd-meta-link:hover { border-bottom-color: var(--ink-900); }
+    .rd-meta-link__arrow { font-size: 11px; color: var(--text-faint); }
+
+    /* courses table */
+    .rd-table-scroll { overflow-x: auto; max-width: 100%; }
+    .rd-crow { gap: 14px; }
+    .rd-cell-r { text-align: right; }
+    .rd-cname { font-weight: 600; }
+    .rd-cdist { color: var(--text-faint); font-weight: 500; margin-left: 4px; }
+    .rd-cmuted { color: var(--text-muted); }
+    @media (max-width: 768px) {
+        .rd-hide-m { display: none !important; }
     }
 
-    /* ── Map images ────────────────── */
-    .map-images {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 12px;
-    }
+    /* course / giveaway images */
+    .rd-map-images { display: grid; grid-template-columns: 1fr; gap: 12px; }
     @media (min-width: 720px) {
-        .map-images.multi {
-            grid-template-columns: repeat(2, 1fr);
-        }
+        .rd-map-images--multi { grid-template-columns: repeat(2, 1fr); }
     }
-    .map-image-btn {
+    .rd-map-images--mt { margin-top: 16px; }
+    .rd-map-btn {
         padding: 0;
-        border: 1px solid var(--arena-line);
-        background: var(--arena-paper-alt);
+        border: var(--border-hair);
+        background: var(--paper-50);
         cursor: pointer;
         overflow: hidden;
+        border-radius: var(--r-0);
     }
-    .map-image-btn img {
-        width: 100%;
-        display: block;
-    }
-    .map-image-btn:hover {
-        border-color: var(--arena-ink);
-    }
-    .map-frame {
-        width: 100%;
-        height: 360px;
-        border: 1px solid var(--arena-line);
-        background: var(--arena-paper-alt);
-    }
+    .rd-map-btn img { width: 100%; display: block; }
+    .rd-map-btn:hover { border-color: var(--ink-900); }
+    .rd-map-frame { width: 100%; height: 360px; border: var(--border-hair); background: var(--paper-50); }
 
-    /* ── Timeline ────────────────── */
-    /* renamed from .timeline to escape daisyUI 5's bare .timeline rule (display:flex) */
-    .detail-timeline {
-        border: 1px solid var(--arena-line);
-    }
-    .t-row {
+    /* timeline (main section) */
+    .rd-tl { display: flex; flex-direction: column; border: var(--border-hair); background: var(--surface-card); padding: 4px 18px; }
+    .rd-tl__item {
         display: grid;
-        grid-template-columns: 16px auto 1fr auto;
-        gap: 10px;
-        padding: 12px 12px;
-        border-bottom: 1px solid var(--arena-line-soft);
-        font-family: var(--arena-f-mono);
-        font-size: 12px;
-        align-items: center;
+        grid-template-columns: 18px 110px 1fr;
+        gap: 14px;
+        align-items: baseline;
+        padding: 13px 0;
+        border-bottom: var(--border-hair);
     }
-    .t-row > * {
-        line-height: 1;
-    }
-    @media (min-width: 720px) {
-        .t-row {
-            grid-template-columns: 24px minmax(140px, max-content) 1fr auto;
-            gap: 16px;
-            padding: 14px 16px;
-        }
-    }
-    .t-date {
-        color: var(--arena-ink);
-        white-space: nowrap;
-        font-size: 11px;
-    }
-    @media (min-width: 720px) {
-        .t-date {
-            font-size: 12px;
-        }
-    }
-    .t-row:last-child {
-        border-bottom: none;
-    }
-    .t-row.current {
-        background: var(--arena-paper-alt);
-    }
-    .t-row.done .t-date,
-    .t-row.done .t-label {
-        color: var(--arena-ink-mute);
-    }
-    .t-dot {
+    .rd-tl__item:last-child { border-bottom: 0; }
+    .rd-tl__mark {
         width: 10px;
         height: 10px;
-        border: 1.5px solid var(--arena-ink);
-        background: var(--arena-paper);
+        border: 1px solid var(--ink-300);
+        background: var(--paper-0);
+        align-self: center;
     }
-    .t-dot.done {
-        background: var(--arena-ink);
+    .rd-tl__item--done .rd-tl__mark { background: var(--ink-900); border-color: var(--ink-900); }
+    .rd-tl__item--current .rd-tl__mark { background: var(--accent); border-color: var(--accent-strong); }
+    .rd-tl__date { font-size: 13px; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+    .rd-tl__label { font-size: 14px; font-weight: 500; color: var(--text-strong); }
+    .rd-tl__item--current .rd-tl__label { font-weight: 700; color: var(--text-accent); }
+    .rd-tl__item--bold .rd-tl__label { font-weight: 800; }
+    .rd-tl__item--done .rd-tl__date,
+    .rd-tl__item--done .rd-tl__label { color: var(--text-faint); }
+
+    /* includes grid */
+    .rd-incl-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1px;
+        background: var(--line);
+        border: 1px solid var(--line);
     }
-    .t-dot.accent {
-        background: var(--arena-accent);
-        border-color: var(--arena-accent-deep);
-    }
-    .t-label {
-        font-family: var(--arena-f-body);
+    .rd-incl-cell {
+        background: var(--surface-card);
+        padding: 14px 16px;
         font-size: 14px;
         font-weight: 500;
-        color: var(--arena-ink);
-    }
-    .t-label.bold {
-        font-weight: 700;
-    }
-    .t-status {
-        font-size: 10px;
-        letter-spacing: 1.5px;
-        color: var(--arena-ink-soft);
-        text-transform: uppercase;
     }
 
-    /* ── Reviews ────────────────── */
-    .review-grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 16px;
-    }
-    @media (min-width: 720px) {
-        .review-grid {
-            grid-template-columns: 1fr 1fr;
-        }
-    }
-    .review-card {
-        border: 1px solid var(--arena-line);
-        background: var(--arena-paper);
-        padding: 16px;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
-    .rv-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        color: var(--arena-ink-soft);
-        letter-spacing: 0.5px;
-    }
-    .rv-user {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        min-width: 0;
-    }
-    .rv-stars {
-        font-family: var(--arena-f-mono);
-        color: var(--arena-ink);
-        letter-spacing: 1px;
-        white-space: nowrap;
-    }
-    .rv-body {
-        font-size: 13px;
-        line-height: 1.55;
-        color: var(--arena-ink-soft);
-        white-space: pre-wrap;
-        word-break: break-word;
-    }
-    .rv-foot {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px 16px;
-        align-items: center;
-        padding-top: 10px;
-        border-top: 1px dashed var(--arena-line-soft);
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        color: var(--arena-ink-soft);
-    }
-    .rv-meta {
-        display: inline-flex;
-        gap: 4px;
-        align-items: baseline;
-    }
-    .rv-tags {
-        display: inline-flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        margin-left: auto;
-    }
-    .rv-tag {
-        border: 1px solid var(--arena-line);
-        background: var(--arena-paper-alt);
-        padding: 2px 8px;
-        font-size: 10px;
-        letter-spacing: 0.5px;
-        color: var(--arena-ink);
-    }
-    .rv-empty {
-        border: 1px solid var(--arena-line);
-        background: var(--arena-paper-alt);
+    /* reviews */
+    .rd-rv-empty {
+        border: var(--border-hair);
+        background: var(--paper-50);
         padding: 32px 24px;
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 14px;
-        font-family: var(--arena-f-mono);
+        font-size: 13px;
+        color: var(--text-muted);
+    }
+    .rd-rv-empty__msg { margin: 0; text-align: center; }
+    .rd-rv-empty__btn {
+        background: var(--ink-900);
+        color: var(--paper-0);
+        border: 1px solid var(--ink-900);
+        padding: 10px 20px;
         font-size: 12px;
-        color: var(--arena-ink-soft);
         letter-spacing: 0.5px;
-    }
-    .rv-empty-msg {
-        text-align: center;
-    }
-    .rv-empty-btn {
-        background: var(--arena-ink);
-        color: var(--arena-paper);
-        border: 1px solid var(--arena-ink);
-        padding: 10px 18px;
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        letter-spacing: 1.5px;
-        text-transform: uppercase;
         cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
     }
-    .rv-empty-btn:hover {
-        background: var(--arena-ink-soft);
-    }
-    .rv-empty-arrow {
-        opacity: 0.7;
-    }
-
-    /* ── Includes ────────────────── */
-    .includes {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 4px 32px;
-        border: 1px solid var(--arena-line);
-        padding: 16px 20px;
-    }
-    @media (min-width: 720px) {
-        .includes {
-            grid-template-columns: 1fr 1fr;
-        }
-    }
-    .include-item {
-        display: flex;
-        gap: 12px;
-        padding: 8px 0;
-        font-size: 13px;
-        border-bottom: 1px dashed var(--arena-line-soft);
-    }
-    /* Mobile (1-col): only the last item drops the line */
-    .include-item:last-child {
-        border-bottom: none;
-    }
-    @media (min-width: 720px) {
-        /* 2-col: also drop the 2nd-to-last when it sits in the same (last) row.
-           That happens only when total count is even: last item is at an even
-           position, so 2nd-to-last is at an odd position. */
-        .include-item:nth-last-child(2):nth-child(odd) {
-            border-bottom: none;
-        }
-    }
-    .check {
-        font-family: var(--arena-f-mono);
-        color: var(--arena-accent-deep);
-    }
-
-    /* ── Related ────────────────── */
-    .related-grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 16px;
-    }
-    @media (min-width: 720px) {
-        .related-grid {
-            grid-template-columns: repeat(2, 1fr);
-        }
-    }
-    @media (min-width: 1280px) {
-        .related-grid {
-            grid-template-columns: repeat(3, 1fr);
-        }
-    }
-
-    /* ── Ext / Posts ────────────────── */
-    .ext-card {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 18px 20px;
-        border: 1px solid var(--arena-line);
-        background: var(--arena-paper-alt);
-        font-family: var(--arena-f-display);
-        font-weight: 600;
-        font-size: 15px;
-        color: var(--arena-ink);
-        text-decoration: none;
-    }
-    .ext-card:hover {
-        border-color: var(--arena-ink);
-    }
-    .ext-arrow {
-        font-family: var(--arena-f-mono);
-        font-size: 13px;
-        color: var(--arena-ink-soft);
-    }
-
-    .post-list {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        border: 1px solid var(--arena-line);
-    }
-    .post-row {
-        display: grid;
-        grid-template-columns: 60px 1fr auto;
-        align-items: center;
-        gap: 14px;
-        padding: 12px 16px;
-        border-bottom: 1px solid var(--arena-line-soft);
-        text-decoration: none;
-        color: var(--arena-ink);
-    }
-    .post-list li:last-child .post-row {
-        border-bottom: none;
-    }
-    .post-cat {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 1.5px;
-        color: var(--arena-ink-soft);
-        text-transform: uppercase;
-    }
-    .post-row-title {
-        font-size: 14px;
-        font-weight: 500;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .post-row-meta {
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        color: var(--arena-ink-soft);
-    }
-
-    .link {
-        color: var(--arena-ink-soft);
-        text-decoration: none;
-        border-bottom: 1px solid var(--arena-line);
-        padding-bottom: 1px;
-    }
-    .link:hover {
-        color: var(--arena-ink);
-        border-color: var(--arena-ink);
-    }
-    .link-btn {
-        background: transparent;
-        border: none;
-        font: inherit;
-        cursor: pointer;
-        padding: 0;
-    }
-    .ext {
-        color: var(--arena-ink);
-        text-decoration: none;
-        border-bottom: 1px solid var(--arena-ink-soft);
-        overflow-wrap: anywhere;
-        word-break: break-all;
-    }
-
-    /* ── Aside ────────────────── */
-    .aside {
-        order: 0; /* mobile: aside between hero and TOC; desktop overrides below */
-        display: flex;
-        flex-direction: column;
-        gap: 20px;
-        min-width: 0;
-    }
-    @media (min-width: 1024px) {
-        .aside {
-            order: 3;
-            position: sticky;
-            top: 80px;
-        }
-    }
-    .aside-cta {
-        background: var(--arena-ink);
-        color: var(--arena-paper);
-        padding: 20px;
-        font-family: var(--arena-f-mono);
-        min-width: 0;
-        overflow: hidden;
-    }
-    .cta-label {
-        font-size: 10px;
+    .rd-rv-empty__btn:hover { background: var(--ink-700); }
+    .rd-rv-list { display: flex; flex-direction: column; gap: 10px; }
+    .rd-review { padding: 18px 20px; }
+    .rd-review__head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+    .rd-review__stars {
+        color: var(--text-accent);
         letter-spacing: 2px;
-        opacity: 0.6;
-        margin-bottom: 6px;
-    }
-    .cta-num {
-        font-family: var(--arena-f-display);
-        font-size: 32px;
-        font-weight: 700;
-        letter-spacing: -0.5px;
-        line-height: 1;
-        color: var(--arena-accent);
-    }
-    .cta-sub {
-        font-size: 11px;
-        opacity: 0.7;
-        margin-top: 4px;
-    }
-    .cta-stats {
-        margin-top: 16px;
-        padding: 12px 0;
-        border-top: 1px dashed rgba(255, 255, 255, 0.2);
-        border-bottom: 1px dashed rgba(255, 255, 255, 0.2);
-        font-size: 11px;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-    }
-    .cs-row {
-        display: flex;
-        align-items: baseline;
-        gap: 12px;
-        min-width: 0;
-    }
-    .cs-key {
-        opacity: 0.6;
-        flex: 0 0 56px;
+        font-size: 13px;
         white-space: nowrap;
     }
-    .cs-row > :nth-child(2) {
-        flex: 1 1 0;
-        min-width: 0;
-        max-width: 100%;
-        text-align: right;
+    .rd-review__user { color: var(--text-faint); margin-left: auto; }
+    .rd-review__body {
+        font-size: 14px;
+        color: var(--text-body);
+        line-height: var(--leading-body);
+        margin-top: 8px;
         white-space: pre-wrap;
         word-break: break-word;
     }
-    .cs-status {
-        color: var(--arena-accent);
-        justify-content: flex-end;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-    }
-    .cta-btn {
+    .rd-review__foot {
         display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-top: 14px;
-        padding: 14px 16px;
-        background: var(--arena-accent);
-        color: var(--arena-ink);
-        font-family: var(--arena-f-display);
-        font-weight: 700;
-        font-size: 14px;
-        letter-spacing: -0.2px;
-        text-decoration: none;
+        gap: 8px 16px;
+        margin-top: 12px;
+        flex-wrap: wrap;
+        align-items: baseline;
     }
-    .cta-btn:hover {
-        opacity: 0.9;
-    }
-    .cta-tag {
-        font-family: var(--arena-f-mono);
+    .rd-review__meta { color: var(--text-faint); }
+    .rd-review__meta b { color: var(--text-strong); font-weight: 700; }
+    .rd-review__tags { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+    .rd-review__tag {
+        border: var(--border-hair);
+        background: var(--paper-50);
+        padding: 2px 8px;
         font-size: 10px;
-        opacity: 0.6;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
     }
-    .cta-actions {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        margin-top: 8px;
-    }
-    .cta-actions button {
-        padding: 10px;
+    .rd-rv-write-btn {
         background: transparent;
-        color: var(--arena-paper);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        letter-spacing: 1px;
+        border: var(--border-hair);
+        color: var(--text-muted);
+        font-size: 12px;
+        letter-spacing: 0.5px;
+        padding: 12px;
         cursor: pointer;
+        text-align: center;
+        margin-top: 2px;
     }
-    .cta-actions button:hover {
-        background: rgba(255, 255, 255, 0.08);
-    }
-    .aside-card {
-        border: 1px solid var(--arena-line);
-        padding: 16px 18px;
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-    }
-    .ac-title {
-        font-size: 10px;
-        letter-spacing: 1.5px;
-        color: var(--arena-ink-soft);
-        text-transform: uppercase;
-        margin-bottom: 12px;
-    }
-    .ac-list {
-        display: flex;
-        flex-direction: column;
+    .rd-rv-write-btn:hover { border-color: var(--ink-900); color: var(--text-strong); }
+
+    /* related races grid */
+    .rd-rel-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
         gap: 10px;
     }
-    .ac-row {
+    @media (max-width: 560px) {
+        .rd-rel-grid { grid-template-columns: 1fr; }
+    }
+    .rd-relcard {
+        padding: 16px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .rd-relcard:hover { border-color: var(--ink-900); }
+    .rd-relcard__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .rd-relcard__sport { font-size: 11px; font-weight: 800; letter-spacing: 0.06em; }
+    .rd-relcard__nm {
+        font-weight: 600;
+        font-size: 14px;
+        color: var(--text-strong);
+        line-height: 1.35;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .rd-relcard:hover .rd-relcard__nm { text-decoration: underline; text-underline-offset: 3px; }
+    .rd-relcard__meta { font-size: 12px; color: var(--text-muted); }
+
+    /* ══════════════════════════════════════════
+       RAIL
+    ══════════════════════════════════════════ */
+    .rd-rail { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+    @media (min-width: 961px) {
+        .rd-rail { position: sticky; top: 84px; }
+    }
+
+    /* register card */
+    .rd-reg { padding: 24px 24px 22px; border-color: var(--ink-900); }
+    @media (max-width: 960px) {
+        .rd-reg { display: none; }
+    }
+    .rd-reg__top { display: flex; align-items: center; gap: 8px; }
+    .rd-reg__closes { color: var(--text-faint); margin-left: auto; }
+    .rd-reg__dday {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        margin: 18px 0 0;
+        flex-wrap: wrap;
+    }
+    .rd-reg__num {
+        font-size: 38px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1;
+        color: var(--text-strong);
+    }
+    .rd-reg__date { color: var(--text-muted); font-size: 13px; }
+    .rd-reg__fees { margin: 18px 0 4px; }
+    .rd-reg__fee {
         display: flex;
         justify-content: space-between;
-        gap: 12px;
-    }
-    .ac-row > span:first-child {
-        color: var(--arena-ink-soft);
-    }
-    .ac-row > span:last-child {
-        font-family: var(--arena-f-body);
-        font-size: 13px;
-        text-align: right;
-        max-width: 60%;
-    }
-    .admin-link {
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        padding: 12px 18px;
-        background: var(--arena-paper);
-        border: 1px dashed var(--arena-line);
-        color: var(--arena-ink-soft);
-        text-decoration: none;
-        text-align: center;
-    }
-    .admin-link:hover {
-        color: var(--arena-ink);
-        border-style: solid;
-    }
-
-    /* ── Mobile sticky CTA ────────────────── */
-    .mobile-cta {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        z-index: 40;
-        background: var(--arena-paper);
-        border-top: 1px solid var(--arena-line);
-        padding: 12px 16px;
-        padding-bottom: max(12px, env(safe-area-inset-bottom));
-    }
-    .mobile-cta-btn {
-        width: 100%;
-        justify-content: center;
-        padding: 14px;
+        align-items: baseline;
+        padding: 9px 0;
+        border-bottom: var(--border-hair);
         font-size: 14px;
     }
-    @media (min-width: 1024px) {
-        .mobile-cta {
-            display: none;
-        }
+    .rd-reg__fee:last-child { border-bottom: 0; }
+    .rd-reg__fee-nm { color: var(--text-muted); }
+    .rd-reg__fee b { font-weight: 700; }
+    .rd-reg :global(.eh-btn) { margin-top: 18px; }
+    .rd-reg__acts { display: flex; gap: 8px; margin-top: 10px; }
+    .rd-reg__act {
+        flex: 1;
+        padding: 10px;
+        background: var(--paper-0);
+        color: var(--text-strong);
+        border: var(--border-hair);
+        font-size: 12px;
+        letter-spacing: 0.3px;
+        cursor: pointer;
     }
+    .rd-reg__act:hover { border-color: var(--ink-900); background: var(--paper-50); }
+    .rd-reg__act:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    /* ── Modals ────────────────── */
-    .arena-modal {
+    /* contact note */
+    .rd-railnote {
+        font-size: 12px;
+        color: var(--text-faint);
+        line-height: 1.6;
+        padding: 0 4px;
+    }
+    .rd-railnote__link {
+        color: var(--text-body);
+        text-decoration: none;
+        border-bottom: 1px solid var(--line);
+    }
+    .rd-railnote__link:hover { color: var(--text-strong); border-bottom-color: var(--ink-900); }
+
+    /* admin link */
+    .rd-admin-link {
+        font-size: 12px;
+        padding: 12px 18px;
+        background: var(--paper-0);
+        border: 1px dashed var(--line);
+        color: var(--text-faint);
+        text-decoration: none;
+        text-align: center;
+        display: block;
+    }
+    .rd-admin-link:hover { color: var(--text-strong); border-style: solid; }
+
+    /* ══════════════════════════════════════════
+       MOBILE STICKY CTA
+    ══════════════════════════════════════════ */
+    .rd-mcta {
+        display: none;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 95;
+        background: var(--paper-0);
+        border-top: 1px solid var(--ink-900);
+        padding: 10px var(--container-pad-mobile) calc(10px + env(safe-area-inset-bottom, 0px));
+        gap: 12px;
+        align-items: center;
+    }
+    @media (max-width: 960px) {
+        .rd-mcta { display: flex; }
+    }
+    .rd-mcta__info { display: flex; flex-direction: column; gap: 1px; flex: none; min-width: 0; padding-right: 2px; }
+    .rd-mcta__lbl {
+        font-size: var(--text-micro);
+        font-weight: var(--w-strong);
+        letter-spacing: var(--track-micro);
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+    .rd-mcta__info b {
+        font-size: 15px;
+        font-weight: 800;
+        line-height: 1.05;
+        letter-spacing: -0.01em;
+        color: var(--text-strong);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+    .rd-mcta .eh-iconbtn { width: 44px; height: 44px; flex: none; color: var(--ink-900); }
+    .rd-mcta__sep { align-self: stretch; width: 1px; background: var(--line); margin: 4px 0; flex: none; }
+    .rd-mcta__action { flex: 1; display: flex; min-width: 92px; }
+
+    /* ══════════════════════════════════════════
+       LIGHTBOX + SHARE MODALS
+    ══════════════════════════════════════════ */
+    .rd-modal {
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, 0.85);
+        background: rgba(0, 0, 0, 0.88);
         z-index: 200;
         display: grid;
         place-items: center;
         padding: 24px;
         cursor: pointer;
     }
-    .modal-close {
+    .rd-modal__close {
         position: absolute;
         top: 20px;
         right: 24px;
         background: transparent;
         border: 1px solid rgba(255, 255, 255, 0.4);
-        color: white;
+        color: #fff;
         width: 36px;
         height: 36px;
         font-size: 22px;
         cursor: pointer;
         line-height: 1;
     }
-    .modal-img {
-        max-width: 100%;
-        max-height: 90vh;
-        cursor: default;
-    }
-    .share-box {
-        background: var(--arena-paper);
-        border: 1px solid var(--arena-ink);
-        box-shadow: 6px 6px 0 var(--arena-ink);
+    .rd-modal__img { max-width: 100%; max-height: 90vh; cursor: default; }
+
+    .rd-share-box {
+        background: var(--paper-0);
+        border: 2px solid var(--ink-900);
+        box-shadow: 6px 6px 0 var(--ink-900);
         max-width: 380px;
         width: 100%;
         cursor: default;
     }
-    .share-head {
+    .rd-share-head {
         display: flex;
         justify-content: space-between;
         align-items: center;
         padding: 14px 18px;
-        border-bottom: 1px solid var(--arena-line);
-        background: var(--arena-paper-alt);
+        border-bottom: var(--border-hair);
+        background: var(--paper-50);
     }
-    .share-close {
+    .rd-share-head__label {
+        font-size: 10px;
+        letter-spacing: 1.5px;
+        color: var(--text-faint);
+        text-transform: uppercase;
+    }
+    .rd-share-head__close {
         background: transparent;
-        border: 1px solid var(--arena-line);
+        border: var(--border-hair);
         padding: 3px 8px;
         font-size: 12px;
         cursor: pointer;
-        line-height: 1;
-        color: var(--arena-ink);
+        color: var(--text-strong);
     }
-    .share-close:hover {
-        background: var(--arena-ink);
-        color: var(--arena-paper);
-    }
-    .share-box h3 {
-        font-family: var(--arena-f-display);
+    .rd-share-head__close:hover { background: var(--ink-900); color: var(--paper-0); }
+    .rd-share-title {
         font-size: 22px;
-        font-weight: 700;
-        letter-spacing: -0.6px;
-        margin: 0;
+        font-weight: 800;
+        letter-spacing: -0.03em;
         padding: 16px 18px 4px;
+        color: var(--text-strong);
     }
-    .share-actions {
-        padding: 12px 18px 18px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-    .share-btn {
+    .rd-share-actions { padding: 12px 18px 18px; display: flex; flex-direction: column; gap: 8px; }
+    .rd-share-btn {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 12px;
         width: 100%;
         padding: 12px 14px;
-        font-family: var(--arena-f-body);
         font-size: 14px;
         font-weight: 600;
         cursor: pointer;
         text-align: left;
-        transition: transform 0.1s;
     }
-    .share-btn:active {
-        transform: translateY(1px);
-    }
-    .share-btn.primary {
-        background: var(--arena-ink);
-        color: var(--arena-paper);
-        border: 1px solid var(--arena-ink);
-    }
-    .share-btn.primary:hover {
-        background: var(--arena-accent-deep);
-        border-color: var(--arena-accent-deep);
-        color: var(--arena-paper);
-    }
-    .share-btn.ghost {
-        background: var(--arena-paper);
-        color: var(--arena-ink);
-        border: 1px solid var(--arena-line);
-    }
-    .share-btn.ghost:hover {
-        background: var(--arena-paper-alt);
-        border-color: var(--arena-ink);
-    }
-    .share-arrow {
-        font-size: 13px;
-        opacity: 0.7;
-    }
+    .rd-share-btn--primary { background: var(--ink-900); color: var(--paper-0); border: 1px solid var(--ink-900); }
+    .rd-share-btn--primary:hover { background: var(--ink-700); }
+    .rd-share-btn--ghost { background: var(--paper-0); color: var(--text-strong); border: var(--border-hair); }
+    .rd-share-btn--ghost:hover { background: var(--paper-50); border-color: var(--ink-900); }
+    .rd-share-btn__arrow { font-size: 13px; opacity: 0.6; }
 </style>

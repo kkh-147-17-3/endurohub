@@ -1,9 +1,13 @@
 <script lang="ts">
     import type { Race, Distance } from '$lib/types';
     import { arenaSportCode } from '$lib/arena';
+    import { StatBlock, Badge, Button, Modal } from '$lib/components/eh';
+    import { clientApiFetch, isApiError } from '$lib/api.client';
+    import { invalidateAll } from '$app/navigation';
 
     let { data } = $props();
 
+    // ── Types ──────────────────────────────────────────────────────────────
     type SeasonStatus = 'confirmed_going' | 'maybe' | 'unknown' | 'logged';
 
     interface SeasonCourse {
@@ -12,13 +16,19 @@
         distKm: number;
     }
 
+    interface SeasonResult {
+        time: string;
+        pace: string;
+        pb?: boolean;
+    }
+
     interface SeasonRace {
         id: string;
         slug: string;
         name: string;
         url: string;
         region: string;
-        date: string; // YYYY-MM-DD
+        date: string;
         month: number;
         day: number;
         sport: string;
@@ -26,60 +36,91 @@
         deadline: { m: number; day: number } | null;
         userStatus: SeasonStatus;
         plannedCodes?: string[];
+        loggedCode?: string;
+        result?: SeasonResult;
         recentlyPassed?: boolean;
         mainGoal?: boolean;
         note?: string;
     }
 
+    /**
+     * Optional participation fields the backend does not return yet.
+     * When the "my season" API (see notes at bottom of file) ships, the load
+     * function can attach this and the strip/rows light up the richer states
+     * (참가 예정 / 완주 기록 / 메인 목표 / 선택 종목). Until then we derive what
+     * we honestly can from the race date + registration deadline.
+     */
+    type RaceWithParticipation = Race & {
+        userStatus?: SeasonStatus;
+        plannedCodes?: string[];
+        loggedCode?: string;
+        result?: SeasonResult;
+        mainGoal?: boolean;
+        note?: string;
+    };
+
+    // ── Date helpers ───────────────────────────────────────────────────────
     const today = new Date();
     const year = today.getFullYear();
     const todayMonth = today.getMonth() + 1;
     const todayDay = today.getDate();
 
     const months = [
-        { m: 1, label: 'JAN', kr: '1월', days: 31 },
-        { m: 2, label: 'FEB', kr: '2월', days: 28 + (year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 1 : 0) },
-        { m: 3, label: 'MAR', kr: '3월', days: 31 },
-        { m: 4, label: 'APR', kr: '4월', days: 30 },
-        { m: 5, label: 'MAY', kr: '5월', days: 31 },
-        { m: 6, label: 'JUN', kr: '6월', days: 30 },
-        { m: 7, label: 'JUL', kr: '7월', days: 31 },
-        { m: 8, label: 'AUG', kr: '8월', days: 31 },
-        { m: 9, label: 'SEP', kr: '9월', days: 30 },
-        { m: 10, label: 'OCT', kr: '10월', days: 31 },
-        { m: 11, label: 'NOV', kr: '11월', days: 30 },
-        { m: 12, label: 'DEC', kr: '12월', days: 31 },
+        { m: 1, label: 'JAN', kr: '1월' },
+        { m: 2, label: 'FEB', kr: '2월' },
+        { m: 3, label: 'MAR', kr: '3월' },
+        { m: 4, label: 'APR', kr: '4월' },
+        { m: 5, label: 'MAY', kr: '5월' },
+        { m: 6, label: 'JUN', kr: '6월' },
+        { m: 7, label: 'JUL', kr: '7월' },
+        { m: 8, label: 'AUG', kr: '8월' },
+        { m: 9, label: 'SEP', kr: '9월' },
+        { m: 10, label: 'OCT', kr: '10월' },
+        { m: 11, label: 'NOV', kr: '11월' },
+        { m: 12, label: 'DEC', kr: '12월' }
     ];
 
-    const totalDays = months.reduce((acc, m) => acc + m.days, 0);
+    const isLeap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+    const monthDays = [31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    const totalDays = monthDays.reduce((a, b) => a + b, 0);
     const cumDays = (() => {
-        const out: number[] = [0];
-        for (const m of months) out.push(out[out.length - 1] + m.days);
+        const out = [0];
+        for (const d of monthDays) out.push(out[out.length - 1] + d);
         return out;
     })();
 
     function dayOfYear(m: number, d: number): number {
         return cumDays[Math.max(0, m - 1)] + d;
     }
-    function yearProgress(m: number, d: number): number {
-        return Math.max(0, Math.min(1, dayOfYear(m, d) / totalDays));
+    /** horizontal position as a 0–100 percentage of the year */
+    function pct(m: number, d: number): number {
+        return Math.max(0, Math.min(100, (dayOfYear(m, d) / totalDays) * 100));
+    }
+    /** left edge / width of a month as a % of the year — proportional to its
+     *  real length so the header axis matches where pins (by day-of-year) land. */
+    function monthLeft(m: number): number {
+        return (cumDays[m - 1] / totalDays) * 100;
+    }
+    function monthWidth(m: number): number {
+        return (monthDays[m - 1] / totalDays) * 100;
     }
 
+    const todayDoy = dayOfYear(todayMonth, todayDay);
+    const todayPct = (todayDoy / totalDays) * 100;
+
+    // ── Race data mapping ──────────────────────────────────────────────────
     function distanceCode(d: Distance): string {
-        if (d.distance_meter && d.distance_meter > 0) {
-            const km = d.distance_meter / 1000;
-            if (Number.isInteger(km)) return `${km}K`;
-            return `${km.toFixed(1)}K`;
+        if (d.distanceMeter && d.distanceMeter > 0) {
+            const km = d.distanceMeter / 1000;
+            return Number.isInteger(km) ? `${km}K` : `${km.toFixed(1)}K`;
         }
         return d.name.slice(0, 4).toUpperCase();
     }
-
     function distanceKm(d: Distance): number {
-        if (d.distance_meter && d.distance_meter > 0) return d.distance_meter / 1000;
+        if (d.distanceMeter && d.distanceMeter > 0) return d.distanceMeter / 1000;
         const m = d.name.match(/(\d+(?:\.\d+)?)/);
         return m ? Number(m[1]) : 0;
     }
-
     function parseDate(d: string | null): { m: number; day: number; year: number } | null {
         if (!d) return null;
         const parts = d.split('-');
@@ -87,21 +128,21 @@
         return { year: Number(parts[0]), m: Number(parts[1]), day: Number(parts[2]) };
     }
 
-    function deriveStatus(race: Race): {
+    /** Derive an honest user status from the race date when the API gives none. */
+    function deriveStatus(rd: { m: number; day: number }): {
         status: SeasonStatus;
         recentlyPassed: boolean;
     } {
-        const raceDate = parseDate(race.raceDate);
-        if (!raceDate) return { status: 'maybe', recentlyPassed: false };
-        const raceDt = new Date(raceDate.year, raceDate.m - 1, raceDate.day);
-        const diffDays = Math.floor((raceDt.getTime() - today.getTime()) / 86400000);
-        if (diffDays < -14) return { status: 'unknown', recentlyPassed: false };
-        if (diffDays < 0) return { status: 'unknown', recentlyPassed: true };
+        const doy = dayOfYear(rd.m, rd.day);
+        const diff = doy - todayDoy;
+        if (diff < -14) return { status: 'unknown', recentlyPassed: false };
+        if (diff < 0) return { status: 'unknown', recentlyPassed: true };
+        // Favourited but no participation declared yet → 관심.
         return { status: 'maybe', recentlyPassed: false };
     }
 
     const seasonRaces: SeasonRace[] = $derived(
-        (data.races as Race[])
+        (data.races as RaceWithParticipation[])
             .map((race): SeasonRace | null => {
                 const rd = parseDate(race.raceDate);
                 if (!rd || rd.year !== year) return null;
@@ -109,12 +150,15 @@
                 const courses: SeasonCourse[] = (race.distances ?? []).slice(0, 4).map((d) => ({
                     code: distanceCode(d),
                     label: d.name,
-                    distKm: distanceKm(d),
+                    distKm: distanceKm(d)
                 }));
                 if (courses.length === 0) {
                     courses.push({ code: arenaSportCode[race.sport], label: race.sportLabel, distKm: 0 });
                 }
-                const { status, recentlyPassed } = deriveStatus(race);
+
+                const derived = deriveStatus(rd);
+                const userStatus = race.userStatus ?? derived.status;
+
                 return {
                     id: race.slug,
                     slug: race.slug,
@@ -127,1261 +171,1293 @@
                     sport: race.sport,
                     courses,
                     deadline: reg ? { m: reg.m, day: reg.day } : null,
-                    userStatus: status,
-                    recentlyPassed,
+                    userStatus,
+                    plannedCodes: race.plannedCodes,
+                    loggedCode: race.loggedCode,
+                    result: race.result,
+                    recentlyPassed: userStatus === 'unknown' ? derived.recentlyPassed : false,
+                    mainGoal: race.mainGoal ?? false,
+                    note: race.note
                 };
             })
             .filter((r): r is SeasonRace => r !== null)
-            .sort((a, b) => a.date.localeCompare(b.date)),
+            .sort((a, b) => a.date.localeCompare(b.date))
     );
 
-    const stats = $derived(() => {
-        const now = today.getTime();
-        const upcoming = seasonRaces.filter((r) => {
-            const dt = new Date(r.date).getTime();
-            return dt >= now;
-        });
-        const next = upcoming[0];
-        const nextDays = next
-            ? Math.max(0, Math.ceil((new Date(next.date).getTime() - now) / 86400000))
-            : null;
-        const goingCount = seasonRaces.filter((r) => r.userStatus === 'confirmed_going').length;
-        const maybeCount = seasonRaces.filter((r) => r.userStatus === 'maybe').length;
-        const loggedCount = seasonRaces.filter((r) => r.userStatus === 'logged').length;
-        const pendingCount = seasonRaces.filter((r) => r.recentlyPassed).length;
-        const main = seasonRaces.find((r) => r.mainGoal) ?? upcoming[upcoming.length - 1];
-        const mainDays = main
-            ? Math.max(0, Math.ceil((new Date(main.date).getTime() - now) / 86400000))
-            : null;
-        return {
-            totalRaces: seasonRaces.length,
-            confirmedGoing: goingCount,
-            maybe: maybeCount,
-            logged: loggedCount,
-            pendingLogs: pendingCount,
-            nextRaceDays: nextDays,
-            nextRaceName: next?.name ?? '—',
-            mainGoal: main?.name ?? '—',
-            mainGoalDays: mainDays,
-        };
+    // ── Derived collections ────────────────────────────────────────────────
+    const upcoming = $derived(seasonRaces.filter((r) => dayOfYear(r.month, r.day) >= todayDoy));
+    const past = $derived(seasonRaces.filter((r) => dayOfYear(r.month, r.day) < todayDoy));
+    const pending = $derived(seasonRaces.filter((r) => r.recentlyPassed && r.userStatus === 'unknown'));
+
+    // ── Mobile vertical timeline rail ───────────────────────────────────────
+    // Chronological sequence interleaving month dividers + a single TODAY marker
+    // (inserted before the first race on/after today) with the race nodes.
+    type RailItem =
+        | { kind: 'today' }
+        | { kind: 'month'; label: string }
+        | { kind: 'node'; race: SeasonRace };
+
+    const railItems: RailItem[] = $derived.by(() => {
+        const sorted = [...seasonRaces].sort(
+            (a, b) => dayOfYear(a.month, a.day) - dayOfYear(b.month, b.day)
+        );
+        const items: RailItem[] = [];
+        let lastMonth = 0;
+        let todayPlaced = false;
+        for (const r of sorted) {
+            const doy = dayOfYear(r.month, r.day);
+            if (!todayPlaced && doy >= todayDoy) {
+                items.push({ kind: 'today' });
+                todayPlaced = true;
+            }
+            if (r.month !== lastMonth) {
+                items.push({ kind: 'month', label: months[r.month - 1].label });
+                lastMonth = r.month;
+            }
+            items.push({ kind: 'node', race: r });
+        }
+        if (!todayPlaced) items.push({ kind: 'today' });
+        return items;
     });
 
-    const pendingLogs = $derived(seasonRaces.filter((r) => r.recentlyPassed));
+    const stats = $derived(
+        (() => {
+            const nowMs = today.getTime();
+            const next = upcoming[0];
+            const dday = (d: string) => Math.max(0, Math.ceil((new Date(d).getTime() - nowMs) / 86400000));
+            const goal = seasonRaces.find((r) => r.mainGoal) ?? upcoming[upcoming.length - 1];
+            return {
+                totalRaces: seasonRaces.length,
+                logged: seasonRaces.filter((r) => r.userStatus === 'logged').length,
+                nextRaceDays: next ? dday(next.date) : null,
+                mainGoalDays: goal ? dday(goal.date) : null,
+                mainGoalName: goal?.name ?? '—'
+            };
+        })()
+    );
 
-    let openId = $state<string | null>(null);
-    let bannerDismissed = $state(false);
-
-    function toggleOpen(id: string) {
-        openId = openId === id ? null : id;
+    // ── UI state ───────────────────────────────────────────────────────────
+    let sel = $state<string | null>(null);
+    function toggle(id: string) {
+        sel = sel === id ? null : id;
     }
 
-    // Layout constants
-    const LEFT_W = 240;
-    const RIGHT_W = 200;
-    const CHART_W = 1180;
-    const TOTAL_W = LEFT_W + CHART_W + RIGHT_W;
-
-    const xOf = (m: number, d: number) => yearProgress(m, d) * CHART_W;
-    const nowX = $derived(xOf(todayMonth, todayDay));
-
-    function statusBadgeClass(s: SeasonStatus): string {
-        return `badge-${s}`;
+    /** A race is "ended" once its day-of-year is before today (this season). */
+    function isPast(r: SeasonRace): boolean {
+        return dayOfYear(r.month, r.day) < todayDoy;
     }
 
-    function statusBadgeLabel(s: SeasonStatus): string {
-        switch (s) {
-            case 'confirmed_going':
-                return 'GO';
-            case 'logged':
-                return '✓';
-            case 'maybe':
-                return '?';
-            case 'unknown':
-                return '—';
+    /** Human label for the logged course, derived from its code. */
+    function loggedCourseLabel(r: SeasonRace): string {
+        if (!r.loggedCode) return '';
+        const c = r.courses.find((c) => c.code === r.loggedCode);
+        return c?.label ?? r.loggedCode;
+    }
+
+    // ── Participation toggle (관심 ↔ 참가 예정) ──────────────────────────────
+    let partBusy = $state<string | null>(null);
+
+    async function setParticipation(r: SeasonRace, status: 'maybe' | 'confirmed_going') {
+        if (partBusy) return;
+        partBusy = r.slug;
+        try {
+            const res = await clientApiFetch<{ success?: boolean }>(
+                `/me/races/${r.slug}/participation/`,
+                { method: 'PUT', body: { status } },
+            );
+            if (res?.success) await invalidateAll();
+        } catch {
+            // 실패 시 상태 유지 — 다음 클릭에서 재시도.
+        } finally {
+            partBusy = null;
         }
     }
 
-    function rowHeight(courses: SeasonCourse[]): number {
-        const COURSE_H = 11;
-        const COURSE_GAP = 3;
-        const block = courses.length * COURSE_H + (courses.length - 1) * COURSE_GAP;
-        return Math.max(76, block + 36);
+    // ── Record logging (완주 기록 입력 / 수정 / 삭제) ────────────────────────
+    let logOpen = $state(false);
+    let logRace = $state<SeasonRace | null>(null);
+    let logCode = $state('');
+    let logH = $state('');
+    let logM = $state('');
+    let logS = $state('');
+    let logPb = $state(false);
+    let logBusy = $state(false);
+    let logError = $state('');
+    const isEditing = $derived(logRace?.userStatus === 'logged');
+
+    function openLog(r: SeasonRace) {
+        logRace = r;
+        logError = '';
+        if (r.userStatus === 'logged') {
+            logCode = r.loggedCode ?? r.courses[0]?.code ?? '';
+            const parts = (r.result?.time ?? '').split(':').map((n) => Number(n) || 0);
+            if (parts.length === 3) {
+                [logH, logM, logS] = parts.map(String);
+            } else if (parts.length === 2) {
+                logH = '';
+                [logM, logS] = parts.map(String);
+            } else {
+                logH = logM = logS = '';
+            }
+            logPb = r.result?.pb ?? false;
+        } else {
+            logCode = r.courses[0]?.code ?? '';
+            logH = logM = logS = '';
+            logPb = false;
+        }
+        logOpen = true;
     }
 
-    function isHighlight(race: SeasonRace, code: string): boolean {
-        if (race.userStatus === 'confirmed_going' && race.plannedCodes?.includes(code)) return true;
-        if (race.userStatus === 'logged' && code === race.plannedCodes?.[0]) return true;
-        return false;
+    function closeLog() {
+        logOpen = false;
+        logRace = null;
     }
 
-    const sourceLabel = $derived(data.source === 'favorites' ? '관심 대회' : '추천 대회');
+    function firstError(res: unknown): string | null {
+        if (!isApiError(res)) return null;
+        const errors = res.errors as Record<string, unknown>;
+        for (const v of Object.values(errors)) {
+            if (Array.isArray(v) && v.length) return String(v[0]);
+            if (typeof v === 'string') return v;
+        }
+        return null;
+    }
+
+    async function submitLog() {
+        if (!logRace || logBusy) return;
+        if (!logCode) {
+            logError = '완주한 종목을 선택해주세요.';
+            return;
+        }
+        const h = Number(logH) || 0;
+        const m = Number(logM) || 0;
+        const s = Number(logS) || 0;
+        if (h * 3600 + m * 60 + s <= 0) {
+            logError = '기록 시간을 입력해주세요.';
+            return;
+        }
+        logBusy = true;
+        logError = '';
+        try {
+            const res = await clientApiFetch<{ success?: boolean }>(
+                `/me/races/${logRace.slug}/result/`,
+                {
+                    method: 'POST',
+                    body: { course_code: logCode, hours: h, minutes: m, seconds: s, is_personal_best: logPb },
+                },
+            );
+            if (res?.success) {
+                closeLog();
+                await invalidateAll();
+            } else {
+                logError = firstError(res) ?? '기록 저장에 실패했습니다.';
+            }
+        } catch {
+            logError = '기록 저장에 실패했습니다.';
+        } finally {
+            logBusy = false;
+        }
+    }
+
+    async function deleteLog() {
+        if (!logRace || logBusy) return;
+        logBusy = true;
+        logError = '';
+        try {
+            const res = await clientApiFetch<{ success?: boolean }>(
+                `/me/races/${logRace.slug}/result/`,
+                { method: 'DELETE' },
+            );
+            if (res?.success) {
+                closeLog();
+                await invalidateAll();
+            } else {
+                logError = firstError(res) ?? '기록 삭제에 실패했습니다.';
+            }
+        } catch {
+            logError = '기록 삭제에 실패했습니다.';
+        } finally {
+            logBusy = false;
+        }
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+    const ST: Record<SeasonStatus, string> = {
+        confirmed_going: 'going',
+        maybe: 'maybe',
+        unknown: 'unknown',
+        logged: 'logged'
+    };
+
+    function deadlineInfo(r: SeasonRace): { text: string; warn: boolean } | null {
+        if (!r.deadline) return null;
+        if (r.userStatus === 'logged' || r.userStatus === 'unknown') return null;
+        const left = dayOfYear(r.deadline.m, r.deadline.day) - todayDoy;
+        if (left < 0) return { text: `접수 마감됨 ${r.deadline.m}.${r.deadline.day}`, warn: false };
+        return { text: `접수 마감 ${r.deadline.m}.${r.deadline.day} · D-${left}`, warn: left <= 14 };
+    }
+
+    function isPlanned(r: SeasonRace, code: string): boolean {
+        return (r.plannedCodes ?? []).includes(code) || r.loggedCode === code;
+    }
+
+    const userName = $derived(data.isAuthed ? (data.user?.nickname?.trim() ?? '') : '');
+    const loginHref = '/auth/login?next=%2Ftimeline';
 </script>
 
 <svelte:head>
-    <title>내 시즌 타임라인 — 엔듀로허브</title>
+    <title>시즌 타임라인 — 엔듀로허브</title>
     <meta name="description" content="관심 대회를 한눈에 보는 연간 타임라인" />
     <meta name="robots" content="noindex" />
 </svelte:head>
 
-<div class="page">
-    <div class="head">
-        <div class="arena-kicker">My Season · {year}</div>
-        <h1 class="title">내 대회 달력 · {stats().totalRaces}개 이벤트</h1>
-        <p class="sub">
-            {#if data.source === 'favorites'}
-                관심 표시한 대회들 · 참가 여부와 기록은 직접 남겨주세요
-            {:else if data.isAuthed}
-                아직 관심 대회가 없습니다 · 다가오는 대회 샘플로 보여드려요
-            {:else}
-                <a href="/auth/login?next=%2Ftimeline" class="login-link">로그인</a>해서 내 관심
-                대회로 채워보세요 · 지금은 다가오는 대회 샘플
-            {/if}
-        </p>
-
-        <div class="stat-row">
-            <div class="stat-cell">
-                <div class="stat-label">참가 예정</div>
-                <div class="stat-val">{stats().confirmedGoing}</div>
-                <div class="stat-sub">종목까지 확정</div>
-            </div>
-            <div class="stat-cell">
-                <div class="stat-label">관심</div>
-                <div class="stat-val">{stats().maybe}</div>
-                <div class="stat-sub">종목 미정</div>
-            </div>
-            <div class="stat-cell">
-                <div class="stat-label">다음 레이스</div>
-                <div class="stat-val">{stats().nextRaceDays != null ? `D-${stats().nextRaceDays}` : '—'}</div>
-                <div class="stat-sub" title={stats().nextRaceName}>
-                    {stats().nextRaceName.length > 16
-                        ? stats().nextRaceName.slice(0, 16) + '…'
-                        : stats().nextRaceName}
-                </div>
-            </div>
-            <div class="stat-cell">
-                <div class="stat-label">메인 목표</div>
-                <div class="stat-val small" title={stats().mainGoal}>
-                    {stats().mainGoal.length > 14
-                        ? stats().mainGoal.slice(0, 14) + '…'
-                        : stats().mainGoal}
-                </div>
-                <div class="stat-sub">{stats().mainGoalDays != null ? `D-${stats().mainGoalDays}` : '—'}</div>
-            </div>
-            <div class="stat-cell stat-cell-pending" class:active={pendingLogs.length > 0}>
-                <div class="stat-label">기록 미입력</div>
-                <div class="stat-val">{stats().pendingLogs}</div>
-                <div class="stat-sub">지난 대회</div>
-            </div>
+<main class="v-container tl">
+    <!-- ── Header ─────────────────────────────────────────────────────────── -->
+    <div class="hd">
+        <div>
+            <div class="eh-micro"><span class="acc">MY SEASON</span> · {year}{#if userName} · {userName}{/if}</div>
+            <h1>시즌 타임라인</h1>
         </div>
-
-        {#if pendingLogs.length > 0 && !bannerDismissed}
-            <div class="banner">
-                <span class="banner-bang">!</span>
-                <div>
-                    <div class="banner-kicker">Log your race · 최근 대회</div>
-                    <div class="banner-title">
-                        '{pendingLogs[0].name}' 참가하셨나요? 기록을 남겨두면 내년 계획에 활용할 수
-                        있어요
-                    </div>
-                </div>
-                <a href={pendingLogs[0].url} class="banner-cta">대회 상세 →</a>
-                <button class="banner-dismiss" onclick={() => (bannerDismissed = true)}>나중에</button>
+        {#if seasonRaces.length > 0}
+            <div class="hd-stats">
+                <StatBlock label="올해 대회" value={stats.totalRaces} size="md" />
+                <StatBlock label="다음 대회" value={stats.nextRaceDays != null ? `D-${stats.nextRaceDays}` : '—'} size="md" accent />
+                <StatBlock label="메인 목표" value={stats.mainGoalDays != null ? `D-${stats.mainGoalDays}` : '—'} size="md" />
+                <StatBlock label="완주 기록" value={stats.logged} size="md" />
             </div>
         {/if}
     </div>
 
     {#if seasonRaces.length === 0}
-        <div class="empty-frame">
-            <div class="empty-inner">
-                <div class="arena-kicker">No Events</div>
-                <h2 class="empty-title">{year}년에 등록한 관심 대회가 없습니다</h2>
-                <p class="empty-desc">관심 있는 대회의 ♥ 버튼을 눌러 시즌을 채워보세요.</p>
-                <a href="/races?reset=1" class="arena-btn arena-btn-primary">대회 둘러보기 →</a>
-            </div>
+        <!-- ── Empty state → 로그인 유도 ──────────────────────────────────── -->
+        <div class="empty-state">
+            <div class="eh-micro acc">{data.isAuthed ? 'EMPTY SEASON' : 'SIGN IN'}</div>
+            {#if data.isAuthed}
+                <h2>아직 시즌에 담은 대회가 없어요</h2>
+                <p>
+                    관심 있는 대회에 ♥ 를 누르거나 참가 예정을 표시하면 이곳 타임라인에
+                    한눈에 모입니다. 완주 후엔 기록도 남길 수 있어요.
+                </p>
+                <div class="empty-actions">
+                    <Button variant="primary" size="md" href="/races?reset=1">대회 둘러보기 →</Button>
+                </div>
+            {:else}
+                <h2>나만의 시즌 타임라인을 만들어보세요</h2>
+                <p>
+                    로그인하면 관심 대회·참가 예정·완주 기록을 연간 타임라인 하나로 모아
+                    볼 수 있습니다. 다가오는 대회와 접수 마감일도 자동으로 챙겨드려요.
+                </p>
+                <div class="empty-actions">
+                    <Button variant="primary" size="md" href={loginHref}>로그인하고 시작하기 →</Button>
+                    <a class="empty-link" href="/races?reset=1">먼저 대회 둘러보기</a>
+                </div>
+            {/if}
         </div>
     {:else}
-        <div class="chart-wrap">
-            <div class="chart-frame">
-                <div class="chart-inner" style="width: {TOTAL_W}px">
-                    <!-- Month axis -->
-                    <div class="month-axis" style="grid-template-columns: {LEFT_W}px 1fr {RIGHT_W}px">
-                        <div class="axis-side">RACE</div>
-                        <div class="axis-center">
-                            {#each months as m (m.m)}
-                                <div
-                                    class="axis-month"
-                                    class:current={m.m === todayMonth}
-                                    style="left: {xOf(m.m, 1)}px; width: {(m.days / totalDays) *
-                                        CHART_W}px"
-                                >
-                                    {m.label}
-                                </div>
-                            {/each}
-                            <div class="axis-now-label" style="left: {nowX}px">
-                                NOW · {todayMonth}/{todayDay}
-                            </div>
-                        </div>
-                        <div class="axis-side right">STATUS · COURSES</div>
-                    </div>
 
-                    <!-- Rows -->
-                    <div class="rows">
-                        <div class="now-line" style="left: {LEFT_W + nowX}px"></div>
+    <!-- ── Pending-log banner ─────────────────────────────────────────────── -->
+    {#if pending.length > 0}
+        {@const p = pending[0]}
+        <div class="pending">
+            <Badge status="closing">기록 대기</Badge>
+            <span style="font-size: 14px;">
+                <b>{p.name}</b>이(가) 끝난 지 {todayDoy - dayOfYear(p.month, p.day)}일 — 완주 기록을 남겨두면
+                도구·예측에 반영됩니다.
+            </span>
+            <span style="margin-left: auto;">
+                <Button variant="primary" size="sm" onclick={() => openLog(p)}>기록 남기기</Button>
+            </span>
+        </div>
+    {/if}
 
-                        {#each seasonRaces as race, idx (race.id)}
-                            {@const isOpen = openId === race.id}
-                            {@const status = race.userStatus}
-                            {@const isUnknown = status === 'unknown'}
-                            {@const isMaybe = status === 'maybe'}
-                            {@const isConfirmed = status === 'confirmed_going'}
-                            {@const isLogged = status === 'logged'}
-                            {@const raceX = xOf(race.month, race.day)}
-                            {@const deadlineX = race.deadline ? xOf(race.deadline.m, race.deadline.day) : raceX - 30}
-                            {@const rh = rowHeight(race.courses)}
-                            {@const altRow = idx % 2 === 1}
-                            <div
-                                class="race-row"
-                                class:open={isOpen}
-                                class:unknown={isUnknown}
-                                class:alt={altRow && !isUnknown && !isOpen}
-                                style="grid-template-columns: {LEFT_W}px 1fr {RIGHT_W}px"
-                            >
-                                <button
-                                    class="row-toggle"
-                                    onclick={() => toggleOpen(race.id)}
-                                    aria-expanded={isOpen}
-                                    aria-label={`${race.name} 상세 ${isOpen ? '닫기' : '열기'}`}
-                                ></button>
+    <!-- ── Year strip (gantt) ─────────────────────────────────────────────── -->
+    <div class="strip-wrap">
+        <div class="strip-head">
+            <span class="eh-micro"><span class="acc">JAN — DEC</span> · 대회 {seasonRaces.length}개</span>
+            <span class="eh-micro" style="color: var(--text-faint);">
+                오늘 {todayMonth}.{todayDay} · 시즌 {Math.round(todayPct)}% 경과
+            </span>
+        </div>
 
-                                <!-- LEFT -->
-                                <div class="cell-left">
-                                    <span class="status-badge {statusBadgeClass(status)}"
-                                        >{statusBadgeLabel(status)}</span
-                                    >
-                                    <div class="row-name">
-                                        <div class="row-title" class:dim={isUnknown}>
-                                            {#if race.mainGoal}<span class="star">★</span>{/if}
-                                            <span class="ellipsis">{race.name}</span>
-                                        </div>
-                                        <div class="row-meta">
-                                            {race.region} · {race.month}/{race.day}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- CENTER -->
-                                <div class="cell-center" style="min-height: {rh}px">
-                                    <!-- Month grid -->
-                                    {#each months as m (m.m)}
-                                        <div
-                                            class="month-grid-line"
-                                            style="left: {xOf(m.m, 1)}px"
-                                        ></div>
-                                    {/each}
-
-                                    <!-- Registration window -->
-                                    {#if deadlineX < raceX && !isUnknown}
-                                        <div
-                                            class="reg-window"
-                                            style="left: {deadlineX}px; width: {Math.max(
-                                                raceX - deadlineX,
-                                                2,
-                                            )}px"
-                                        ></div>
-                                    {/if}
-
-                                    <!-- Deadline marker -->
-                                    {#if race.deadline}
-                                        <div class="deadline-line" style="left: {deadlineX}px"></div>
-                                    {/if}
-
-                                    <!-- Course bars stacked -->
-                                    <div
-                                        class="course-stack"
-                                        style="top: {(rh - (race.courses.length * 11 + (race.courses.length - 1) * 3)) /
-                                            2}px"
-                                    >
-                                        {#each race.courses as c, j (j)}
-                                            {@const hl = isHighlight(race, c.code)}
-                                            <div class="course-bar-wrap" style="margin-top: {j === 0 ? 0 : 3}px">
-                                                <div
-                                                    class="course-bar"
-                                                    class:highlight={hl}
-                                                    class:unknown-bar={isUnknown && !hl}
-                                                    class:maybe-bar={isMaybe && !hl}
-                                                    style="left: {deadlineX}px; width: {raceX -
-                                                        deadlineX}px"
-                                                ></div>
-                                                <div
-                                                    class="course-label"
-                                                    class:hl
-                                                    style="left: {deadlineX - 6}px"
-                                                >
-                                                    {c.code}
-                                                </div>
-                                            </div>
-                                        {/each}
-                                    </div>
-
-                                    <!-- Race day diamond -->
-                                    <div
-                                        class="race-diamond"
-                                        class:logged={isLogged}
-                                        class:going={isConfirmed}
-                                        class:unknown-diamond={isUnknown}
-                                        class:maybe-diamond={isMaybe}
-                                        style="left: {raceX - 9}px; top: {rh / 2 - 9}px"
-                                        title={race.date}
-                                    ></div>
-
-                                    <!-- Date label -->
-                                    <div
-                                        class="date-label"
-                                        class:dim={isUnknown}
-                                        style="left: {raceX + 16}px; top: {rh / 2 - 8}px"
-                                    >
-                                        {race.month}/{race.day}
-                                        {#if race.recentlyPassed}
-                                            <span class="date-tail accent">· 기록 남기기 →</span>
-                                        {:else if !isUnknown && race.note}
-                                            <span class="date-tail muted">· {race.note}</span>
-                                        {/if}
-                                    </div>
-                                </div>
-
-                                <!-- RIGHT -->
-                                <div class="cell-right" class:dim={isUnknown}>
-                                    {#if isLogged}
-                                        <div class="right-time">
-                                            {race.note ?? '—'}
-                                        </div>
-                                        <div class="right-sub">{race.plannedCodes?.[0] ?? ''}</div>
-                                    {:else if isConfirmed && race.plannedCodes}
-                                        <div class="right-tag accent">
-                                            ● {race.plannedCodes.join(' · ')}
-                                        </div>
-                                        <div class="right-sub">
-                                            {race.courses.length}개 종목 중 {race.plannedCodes.length}개 선택
-                                        </div>
-                                    {:else if isMaybe}
-                                        <div class="right-tag soft">○ 관심 등록</div>
-                                        <div class="right-sub">
-                                            {race.courses.length}개 종목 · 종목 미정
-                                        </div>
-                                    {:else}
-                                        <div class="right-tag muted">? 참여 미확인</div>
-                                        <div class="right-sub">
-                                            {race.recentlyPassed ? '기록 남기기 버튼 →' : '지난 대회 · 기록 없음'}
-                                        </div>
-                                    {/if}
-                                </div>
-
-                                {#if isOpen}
-                                    <div class="expanded">
-                                        <div class="ex-grid">
-                                            <div>
-                                                <div class="ex-kicker">
-                                                    이 대회 제공 종목 ({race.courses.length})
-                                                </div>
-                                                <div class="ex-courses">
-                                                    {#each race.courses as c, j (j)}
-                                                        {@const hl = isHighlight(race, c.code)}
-                                                        <div class="ex-course" class:hl>
-                                                            <span class="ex-code">{c.code}</span>
-                                                            <span class="ex-label">{c.label}</span>
-                                                            <span class="ex-dist"
-                                                                >{c.distKm > 0 ? `${c.distKm}K` : '—'}</span
-                                                            >
-                                                            <span class="ex-tag" class:hl
-                                                                >{hl
-                                                                    ? isLogged
-                                                                        ? 'LOGGED'
-                                                                        : 'PLANNED'
-                                                                    : '—'}</span
-                                                            >
-                                                        </div>
-                                                    {/each}
-                                                </div>
-                                                <div class="ex-note">
-                                                    {#if isConfirmed}※ 선택한 종목만 강조 표시됩니다.{/if}
-                                                    {#if isMaybe}※ 아직 종목을 정하지 않으셨습니다.{/if}
-                                                    {#if isUnknown}※ 저희 사이트는 접수를 받지 않아 어느 종목을 뛰셨는지 알 수 없습니다.{/if}
-                                                    {#if isLogged}※ 직접 입력하신 기록입니다.{/if}
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <div class="ex-kicker">일정</div>
-                                                <div class="ex-card">
-                                                    {#if race.deadline}
-                                                        <div class="ex-row">
-                                                            <span>접수 마감</span>
-                                                            <span class="bold"
-                                                                >{race.deadline.m}/{race.deadline.day}</span
-                                                            >
-                                                        </div>
-                                                    {/if}
-                                                    <div class="ex-row">
-                                                        <span>대회일</span>
-                                                        <span class="big">{race.month}/{race.day}</span>
-                                                    </div>
-                                                    <div class="ex-row">
-                                                        <span>지역</span>
-                                                        <span>{race.region}</span>
-                                                    </div>
-                                                    {#if race.note}
-                                                        <div class="ex-divider"></div>
-                                                        <div class="ex-memo">
-                                                            <div class="ex-memo-kicker">메모</div>
-                                                            <div>{race.note}</div>
-                                                        </div>
-                                                    {/if}
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <div class="ex-kicker">액션</div>
-                                                <div class="ex-actions">
-                                                    {#if race.recentlyPassed}
-                                                        <a href={race.url} class="ex-btn primary">
-                                                            <span>기록 남기기</span><span>→</span>
-                                                        </a>
-                                                    {/if}
-                                                    <a href={race.url} class="ex-btn">
-                                                        <span>대회 상세</span><span>→</span>
-                                                    </a>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                {/if}
-                            </div>
-                        {/each}
-                    </div>
-
-                    <!-- Legend -->
-                    <div
-                        class="legend"
-                        style="grid-template-columns: {LEFT_W}px 1fr {RIGHT_W}px"
+        <div class="strip">
+            <div class="strip-months">
+                {#each months as m (m.m)}
+                    <span style="left: {monthLeft(m.m)}%; width: {monthWidth(m.m)}%">{m.label}</span>
+                {/each}
+            </div>
+            <div class="strip-body">
+                {#each months.slice(1) as m (m.m)}
+                    <div class="strip-gridline" style="left: {monthLeft(m.m)}%"></div>
+                {/each}
+                <div class="strip-today" style="left: {todayPct}%">
+                    <span class="lbl">TODAY</span>
+                </div>
+                {#each seasonRaces as r, i (r.id)}
+                    {@const lane = i % 3}
+                    <button
+                        class="race-pin {ST[r.userStatus]}"
+                        class:goal={r.mainGoal}
+                        class:sel={sel === r.id}
+                        style="left: {pct(r.month, r.day)}%; top: {14 + lane * 38}px"
+                        onclick={() => toggle(r.id)}
+                        title={r.name}
                     >
-                        <div class="legend-side">LEGEND</div>
-                        <div class="legend-items">
-                            <span class="legend-item"
-                                ><span class="lg-bar solid"></span>참가 예정 (종목 확정)</span
-                            >
-                            <span class="legend-item"
-                                ><span class="lg-bar dashed"></span>다른 종목 (대회 제공)</span
-                            >
-                            <span class="legend-item"
-                                ><span class="lg-bar dashed-soft"></span>관심 (종목 미정)</span
-                            >
-                            <span class="legend-item"
-                                ><span class="lg-diamond solid"></span>완주 기록</span
-                            >
-                            <span class="legend-item"
-                                ><span class="lg-diamond hollow"></span>미확인 (지난 대회)</span
-                            >
-                        </div>
-                        <div class="legend-now">● NOW · {todayMonth}/{todayDay}</div>
+                        <span class="mk"></span>
+                        <span class="nm">{r.name}</span>
+                    </button>
+                {/each}
+            </div>
+        </div>
+
+        <!-- Mobile vertical rail (replaces the gantt below 768px) -->
+        <div class="mstrip">
+            {#each railItems as item, i (i)}
+                {#if item.kind === 'today'}
+                    <div class="mtoday">
+                        <span class="tdate eh-data">{todayMonth}.{todayDay}</span>
+                        <span class="mrail"><span class="tdot"></span></span>
+                        <span class="tpill">TODAY</span>
                     </div>
+                {:else if item.kind === 'month'}
+                    <div class="mmonth">
+                        <span></span>
+                        <span class="mrail"><span class="mtick"></span></span>
+                        <span class="mlbl eh-micro">{item.label}</span>
+                    </div>
+                {:else}
+                    {@render mnode(item.race)}
+                {/if}
+            {/each}
+        </div>
+
+        <div class="legend">
+            <span><span class="mk going"></span>참가 예정</span>
+            <span><span class="mk maybe"></span>관심</span>
+            <span><span class="mk logged"></span>완주 기록</span>
+            <span><span class="mk unknown"></span>미확인</span>
+            <span style="margin-left: auto; color: var(--text-faint);">◆ 더블 사이즈 = 시즌 메인 목표</span>
+        </div>
+    </div>
+
+    <!-- ── Upcoming ───────────────────────────────────────────────────────── -->
+    <section class="sec">
+        <div class="sechead">
+            <div class="sechead-l">
+                <span class="eh-micro eh-data acc">01</span>
+                <h2>다가오는 대회</h2>
+            </div>
+            <span class="eh-micro" style="color: var(--text-faint);">{upcoming.length} RACES</span>
+        </div>
+        <div class="rows">
+            {#each upcoming as r (r.id)}
+                {@render row(r)}
+            {:else}
+                <p class="empty">다가오는 관심 대회가 없습니다. <a href="/races?reset=1">대회 둘러보기 →</a></p>
+            {/each}
+        </div>
+    </section>
+
+    <!-- ── Past ───────────────────────────────────────────────────────────── -->
+    {#if past.length > 0}
+        <section class="sec">
+            <div class="sechead">
+                <div class="sechead-l">
+                    <span class="eh-micro eh-data acc">02</span>
+                    <h2>지난 대회</h2>
+                </div>
+                <span class="eh-micro" style="color: var(--text-faint);">{past.length} RACES</span>
+            </div>
+            <div class="rows">
+                {#each past as r (r.id)}
+                    {@render row(r)}
+                {/each}
+            </div>
+        </section>
+        {/if}
+    {/if}
+</main>
+
+<!-- ── Race row snippet ───────────────────────────────────────────────────── -->
+{#snippet row(r: SeasonRace)}
+    {@const ddl = deadlineInfo(r)}
+    <div
+        class="rrow"
+        class:goal={r.mainGoal}
+        class:sel={sel === r.id}
+        onclick={() => toggle(r.id)}
+        role="button"
+        tabindex="0"
+        onkeydown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                toggle(r.id);
+            }
+        }}
+    >
+        <div class="dt">
+            <span class="eh-data">{months[r.month - 1].label}</span>
+            <b class="eh-data">{r.month}.{String(r.day).padStart(2, '0')}</b>
+        </div>
+        <div style="min-width: 0;">
+            <div class="nm">
+                {r.name}
+                <span style="color: var(--text-faint); font-weight: 500; font-size: 13px;">{r.region}</span>
+            </div>
+            <div class="sub">
+                <span class="codes">
+                    {#each r.courses as c (c.code)}
+                        <span class="code eh-data" class:planned={isPlanned(r, c.code)}>{c.label}</span>
+                    {/each}
+                </span>
+                {#if r.note}<span>· {r.note}</span>{/if}
+                {#if r.result}
+                    <span class="result-line eh-data">
+                        {#if loggedCourseLabel(r)}<b>{loggedCourseLabel(r)}</b> · {/if}{r.result.time}{#if r.result.pace} ({r.result.pace}){/if}{r.result.pb ? ' · PB' : ''}
+                    </span>
+                {/if}
+            </div>
+        </div>
+        <div class="right">
+            {#if r.userStatus === 'logged'}
+                <span class="logged-chip">완주 기록</span>
+            {:else if r.userStatus === 'confirmed_going'}
+                <Badge status="open">참가 예정</Badge>
+            {:else if r.userStatus === 'maybe'}
+                <Badge status="upcoming">관심</Badge>
+            {:else}
+                <Badge status="closed">미확인</Badge>
+            {/if}
+
+            {#if ddl}
+                <span class="ddl eh-data" class:warn={ddl.warn}>{ddl.text}</span>
+            {/if}
+            {#if !isPast(r) && r.userStatus !== 'logged'}
+                <span onclick={(e) => e.stopPropagation()}>
+                    {#if r.userStatus === 'confirmed_going'}
+                        <Button variant="ghost" size="sm" disabled={partBusy === r.slug} onclick={() => setParticipation(r, 'maybe')}>관심으로</Button>
+                    {:else}
+                        <Button variant="secondary" size="sm" disabled={partBusy === r.slug} onclick={() => setParticipation(r, 'confirmed_going')}>참가 예정으로</Button>
+                    {/if}
+                </span>
+            {/if}
+            {#if isPast(r)}
+                <span onclick={(e) => e.stopPropagation()}>
+                    {#if r.userStatus === 'logged'}
+                        <Button variant="ghost" size="sm" onclick={() => openLog(r)}>기록 수정</Button>
+                    {:else}
+                        <Button variant="secondary" size="sm" onclick={() => openLog(r)}>기록 입력</Button>
+                    {/if}
+                </span>
+            {/if}
+        </div>
+    </div>
+{/snippet}
+
+<!-- ── Mobile rail node snippet ────────────────────────────────────────────── -->
+{#snippet mnode(r: SeasonRace)}
+    {@const ddl = deadlineInfo(r)}
+    <button
+        class="mnode {ST[r.userStatus]}"
+        class:goal={r.mainGoal}
+        class:sel={sel === r.id}
+        onclick={() => toggle(r.id)}
+        title={r.name}
+    >
+        <span class="mdate eh-data">{r.month}.{String(r.day).padStart(2, '0')}</span>
+        <span class="mrail"><span class="mk"></span></span>
+        <span class="mbody">
+            <span class="mname">{r.name}</span>
+            <span class="mmeta">
+                {#if r.region}<span>{r.region}</span>{/if}
+                {#if r.mainGoal}<span class="goaltag">메인 목표</span>{/if}
+                {#if ddl}<span class="ddl eh-data" class:warn={ddl.warn}>{ddl.text}</span>{/if}
+                {#if r.result}<span class="mresult eh-data">{r.result.time}</span>{/if}
+            </span>
+        </span>
+    </button>
+{/snippet}
+
+<!-- ── 완주 기록 입력 / 수정 모달 ──────────────────────────────────────────── -->
+<Modal bind:open={logOpen} maxWidth="440px" onclose={closeLog}>
+    {#if logRace}
+        <div class="log">
+            <div class="eh-micro acc">{isEditing ? 'EDIT RESULT' : 'LOG RESULT'}</div>
+            <h2 class="log-title">{logRace.name}</h2>
+            <p class="log-sub eh-data">
+                {months[logRace.month - 1].label} {logRace.month}.{String(logRace.day).padStart(2, '0')}
+                {#if logRace.region} · {logRace.region}{/if}
+            </p>
+
+            <!-- 종목 -->
+            <div class="log-field">
+                <label class="log-label" for="log-course">종목</label>
+                <div class="log-courses" id="log-course">
+                    {#each logRace.courses as c (c.code)}
+                        <button
+                            type="button"
+                            class="log-chip"
+                            class:on={logCode === c.code}
+                            onclick={() => (logCode = c.code)}
+                        >
+                            {c.label}
+                        </button>
+                    {/each}
                 </div>
             </div>
 
-            <div class="chart-foot">
-                <span>↑ 행 클릭 → 종목 상세 · 차트는 가로 스크롤</span>
-                <span>SEASON {year} · {stats().totalRaces} EVENTS</span>
+            <!-- 시간 -->
+            <div class="log-field">
+                <span class="log-label">기록 시간</span>
+                <div class="log-time">
+                    <input class="log-num eh-data" type="number" min="0" max="99" inputmode="numeric"
+                        placeholder="시" aria-label="시간" bind:value={logH} />
+                    <span class="log-colon">:</span>
+                    <input class="log-num eh-data" type="number" min="0" max="59" inputmode="numeric"
+                        placeholder="분" aria-label="분" bind:value={logM} />
+                    <span class="log-colon">:</span>
+                    <input class="log-num eh-data" type="number" min="0" max="59" inputmode="numeric"
+                        placeholder="초" aria-label="초" bind:value={logS} />
+                </div>
+            </div>
+
+            <label class="log-pb">
+                <input type="checkbox" bind:checked={logPb} />
+                <span>개인 최고 기록 (PB)</span>
+            </label>
+
+            {#if logError}
+                <p class="log-err">{logError}</p>
+            {/if}
+
+            <div class="log-actions">
+                {#if isEditing}
+                    <Button variant="ghost" size="md" disabled={logBusy} onclick={deleteLog}>삭제</Button>
+                {/if}
+                <span class="log-spacer"></span>
+                <Button variant="secondary" size="md" disabled={logBusy} onclick={closeLog}>취소</Button>
+                <Button variant="primary" size="md" disabled={logBusy} onclick={submitLog}>
+                    {logBusy ? '저장 중…' : isEditing ? '수정' : '저장'}
+                </Button>
             </div>
         </div>
     {/if}
-</div>
+</Modal>
 
 <style>
-    .page {
-        background: var(--arena-paper-alt);
-        color: var(--arena-ink);
-        font-family: var(--arena-f-body);
-        min-height: 100vh;
-        padding-bottom: 60px;
+    /* ════════════════════════════════════════════════════════════════════
+       Season Timeline — recreated from the v2 "Season Timeline" prototype.
+       All colours come from eh-tokens.css. No hardcoded hex.
+       ════════════════════════════════════════════════════════════════════ */
+
+    .tl {
+        padding-bottom: var(--sp-16);
+    }
+    .acc {
+        color: var(--text-accent);
     }
 
-    /* ── Head ── */
-    .head {
-        max-width: 1700px;
-        margin: 0 auto;
-        padding: 32px 24px 20px;
+    /* ── Empty state (로그인 유도 / 빈 시즌) ──────────────────────────────── */
+    .empty-state {
+        margin-top: 28px;
+        border: 1px solid var(--ink-900);
+        background: var(--paper-0);
+        padding: 56px 40px;
+        text-align: center;
     }
-    @media (min-width: 1024px) {
-        .head {
-            padding: 32px 32px 20px;
-        }
+    .empty-state h2 {
+        margin-top: 10px;
+        font-size: clamp(22px, 3vw, 30px);
+        font-weight: var(--w-display);
+        letter-spacing: var(--track-display);
+        line-height: var(--leading-heading);
+        color: var(--text-strong);
     }
-    .title {
-        font-family: var(--arena-f-display);
-        font-size: clamp(28px, 4vw, 44px);
-        font-weight: 700;
-        letter-spacing: -1.5px;
-        line-height: 1;
-        margin: 8px 0 8px;
-        color: var(--arena-ink);
+    .empty-state p {
+        max-width: 46ch;
+        margin: 12px auto 0;
+        font-size: var(--text-caption);
+        line-height: 1.7;
+        color: var(--text-muted);
     }
-    .sub {
-        font-family: var(--arena-f-mono);
-        font-size: 12px;
-        color: var(--arena-ink-soft);
-        margin: 0;
-    }
-    .login-link {
-        color: var(--arena-accent-deep);
-        text-decoration: underline;
-    }
-
-    .stat-row {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        margin-top: 24px;
-        border: 1px solid var(--arena-line);
-        background: var(--arena-paper);
-    }
-    @media (min-width: 768px) {
-        .stat-row {
-            grid-template-columns: repeat(5, 1fr);
-        }
-    }
-    .stat-cell {
-        padding: 14px 18px;
-        border-right: 1px solid var(--arena-line-soft);
-        border-bottom: 1px solid var(--arena-line-soft);
-    }
-    @media (min-width: 768px) {
-        .stat-cell {
-            border-bottom: none;
-        }
-        .stat-cell:last-child {
-            border-right: none;
-        }
-    }
-    .stat-cell-pending.active {
-        background: var(--arena-ink);
-        color: var(--arena-paper);
-    }
-    .stat-cell-pending.active .stat-label,
-    .stat-cell-pending.active .stat-sub {
-        color: rgba(255, 255, 255, 0.5);
-    }
-    .stat-cell-pending.active .stat-val {
-        color: var(--arena-accent);
-    }
-    .stat-label {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 1.5px;
-        color: var(--arena-ink-soft);
-        text-transform: uppercase;
-        margin-bottom: 4px;
-    }
-    .stat-val {
-        font-family: var(--arena-f-display);
-        font-size: 26px;
-        font-weight: 700;
-        letter-spacing: -0.6px;
-    }
-    .stat-val.small {
-        font-size: 16px;
-        line-height: 1.2;
-    }
-    .stat-sub {
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        color: var(--arena-ink-soft);
-        margin-top: 2px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .banner {
-        margin-top: 16px;
-        background: var(--arena-ink);
-        color: var(--arena-paper);
-        padding: 14px 20px;
-        display: grid;
-        grid-template-columns: auto 1fr;
-        gap: 12px 20px;
+    .empty-actions {
+        margin-top: 26px;
+        display: flex;
         align-items: center;
-        border: 1px solid var(--arena-ink);
+        justify-content: center;
+        gap: 18px;
+        flex-wrap: wrap;
     }
-    @media (min-width: 768px) {
-        .banner {
-            grid-template-columns: auto 1fr auto auto;
-        }
-    }
-    .banner-bang {
-        width: 32px;
-        height: 32px;
-        background: var(--arena-accent);
-        color: var(--arena-ink);
-        display: grid;
-        place-items: center;
-        font-family: var(--arena-f-display);
-        font-weight: 700;
-        font-size: 14px;
-    }
-    .banner-kicker {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 1.5px;
-        color: var(--arena-accent);
-        font-weight: 700;
-        text-transform: uppercase;
-    }
-    .banner-title {
-        font-family: var(--arena-f-display);
-        font-size: 15px;
+    .empty-link {
+        font-size: var(--text-caption);
         font-weight: 600;
-        letter-spacing: -0.3px;
-        margin-top: 3px;
-    }
-    .banner-cta {
-        padding: 10px 16px;
-        background: var(--arena-accent);
-        color: var(--arena-ink);
-        font-family: var(--arena-f-display);
-        font-weight: 600;
-        font-size: 13px;
-        letter-spacing: -0.2px;
+        color: var(--text-muted);
         text-decoration: none;
-        grid-column: 1 / -1;
-        text-align: center;
+        border-bottom: 1px solid transparent;
     }
-    @media (min-width: 768px) {
-        .banner-cta {
-            grid-column: auto;
-            text-align: left;
-        }
-    }
-    .banner-dismiss {
-        padding: 10px 14px;
-        background: transparent;
-        color: rgba(255, 255, 255, 0.7);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        letter-spacing: 1px;
-        cursor: pointer;
-        grid-column: 1 / -1;
-    }
-    @media (min-width: 768px) {
-        .banner-dismiss {
-            grid-column: auto;
-        }
+    .empty-link:hover {
+        color: var(--text-strong);
+        border-bottom-color: var(--ink-900);
     }
 
-    /* ── Empty ── */
-    .empty-frame {
-        max-width: 1700px;
-        margin: 0 auto;
-        padding: 0 24px 60px;
+    /* ── Header ──────────────────────────────────────────────────────────── */
+    .hd {
+        padding: 40px 0 0;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 20px;
+        flex-wrap: wrap;
     }
-    .empty-inner {
-        background: var(--arena-paper);
-        border: 1px solid var(--arena-line);
-        padding: 80px 40px;
-        text-align: center;
+    .hd h1 {
+        font-size: clamp(34px, 4.5vw, 52px);
+        font-weight: var(--w-display);
+        letter-spacing: var(--track-display);
+        line-height: var(--leading-display);
+        margin-top: 8px;
+        color: var(--text-strong);
     }
-    .empty-title {
-        font-family: var(--arena-f-display);
-        font-size: 22px;
+    .hd-stats {
+        display: flex;
+        gap: 36px;
+        flex-wrap: wrap;
+    }
+
+    /* ── Pending banner ──────────────────────────────────────────────────── */
+    .pending {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+        border: 1px solid var(--ink-900);
+        background: var(--accent-tint);
+        padding: 14px 18px;
+        margin-top: 26px;
+    }
+    .pending b {
         font-weight: 700;
-        letter-spacing: -0.5px;
-        margin: 12px 0 4px;
-    }
-    .empty-desc {
-        color: var(--arena-ink-soft);
-        font-size: 13px;
-        margin: 0 0 20px;
     }
 
-    /* ── Chart ── */
-    .chart-wrap {
-        max-width: 1700px;
-        margin: 0 auto;
-        padding: 0 24px 40px;
+    /* ── Year strip (gantt) ──────────────────────────────────────────────── */
+    .strip-wrap {
+        margin-top: 32px;
+        border-top: var(--border-rule);
+        padding-top: 14px;
     }
-    @media (min-width: 1024px) {
-        .chart-wrap {
-            padding: 0 32px 40px;
-        }
+    .strip-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: 8px;
     }
-    .chart-frame {
-        background: var(--arena-paper);
-        border: 1px solid var(--arena-line);
-        overflow-x: auto;
-    }
-    .chart-inner {
+    .strip {
         position: relative;
+        border: 1px solid var(--line);
+        background: var(--paper-0);
+        margin-top: 12px;
     }
-
-    /* Month axis */
-    .month-axis {
-        display: grid;
-        border-bottom: 1px solid var(--arena-line);
-    }
-    .axis-side {
-        padding: 10px 16px;
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 2px;
-        color: var(--arena-ink-soft);
-        text-transform: uppercase;
-        border-right: 1px solid var(--arena-line);
-    }
-    .axis-side.right {
-        border-right: none;
-        border-left: 1px solid var(--arena-line);
-        text-align: right;
-    }
-    .axis-center {
+    .strip-months {
         position: relative;
-        height: 32px;
+        height: 33px;
+        border-bottom: var(--border-hair);
     }
-    .axis-month {
+    .strip-months span {
         position: absolute;
         top: 0;
-        height: 32px;
-        padding: 8px 10px;
-        border-left: 1px solid var(--arena-line-soft);
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        color: var(--arena-ink-soft);
-        letter-spacing: 1.5px;
-        font-weight: 500;
-    }
-    .axis-month.current {
-        color: var(--arena-ink);
-        background: oklch(96% 0.04 145);
-        font-weight: 700;
-    }
-    .axis-now-label {
-        position: absolute;
-        top: 8px;
-        transform: translateX(-50%);
-        font-family: var(--arena-f-mono);
-        font-size: 9px;
-        letter-spacing: 1.5px;
-        color: var(--arena-accent-deep);
-        font-weight: 700;
-        background: var(--arena-paper);
-        padding: 0 4px;
+        height: 100%;
+        box-sizing: border-box;
+        padding: 8px 0 0 8px;
+        font-size: var(--text-micro);
+        font-weight: var(--w-strong);
+        letter-spacing: var(--track-micro);
+        color: var(--text-muted);
+        border-left: 1px solid var(--line);
+        overflow: hidden;
         white-space: nowrap;
     }
-
-    /* Rows */
-    .rows {
-        position: relative;
+    .strip-months span:first-child {
+        border-left: 0;
     }
-    .now-line {
+    .strip-body {
+        position: relative;
+        height: 132px;
+    }
+    .strip-gridline {
         position: absolute;
         top: 0;
         bottom: 0;
-        width: 1.5px;
-        background: var(--arena-accent-deep);
-        pointer-events: none;
-        z-index: 5;
+        width: 1px;
+        background: var(--line);
     }
-
-    .race-row {
-        display: grid;
-        border-bottom: 1px solid var(--arena-line-soft);
-        position: relative;
-        background: var(--arena-paper);
-    }
-    .race-row.alt {
-        background: oklch(98.5% 0.005 110);
-    }
-    .race-row.unknown {
-        background: oklch(97% 0.003 110);
-    }
-    .race-row.open {
-        background: oklch(96% 0.04 145);
-    }
-    .row-toggle {
+    .strip-today {
         position: absolute;
-        inset: 0;
-        background: transparent;
-        border: none;
+        top: -33px;
+        bottom: 0;
+        width: 2px;
+        background: var(--accent);
+        z-index: 3;
+    }
+    .strip-today .lbl {
+        position: absolute;
+        top: 0;
+        left: 6px;
+        font-size: 9px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        color: #fff;
+        background: var(--accent);
+        padding: 2px 6px;
+        white-space: nowrap;
+    }
+    .race-pin {
+        position: absolute;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        background: none;
+        border: 0;
         padding: 0;
         cursor: pointer;
-        z-index: 1;
-    }
-    .race-row > *:not(.row-toggle):not(.expanded) {
         z-index: 2;
-        position: relative;
-        pointer-events: none;
     }
-
-    .cell-left {
-        padding: 12px 16px;
-        border-right: 1px solid var(--arena-line-soft);
-        display: flex;
-        align-items: center;
-        gap: 12px;
+    .race-pin .mk {
+        width: 12px;
+        height: 12px;
+        border: 1.5px solid var(--ink-900);
+        background: var(--paper-0);
+        transform: rotate(45deg);
+        transition: transform var(--dur-fast) var(--ease-out);
     }
-    .race-row.unknown .cell-left {
-        opacity: 0.7;
+    .race-pin.going .mk {
+        background: var(--accent);
+        border-color: var(--accent-strong);
     }
-    .status-badge {
-        width: 26px;
-        height: 26px;
-        display: grid;
-        place-items: center;
-        font-family: var(--arena-f-mono);
+    .race-pin.logged .mk {
+        background: var(--ink-900);
+    }
+    .race-pin.maybe .mk {
+        border-style: dashed;
+        border-color: var(--ink-400);
+    }
+    .race-pin.unknown .mk {
+        border-color: var(--ink-300);
+        background: var(--paper-100);
+    }
+    .race-pin.goal .mk {
+        width: 15px;
+        height: 15px;
+        box-shadow: 0 0 0 3px var(--accent-tint);
+    }
+    .race-pin:hover .mk,
+    .race-pin.sel .mk {
+        transform: rotate(45deg) scale(1.25);
+    }
+    .race-pin .nm {
         font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.5px;
-        flex-shrink: 0;
-        border: 1px solid var(--arena-ink-mute);
-    }
-    .badge-confirmed_going {
-        background: var(--arena-ink);
-        color: var(--arena-paper);
-        border-color: var(--arena-ink);
-    }
-    .badge-logged {
-        background: var(--arena-accent);
-        color: var(--arena-ink);
-        border-color: var(--arena-accent);
-    }
-    .badge-maybe {
-        background: var(--arena-paper);
-        color: var(--arena-ink-soft);
-        border-color: var(--arena-ink-soft);
-    }
-    .badge-unknown {
-        background: var(--arena-paper-alt);
-        color: var(--arena-ink-mute);
-        border-color: var(--arena-ink-mute);
-    }
-    .row-name {
-        flex: 1;
-        min-width: 0;
-    }
-    .row-title {
-        font-weight: 700;
-        font-size: 14px;
-        letter-spacing: -0.2px;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-    }
-    .row-title.dim {
-        color: var(--arena-ink-soft);
-    }
-    .star {
-        font-size: 10px;
-        color: var(--arena-accent-deep);
-    }
-    .ellipsis {
+        font-weight: 600;
+        color: var(--text-muted);
+        white-space: nowrap;
+        max-width: 86px;
         overflow: hidden;
         text-overflow: ellipsis;
-        white-space: nowrap;
     }
-    .row-meta {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        color: var(--arena-ink-soft);
-        margin-top: 2px;
-        letter-spacing: 0.5px;
+    .race-pin.sel .nm,
+    .race-pin:hover .nm {
+        color: var(--text-strong);
+        font-weight: 700;
     }
 
-    .cell-center {
-        position: relative;
+    .legend {
+        display: flex;
+        gap: 18px;
+        margin-top: 10px;
+        flex-wrap: wrap;
     }
-    .month-grid-line {
+    .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 12px;
+        color: var(--text-muted);
+    }
+    .legend .mk {
+        width: 9px;
+        height: 9px;
+        border: 1.5px solid var(--ink-900);
+        background: var(--paper-0);
+        transform: rotate(45deg);
+        flex: none;
+    }
+    .legend .mk.going {
+        background: var(--accent);
+        border-color: var(--accent-strong);
+    }
+    .legend .mk.logged {
+        background: var(--ink-900);
+    }
+    .legend .mk.maybe {
+        border-style: dashed;
+        border-color: var(--ink-400);
+    }
+    .legend .mk.unknown {
+        border-color: var(--ink-300);
+        background: var(--paper-100);
+    }
+
+    /* ── Sections ────────────────────────────────────────────────────────── */
+    .sec {
+        margin-top: 40px;
+    }
+    .sechead {
+        border-top: var(--border-rule);
+        padding-top: var(--sp-3);
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--sp-4);
+        flex-wrap: wrap;
+    }
+    .sechead-l {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+    }
+    .sechead-l .acc {
+        color: var(--text-accent);
+    }
+    .sechead h2 {
+        font-size: var(--text-h3);
+        font-weight: var(--w-strong);
+        letter-spacing: var(--track-heading);
+        color: var(--text-strong);
+    }
+    .rows {
+        margin-top: 4px;
+    }
+    .empty {
+        padding: 28px 4px;
+        color: var(--text-muted);
+        font-size: var(--text-caption);
+    }
+    .empty a {
+        color: var(--accent-strong);
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    /* ── Race rows ───────────────────────────────────────────────────────── */
+    .rrow {
+        display: grid;
+        grid-template-columns: 86px 1fr auto;
+        gap: 18px;
+        align-items: center;
+        padding: 16px 4px;
+        border-bottom: var(--border-hair);
+        cursor: pointer;
+        transition: background var(--dur-fast) var(--ease-out);
+    }
+    .rrow:hover {
+        background: var(--paper-50);
+    }
+    .rrow.sel {
+        background: var(--accent-tint);
+    }
+    .rrow.goal {
+        border-left: 3px solid var(--accent);
+        padding-left: 12px;
+    }
+    .rrow .dt b {
+        display: block;
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        line-height: 1.05;
+        color: var(--text-strong);
+    }
+    .rrow .dt span {
+        font-size: 11px;
+        color: var(--text-faint);
+        font-weight: 600;
+        letter-spacing: 0.05em;
+    }
+    .rrow .nm {
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: var(--track-heading);
+        color: var(--text-strong);
+    }
+    .rrow .sub {
+        display: flex;
+        gap: 10px;
+        margin-top: 5px;
+        font-size: 12.5px;
+        color: var(--text-muted);
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    .rrow .sub .codes {
+        display: inline-flex;
+        gap: 4px;
+    }
+    .rrow .sub .code {
+        font-size: 10.5px;
+        font-weight: 700;
+        padding: 1px 6px;
+        border: 1px solid var(--line);
+        color: var(--text-muted);
+        border-radius: var(--r-2);
+    }
+    .rrow .sub .code.planned {
+        border-color: var(--ink-900);
+        color: var(--text-strong);
+    }
+    .rrow .right {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 6px;
+    }
+    .rrow .ddl {
+        font-size: 11.5px;
+        color: var(--text-faint);
+    }
+    .rrow .ddl.warn {
+        color: var(--caution);
+        font-weight: 700;
+    }
+    .logged-chip {
+        display: inline-flex;
+        align-items: center;
+        height: 24px;
+        padding: 0 9px;
+        gap: 6px;
+        background: var(--ink-900);
+        color: var(--paper-0);
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: var(--r-2);
+    }
+    .result-line {
+        font-size: 12.5px;
+        color: var(--text-accent);
+        font-weight: 700;
+    }
+
+    /* ── Mobile vertical timeline rail ───────────────────────────────────────
+       Hidden on desktop; the @media block below swaps the gantt strip for this
+       continuous vertical rail with month dividers and a TODAY marker. */
+    .mstrip {
+        display: none;
+    }
+    .mnode,
+    .mmonth,
+    .mtoday {
+        display: grid;
+        grid-template-columns: 44px 22px minmax(0, 1fr);
+        gap: 12px;
+        width: 100%;
+        text-align: left;
+        background: none;
+        border: 0;
+        padding: 0;
+        font-family: inherit;
+    }
+    .mnode {
+        cursor: pointer;
+        align-items: stretch;
+        transition: background var(--dur-fast) var(--ease-out);
+    }
+    .mnode:hover {
+        background: var(--paper-50);
+    }
+    .mnode.sel {
+        background: var(--accent-tint);
+    }
+    .mrail {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .mrail::before {
+        content: '';
         position: absolute;
         top: 0;
         bottom: 0;
-        width: 1px;
-        background: var(--arena-line-soft);
-        opacity: 0.4;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 2px;
+        background: var(--line);
     }
-    .reg-window {
-        position: absolute;
-        top: 8px;
-        bottom: 8px;
-        background: oklch(94% 0.01 145);
-        opacity: 0.5;
+    .mnode .mdate {
+        align-self: center;
+        text-align: right;
+        font-size: 14px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: var(--text-strong);
+        padding: 14px 0;
     }
-    .deadline-line {
-        position: absolute;
-        top: 10px;
-        bottom: 10px;
-        width: 1px;
-        border-left: 1px dashed var(--arena-ink-mute);
-        opacity: 0.5;
-    }
-    .course-stack {
-        position: absolute;
-        left: 0;
-        right: 0;
-    }
-    .course-bar-wrap {
+    .mnode .mk {
         position: relative;
-        height: 11px;
-    }
-    .course-bar {
-        position: absolute;
-        top: 0;
-        height: 11px;
-        background: transparent;
-        border: 1.5px dashed var(--arena-ink-mute);
-        opacity: 0.55;
-    }
-    .course-bar.highlight {
-        background: var(--arena-ink);
-        border: none;
-        opacity: 1;
-    }
-    .course-bar.unknown-bar {
-        border-color: oklch(78% 0.01 110);
-        opacity: 0.5;
-    }
-    .course-bar.maybe-bar {
-        border-color: var(--arena-ink-soft);
-    }
-    .course-label {
-        position: absolute;
-        top: -1px;
-        transform: translateX(-100%);
-        font-family: var(--arena-f-mono);
-        font-size: 9px;
-        letter-spacing: 0.5px;
-        color: var(--arena-ink-soft);
-        font-weight: 500;
-        white-space: nowrap;
-    }
-    .course-label.hl {
-        color: var(--arena-ink);
-        font-weight: 700;
-    }
-    .race-diamond {
-        position: absolute;
-        width: 18px;
-        height: 18px;
-        background: var(--arena-paper);
+        z-index: 1;
+        width: 12px;
+        height: 12px;
+        border: 1.5px solid var(--ink-900);
+        background: var(--paper-0);
         transform: rotate(45deg);
-        z-index: 3;
-        border: 1.5px dashed var(--arena-ink-mute);
+        transition: transform var(--dur-fast) var(--ease-out);
     }
-    .race-diamond.going,
-    .race-diamond.logged {
-        background: var(--arena-ink);
-        border: 2px solid var(--arena-ink);
+    .mnode.sel .mk,
+    .mnode:active .mk {
+        transform: rotate(45deg) scale(1.2);
     }
-    .race-diamond.maybe-diamond {
-        border: 1.5px dashed var(--arena-ink-soft);
+    .mnode.going .mk {
+        background: var(--accent);
+        border-color: var(--accent-strong);
     }
-    .race-diamond.unknown-diamond {
-        border: 1.5px dashed var(--arena-ink-mute);
+    .mnode.logged .mk {
+        background: var(--ink-900);
     }
-    .date-label {
-        position: absolute;
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        color: var(--arena-ink);
-        letter-spacing: 0.3px;
-        white-space: nowrap;
-        font-weight: 600;
+    .mnode.maybe .mk {
+        border-style: dashed;
+        border-color: var(--ink-400);
     }
-    .date-label.dim {
-        color: var(--arena-ink-mute);
+    .mnode.unknown .mk {
+        border-color: var(--ink-300);
+        background: var(--paper-100);
     }
-    .date-tail {
-        margin-left: 8px;
-        font-weight: 400;
+    .mnode.goal .mk {
+        width: 16px;
+        height: 16px;
+        box-shadow: 0 0 0 3px var(--accent-tint);
     }
-    .date-tail.muted {
-        color: var(--arena-ink-soft);
-    }
-    .date-tail.accent {
-        color: var(--arena-accent-deep);
-        font-weight: 700;
-    }
-
-    .cell-right {
-        padding: 12px 16px;
-        border-left: 1px solid var(--arena-line-soft);
+    .mnode .mbody {
+        align-self: center;
+        min-width: 0;
+        padding: 11px 10px 11px 0;
         display: flex;
         flex-direction: column;
-        justify-content: center;
+        gap: 3px;
     }
-    .cell-right.dim {
-        opacity: 0.7;
-    }
-    .right-time {
-        font-family: var(--arena-f-display);
-        font-size: 16px;
+    .mnode .mname {
+        font-size: 15px;
         font-weight: 700;
-        letter-spacing: -0.3px;
-    }
-    .right-tag {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 1.5px;
-        font-weight: 700;
-        margin-bottom: 2px;
-    }
-    .right-tag.accent {
-        color: var(--arena-accent-deep);
-    }
-    .right-tag.soft {
-        color: var(--arena-ink-soft);
-    }
-    .right-tag.muted {
-        color: var(--arena-ink-mute);
-    }
-    .right-sub {
-        font-size: 12px;
-        color: var(--arena-ink-soft);
-        white-space: nowrap;
+        letter-spacing: var(--track-heading);
+        line-height: 1.2;
         overflow: hidden;
         text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--text-strong);
+    }
+    .mnode .mmeta {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        font-size: 11.5px;
+        color: var(--text-faint);
+        font-weight: 600;
+    }
+    .mnode .mmeta .goaltag {
+        color: var(--text-accent);
+        font-weight: 700;
+    }
+    .mnode .mmeta .ddl.warn {
+        color: var(--caution);
+        font-weight: 700;
+    }
+    .mnode .mmeta .mresult {
+        color: var(--text-accent);
+        font-weight: 700;
+    }
+    /* month divider */
+    .mmonth {
+        align-items: center;
+    }
+    .mmonth .mtick {
+        position: relative;
+        z-index: 1;
+        width: 12px;
+        height: 2px;
+        background: var(--ink-300);
+    }
+    .mmonth .mlbl {
+        padding: 9px 0;
+        color: var(--text-faint);
+    }
+    /* today divider */
+    .mtoday {
+        align-items: center;
+    }
+    .mtoday .tdate {
+        text-align: right;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+        color: var(--accent);
+        align-self: center;
+    }
+    .mtoday .mrail::before {
+        background: var(--accent);
+    }
+    .mtoday .tdot {
+        position: relative;
+        z-index: 1;
+        width: 13px;
+        height: 13px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-tint);
+    }
+    .mtoday .tpill {
+        align-self: center;
+        justify-self: start;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        color: #fff;
+        background: var(--accent);
+        padding: 3px 8px;
     }
 
-    /* ── Expanded row ── */
-    .expanded {
-        grid-column: 1 / -1;
-        border-top: 1px solid var(--arena-line);
-        background: var(--arena-paper);
-        padding: 20px 24px;
-        z-index: 2;
-        position: relative;
-        pointer-events: auto;
+    /* ── 기록 입력 모달 ──────────────────────────────────────────────────── */
+    .log {
+        padding: 26px 28px 24px;
     }
-    .ex-grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 24px;
+    .log .acc {
+        color: var(--text-accent);
     }
-    @media (min-width: 1024px) {
-        .ex-grid {
-            grid-template-columns: 1.2fr 1fr 1fr;
-            gap: 28px;
-        }
+    .log-title {
+        margin-top: 8px;
+        font-size: 20px;
+        font-weight: var(--w-strong);
+        letter-spacing: var(--track-heading);
+        line-height: 1.25;
+        color: var(--text-strong);
     }
-    .ex-kicker {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 1.5px;
-        color: var(--arena-ink-soft);
-        text-transform: uppercase;
-        margin-bottom: 10px;
+    .log-sub {
+        margin-top: 4px;
+        font-size: 12px;
+        color: var(--text-faint);
     }
-    .ex-courses {
+    .log-field {
+        margin-top: 20px;
+    }
+    .log-label {
+        display: block;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: var(--track-micro);
+        color: var(--text-muted);
+        margin-bottom: 8px;
+    }
+    .log-courses {
         display: flex;
-        flex-direction: column;
+        flex-wrap: wrap;
         gap: 6px;
     }
-    .ex-course {
-        display: grid;
-        grid-template-columns: 60px 1fr 80px auto;
-        gap: 12px;
-        align-items: center;
-        padding: 8px 10px;
-        background: var(--arena-paper-alt);
-        border: 1px solid var(--arena-line-soft);
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-    }
-    .ex-course.hl {
-        background: oklch(95% 0.02 145);
-        border-color: var(--arena-ink);
-    }
-    .ex-code {
-        font-weight: 700;
-        letter-spacing: 1px;
-    }
-    .ex-label {
-        font-family: var(--arena-f-body);
+    .log-chip {
+        padding: 6px 12px;
         font-size: 13px;
-    }
-    .ex-course.hl .ex-label {
         font-weight: 600;
-    }
-    .ex-dist {
-        color: var(--arena-ink-soft);
-    }
-    .ex-tag {
-        font-size: 9px;
-        letter-spacing: 1px;
-        padding: 2px 7px;
-        background: transparent;
-        color: var(--arena-ink-mute);
-        border: 1px solid var(--arena-line-soft);
-        font-weight: 700;
-    }
-    .ex-tag.hl {
-        background: var(--arena-ink);
-        color: var(--arena-paper);
-        border: none;
-    }
-    .ex-note {
-        margin-top: 10px;
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        color: var(--arena-ink-soft);
-        letter-spacing: 0.5px;
-        line-height: 1.6;
-    }
-    .ex-card {
-        border: 1px solid var(--arena-line-soft);
-        padding: 14px;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
-    .ex-row {
-        display: flex;
-        justify-content: space-between;
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        color: var(--arena-ink-soft);
-    }
-    .ex-row > *:last-child {
-        color: var(--arena-ink);
-    }
-    .ex-row .bold {
-        font-weight: 600;
-    }
-    .ex-row .big {
-        font-weight: 700;
-        font-family: var(--arena-f-display);
-        font-size: 14px;
-    }
-    .ex-divider {
-        border-top: 1px dashed var(--arena-line-soft);
-        margin: 4px 0;
-    }
-    .ex-memo-kicker {
-        font-family: var(--arena-f-mono);
-        font-size: 9px;
-        letter-spacing: 1.5px;
-        color: var(--arena-ink-soft);
-        text-transform: uppercase;
-        margin-bottom: 4px;
-    }
-    .ex-memo > div:last-child {
-        font-size: 13px;
-    }
-
-    .ex-actions {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-    .ex-btn {
-        padding: 10px 14px;
-        background: transparent;
-        color: var(--arena-ink);
-        border: 1px solid var(--arena-line);
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        letter-spacing: 1px;
+        border: 1px solid var(--line);
+        background: var(--paper-0);
+        color: var(--text-muted);
+        border-radius: var(--r-2);
         cursor: pointer;
-        text-decoration: none;
-        text-align: left;
+        transition: all var(--dur-fast) var(--ease-out);
+    }
+    .log-chip:hover {
+        border-color: var(--ink-400);
+        color: var(--text-strong);
+    }
+    .log-chip.on {
+        border-color: var(--accent-strong);
+        background: var(--accent);
+        color: #fff;
+    }
+    .log-time {
         display: flex;
-        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
     }
-    .ex-btn:hover {
-        background: var(--arena-paper-alt);
-    }
-    .ex-btn.primary {
-        padding: 12px 14px;
-        background: var(--arena-accent);
-        color: var(--arena-ink);
-        border: none;
-        font-family: var(--arena-f-display);
+    .log-num {
+        width: 64px;
+        padding: 9px 10px;
+        font-size: 16px;
         font-weight: 700;
+        text-align: center;
+        border: 1px solid var(--line);
+        background: var(--paper-0);
+        color: var(--text-strong);
+        border-radius: var(--r-2);
+    }
+    .log-num:focus {
+        outline: none;
+        border-color: var(--accent-strong);
+    }
+    .log-colon {
+        font-weight: 700;
+        color: var(--text-faint);
+    }
+    .log-pb {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 18px;
         font-size: 13px;
-        letter-spacing: -0.2px;
+        color: var(--text-muted);
+        cursor: pointer;
     }
-    .ex-btn.primary:hover {
-        opacity: 0.9;
+    .log-pb input {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--accent);
     }
-
-    /* ── Legend ── */
-    .legend {
-        display: grid;
-        border-top: 1px solid var(--arena-line);
-    }
-    .legend-side {
-        padding: 12px 16px;
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 1.5px;
-        color: var(--arena-ink-soft);
-        text-transform: uppercase;
-        border-right: 1px solid var(--arena-line-soft);
-    }
-    .legend-items {
-        padding: 12px 16px;
-        display: flex;
-        gap: 22px;
-        align-items: center;
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        color: var(--arena-ink-soft);
-        flex-wrap: wrap;
-    }
-    .legend-item {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .lg-bar {
-        width: 28px;
-        height: 10px;
-    }
-    .lg-bar.solid {
-        background: var(--arena-ink);
-    }
-    .lg-bar.dashed {
-        border: 1.5px dashed var(--arena-ink-mute);
-    }
-    .lg-bar.dashed-soft {
-        border: 1.5px dashed var(--arena-ink-soft);
-    }
-    .lg-diamond {
-        width: 14px;
-        height: 14px;
-        transform: rotate(45deg);
-    }
-    .lg-diamond.solid {
-        background: var(--arena-ink);
-        border: 2px solid var(--arena-ink);
-    }
-    .lg-diamond.hollow {
-        background: var(--arena-paper);
-        border: 1.5px dashed var(--arena-ink-mute);
-    }
-    .legend-now {
-        padding: 12px 16px;
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        color: var(--arena-accent-deep);
-        letter-spacing: 1.5px;
-        text-align: right;
-        border-left: 1px solid var(--arena-line-soft);
-    }
-
-    .chart-foot {
+    .log-err {
         margin-top: 14px;
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        color: var(--arena-ink-soft);
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--caution);
+    }
+    .log-actions {
         display: flex;
-        justify-content: space-between;
-        flex-wrap: wrap;
+        align-items: center;
         gap: 8px;
+        margin-top: 24px;
+    }
+    .log-spacer {
+        flex: 1;
+    }
+
+    @media (max-width: 768px) {
+        .hd {
+            padding-top: 22px;
+        }
+        /* Swap the horizontal gantt for the vertical rail — far more legible
+           on a narrow viewport than a squeezed 12-month strip. */
+        .strip {
+            display: none;
+        }
+        .mstrip {
+            display: block;
+            margin-top: 14px;
+        }
+        .rrow {
+            grid-template-columns: 64px 1fr;
+        }
+        .rrow .right {
+            grid-column: 2;
+            flex-direction: row;
+            align-items: center;
+            justify-content: flex-start;
+            flex-wrap: wrap;
+        }
+        .rrow .dt b {
+            font-size: 17px;
+        }
     }
 </style>

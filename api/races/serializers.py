@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import DeviceToken, Race, Review
+from .models import DeviceToken, Race, RaceParticipation, Review
 
 
 class RaceSerializer(serializers.ModelSerializer):
@@ -285,3 +285,30 @@ class DeviceTokenUpdateSerializer(serializers.Serializer):
         required=False,
         allow_null=True,
     )
+
+
+class RaceParticipationWriteSerializer(serializers.Serializer):
+    """Upsert a user's planning state (관심 / 참가 예정) for one race."""
+
+    status = serializers.ChoiceField(
+        choices=[RaceParticipation.STATUS_MAYBE, RaceParticipation.STATUS_GOING],
+        required=False,
+        default=RaceParticipation.STATUS_MAYBE,
+    )
+    planned_codes = serializers.ListField(
+        child=serializers.CharField(max_length=20, allow_blank=True),
+        required=False,
+        allow_empty=True,
+        default=list,
+    )
+    main_goal = serializers.BooleanField(required=False, default=False)
+    note = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
+
+    def validate(self, attrs):
+        # 관심(maybe) 상태에서는 종목을 미정으로 둔다.
+        if attrs.get('status') == RaceParticipation.STATUS_MAYBE:
+            attrs['planned_codes'] = []
+        else:
+            attrs['planned_codes'] = [c.strip() for c in (attrs.get('planned_codes') or []) if c.strip()]
+        attrs['note'] = (attrs.get('note') or '').strip()
+        return attrs

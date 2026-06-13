@@ -17,4 +17,7 @@ urlpatterns = [
     path('me/favorites/races/', views.MyFavoriteRacesView.as_view()),
     path('me/records/', views.RaceRecordListCreateView.as_view()),
     path('me/records/<int:pk>/', views.RaceRecordDetailView.as_view()),
+    path('me/season/', views.MySeasonView.as_view()),
+    path('me/races/<str:slug>/participation/', views.RaceParticipationView.as_view()),
+    path('me/races/<str:slug>/result/', views.RaceResultCreateView.as_view()),
 ]

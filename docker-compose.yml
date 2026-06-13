@@ -29,6 +29,11 @@ services:
       DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-contact@endurohub.kr}
       CRAWL_REPORT_EMAIL: ${CRAWL_REPORT_EMAIL:-kkh147.17.3@gmail.com}
       CRAWL_SEND_EMPTY_REPORT: ${CRAWL_SEND_EMPTY_REPORT:-false}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.openai.com/v1}
+      LLM_JSON_MODE: ${LLM_JSON_MODE:-}
     volumes:
       - api_static:/app/staticfiles
       - api_media:/app/storage

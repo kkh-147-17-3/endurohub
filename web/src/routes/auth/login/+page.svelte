@@ -9,6 +9,26 @@
 
     const appUrl = $derived($page.data.appUrl || 'https://www.endurohub.kr');
 
+    // Official provider buttons — brand colours, logos, and wording per each
+    // service's sign-in button guidelines (Kakao / Naver / Google).
+    const SOCIALS = [
+        {
+            id: 'kakao',
+            label: '카카오 로그인',
+            svg: '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><path fill="#000000" d="M9 1.2C4.58 1.2 1 3.98 1 7.41c0 2.2 1.47 4.12 3.68 5.2-.16.57-.59 2.13-.67 2.46-.1.41.15.4.32.29.13-.09 2.07-1.4 2.91-1.97.57.08 1.16.13 1.76.13 4.42 0 8-2.78 8-6.21C17 3.98 13.42 1.2 9 1.2z"/></svg>'
+        },
+        {
+            id: 'naver',
+            label: '네이버 로그인',
+            svg: '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="#ffffff" d="M16.273 12.845 7.376 0H0v24h7.726V11.156L16.624 24H24V0h-7.727z"/></svg>'
+        },
+        {
+            id: 'google',
+            label: 'Google 계정으로 로그인',
+            svg: '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>'
+        }
+    ];
+
     async function handleLogin(provider: string) {
         if (isLoading) return;
         isLoading = provider;
@@ -16,13 +36,10 @@
 
         try {
             const redirectUri = `${appUrl}/auth/${provider}/callback`;
-            const result = await clientApiFetch<OAuthLoginResponse>(
-                `/auth/${provider}/login/`,
-                {
-                    method: 'POST',
-                    body: { redirect_uri: redirectUri },
-                }
-            );
+            const result = await clientApiFetch<OAuthLoginResponse>(`/auth/${provider}/login/`, {
+                method: 'POST',
+                body: { redirect_uri: redirectUri }
+            });
 
             if ('error' in result || 'detail' in result) {
                 error = (result as any).error || (result as any).detail || '로그인 요청에 실패했습니다.';
@@ -49,229 +66,222 @@
 </script>
 
 <svelte:head>
-    <title>로그인 - 엔듀로허브</title>
+    <title>ENDUROHUB — 로그인</title>
     <meta name="description" content="소셜 계정으로 엔듀로허브에 로그인하세요." />
     <meta name="robots" content="noindex" />
 </svelte:head>
 
 <ProgressBar active={!!isLoading} />
 
-<div class="auth-wrap">
-    <div class="auth-shell">
-        <header class="auth-head">
-            <a class="auth-brand" href="/">
-                <span class="brand-mark"></span>
-                <span class="brand-name">endurohub</span>
-            </a>
-            <h1 class="auth-title">로그인</h1>
-            <p class="auth-sub">소셜 계정으로 간편 로그인</p>
-        </header>
+<div class="auth">
+    <!-- ── Left ink hero panel ── -->
+    <aside class="auth-hero">
+        <a class="hero-wordmark" href="/">ENDURO<span class="slash">/</span>HUB</a>
 
-        <div class="auth-panel">
-            <div class="oauth-list">
-                <button
-                    type="button"
-                    class="oauth-btn oauth-kakao"
-                    onclick={() => handleLogin('kakao')}
-                    disabled={!!isLoading}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="oauth-icon" viewBox="0 0 24 24" fill="#191919">
-                        <path d="M12 3C6.48 3 2 6.48 2 10.5c0 2.55 1.7 4.8 4.25 6.08-.13.47-.85 3.02-.88 3.24 0 0-.02.17.08.24.1.07.22.03.22.03.3-.04 3.44-2.27 3.98-2.66.77.1 1.56.17 2.35.17 5.52 0 10-3.48 10-7.78C22 6.48 17.52 3 12 3z" />
-                    </svg>
-                    <span class="oauth-label">카카오로 시작하기</span>
-                    <span class="oauth-arrow">→</span>
-                </button>
+        <h1 class="hero-display">출발선까지,<br />가장 빠른 길.</h1>
+    </aside>
 
-                <button
-                    type="button"
-                    class="oauth-btn oauth-naver"
-                    onclick={() => handleLogin('naver')}
-                    disabled={!!isLoading}
-                >
-                    <span class="oauth-icon naver-mark">N</span>
-                    <span class="oauth-label">네이버로 시작하기</span>
-                    <span class="oauth-arrow">→</span>
-                </button>
+    <!-- ── Right form panel ── -->
+    <div class="auth-pane">
+        <span class="pane-url eh-data">WWW.ENDUROHUB.KR/AUTH/LOGIN</span>
 
-                <button
-                    type="button"
-                    class="oauth-btn oauth-google"
-                    onclick={() => handleLogin('google')}
-                    disabled={!!isLoading}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="oauth-icon" viewBox="0 0 24 24">
-                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
-                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                    </svg>
-                    <span class="oauth-label">Google로 시작하기</span>
-                    <span class="oauth-arrow">→</span>
-                </button>
+        <div class="auth-form">
+            <a class="form-brand" href="/">ENDURO<span class="slash">/</span>HUB</a>
+
+            <div class="eh-micro sign-eyebrow"><span class="acc">SIGN IN</span></div>
+            <h2 class="auth-title">로그인</h2>
+            <p class="auth-sub">대회 일정, 시즌 플랜, 기록이 계정에 저장됩니다.</p>
+
+            <div class="social-col">
+                {#each SOCIALS as s (s.id)}
+                    <button
+                        type="button"
+                        class="social-btn {s.id}"
+                        onclick={() => handleLogin(s.id)}
+                        disabled={!!isLoading}
+                    >
+                        <span class="logo">{@html s.svg}</span>
+                        <span>{isLoading === s.id ? '연결 중…' : s.label}</span>
+                        <span></span>
+                    </button>
+                {/each}
             </div>
 
             {#if error}
-                <div class="auth-error">
+                <div class="auth-error" role="alert">
                     <span class="auth-error-mark">!</span>
-                    <span class="auth-error-msg">{error}</span>
+                    <span>{error}</span>
                 </div>
             {/if}
-        </div>
 
-        <p class="auth-foot">로그인 없이도 글쓰기와 댓글 작성이 가능합니다.</p>
+            <p class="terms-note">
+                계속하면 <a href="/privacy" class="terms-link">서비스 이용약관 및 개인정보 처리방침</a>에 동의하게 됩니다.
+            </p>
+        </div>
     </div>
 </div>
 
 <style>
-    .auth-wrap {
-        min-height: calc(100vh - 4rem);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 56px 24px 80px;
-        background: var(--arena-paper);
+    .auth {
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: minmax(380px, 44%) 1fr;
+        background: var(--bg-page);
     }
-    .auth-shell {
+
+    /* ── Left ink panel — pinned dark in both themes (editorial intent) ── */
+    .auth-hero {
+        position: relative;
+        background-color: #101312;
+        background-image:
+            linear-gradient(180deg, rgba(16, 19, 18, 0.55) 0%, rgba(16, 19, 18, 0.35) 38%, rgba(16, 19, 18, 0.88) 100%),
+            url('/images/login-hero.png');
+        background-size: cover;
+        background-position: center 30%;
+        background-repeat: no-repeat;
+        color: #fff;
+        padding: 36px 44px 40px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 100vh;
+    }
+    .hero-wordmark {
+        font-weight: 900;
+        font-size: 18px;
+        letter-spacing: -0.02em;
+        color: #fff;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+    .hero-wordmark .slash,
+    .form-brand .slash { color: var(--accent); }
+
+    .hero-display {
+        font-size: clamp(40px, 4.6vw, 64px);
+        font-weight: var(--w-display);
+        letter-spacing: var(--track-display);
+        line-height: 0.98;
+        text-wrap: balance;
+        margin: 0 0 30vh;
+    }
+
+    /* ── Right form panel ── */
+    .auth-pane {
+        display: grid;
+        place-items: center;
+        padding: 48px var(--container-pad-mobile);
+        position: relative;
+    }
+    .pane-url {
+        position: absolute;
+        top: 22px;
+        right: 28px;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        color: var(--text-faint);
+    }
+    .auth-form {
         width: 100%;
         max-width: 380px;
         display: flex;
         flex-direction: column;
-        gap: 24px;
     }
-
-    .auth-head {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        align-items: flex-start;
-    }
-    .auth-brand {
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        margin-bottom: 24px;
-        font-family: var(--arena-f-display);
-        font-weight: 700;
-        font-size: 18px;
-        letter-spacing: -0.5px;
-        color: var(--arena-ink);
+    .form-brand {
+        display: none;
+        margin-bottom: 40px;
+        font-weight: 900;
+        font-size: 17px;
+        letter-spacing: -0.02em;
+        color: var(--text-strong);
         text-decoration: none;
     }
-    .brand-mark {
-        width: 8px;
-        height: 8px;
-        background: var(--arena-accent);
-    }
-    .brand-name :global(.accent) {
-        color: var(--arena-accent-deep);
-    }
-    .kicker {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 2px;
-        text-transform: uppercase;
-        color: var(--arena-ink-soft);
-    }
+
+    .sign-eyebrow { margin-bottom: 10px; }
     .auth-title {
-        font-family: var(--arena-f-display);
-        font-size: 36px;
-        font-weight: 700;
-        letter-spacing: -1px;
-        line-height: 1;
-        margin: 4px 0 6px;
-        color: var(--arena-ink);
+        font-size: clamp(30px, 4vw, 38px);
+        font-weight: var(--w-display);
+        letter-spacing: var(--track-display);
+        line-height: 1.05;
+        margin: 0;
+        color: var(--text-strong);
     }
     .auth-sub {
-        font-family: var(--arena-f-mono);
-        font-size: 12px;
-        color: var(--arena-ink-soft);
-        margin: 0;
+        color: var(--text-muted);
+        font-size: 14.5px;
+        line-height: var(--leading-body);
+        margin: 12px 0 0;
+        word-break: keep-all;
     }
 
-    .auth-panel {
-        background: var(--arena-paper);
-        border: 1px solid var(--arena-line);
-        padding: 20px;
+    /* ── Social buttons — official provider styling ── */
+    .social-col {
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 10px;
+        margin-top: 28px;
     }
-
-    .oauth-list { display: flex; flex-direction: column; gap: 8px; }
-    .oauth-btn {
-        display: flex;
+    .social-btn {
+        height: 48px;
+        display: grid;
+        grid-template-columns: 48px 1fr 48px;
         align-items: center;
-        gap: 12px;
-        padding: 12px 16px;
-        border: 1px solid var(--arena-line-soft);
-        background: var(--arena-paper);
-        font-family: var(--arena-f-display);
+        border: 1px solid transparent;
+        border-radius: var(--r-1);
+        font-family: var(--font-sans);
+        font-size: 14.5px;
         font-weight: 600;
-        font-size: 14px;
-        letter-spacing: -0.2px;
-        color: var(--arena-ink);
         cursor: pointer;
-        transition: transform 0.1s, border-color 0.1s;
-        text-align: left;
+        transition: filter var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
     }
-    .oauth-btn:active:not(:disabled) { transform: translateY(1px); }
-    .oauth-btn:disabled { cursor: not-allowed; opacity: 0.6; }
-    .oauth-btn:hover:not(:disabled) { border-color: var(--arena-ink); }
-    .oauth-icon {
+    .social-btn:active:not(:disabled) { transform: translateY(1px); }
+    .social-btn:disabled { cursor: not-allowed; opacity: 0.55; }
+    .social-btn .logo {
         width: 18px;
         height: 18px;
-        flex-shrink: 0;
+        margin-left: 16px;
+        display: grid;
+        place-items: center;
     }
-    .oauth-label { flex: 1; }
-    .oauth-arrow {
-        font-family: var(--arena-f-mono);
-        font-size: 13px;
-        color: var(--arena-ink-soft);
+    .social-btn .logo :global(svg) { display: block; }
+
+    /* Kakao — yellow #FEE500, black symbol, label 85% black */
+    .social-btn.kakao {
+        background: #fee500;
+        color: rgba(0, 0, 0, 0.85);
+    }
+    .social-btn.kakao:hover:not(:disabled) { filter: brightness(0.96); }
+
+    /* Naver — green #03C75A, white logo + label */
+    .social-btn.naver {
+        background: #03c75a;
+        color: #ffffff;
+    }
+    .social-btn.naver:hover:not(:disabled) { filter: brightness(0.96); }
+
+    /* Google — white, neutral border, 4-colour G, #1f1f1f label */
+    .social-btn.google {
+        background: #ffffff;
+        color: #1f1f1f;
+        border-color: #747775;
+    }
+    .social-btn.google:hover:not(:disabled) {
+        background: #f7f8f8;
+        box-shadow: 0 1px 2px rgba(60, 64, 67, 0.16);
     }
 
-    .oauth-kakao {
-        background: #FEE500;
-        border-color: #FEE500;
-        color: #191919;
-    }
-    .oauth-kakao:hover:not(:disabled) { border-color: #191919; }
-    .oauth-kakao .oauth-arrow { color: rgba(25, 25, 25, 0.6); }
-
-    .oauth-naver {
-        background: #03C75A;
-        border-color: #03C75A;
-        color: #fff;
-    }
-    .oauth-naver:hover:not(:disabled) { border-color: #fff; box-shadow: inset 0 0 0 1px #03C75A; }
-    .oauth-naver .oauth-arrow { color: rgba(255, 255, 255, 0.7); }
-    .naver-mark {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 18px;
-        height: 18px;
-        font-family: var(--arena-f-display);
-        font-weight: 700;
-        font-size: 13px;
-        color: #fff;
-    }
-
-    .oauth-google {
-        background: var(--arena-paper);
-        border-color: var(--arena-line-soft);
-        color: var(--arena-ink);
-    }
-
+    /* ── Error ── */
     .auth-error {
         display: flex;
         align-items: center;
         gap: 10px;
+        margin-top: 16px;
         padding: 10px 12px;
-        background: var(--arena-paper-alt);
-        border: 1px solid var(--arena-urgent);
-        font-family: var(--arena-f-mono);
-        font-size: 12px;
-        color: var(--arena-urgent);
+        border: 1px solid var(--danger);
+        font-size: 12.5px;
+        color: var(--danger);
+        line-height: 1.5;
     }
     .auth-error-mark {
         display: inline-flex;
@@ -279,20 +289,29 @@
         justify-content: center;
         width: 18px;
         height: 18px;
-        background: var(--arena-urgent);
-        color: var(--arena-paper);
-        font-weight: 700;
         flex-shrink: 0;
-    }
-    .auth-error-msg { flex: 1; }
-
-    .auth-foot {
-        text-align: center;
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        letter-spacing: 0.3px;
-        color: var(--arena-ink-mute);
-        margin: 0;
+        background: var(--danger);
+        color: var(--paper-0);
+        font-weight: 700;
     }
 
+    .terms-note {
+        margin-top: 24px;
+        padding-top: 14px;
+        border-top: var(--border-hair);
+        font-size: 12.5px;
+        color: var(--text-faint);
+        line-height: 1.6;
+        text-wrap: pretty;
+    }
+    .terms-link { color: var(--text-muted); text-decoration: underline; text-underline-offset: 2px; }
+    .terms-link:hover { color: var(--text-strong); }
+
+    @media (max-width: 880px) {
+        .auth { grid-template-columns: 1fr; }
+        .auth-hero { display: none; }
+        .form-brand { display: block; }
+        .pane-url { display: none; }
+        .auth-pane { padding-top: 64px; align-items: start; }
+    }
 </style>
