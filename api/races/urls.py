@@ -13,6 +13,8 @@ urlpatterns = [
 
     # Races
     path('races/', views.RaceListView.as_view(), name='race-list'),
+    # 자연어(AI) 대회 검색 — 일단 비활성화. 재활성화하려면 아래 라우트 주석을 해제하세요.
+    # path('races/search/', views.RaceNlSearchView.as_view(), name='race-nl-search'),
     path('races/calendar/', views.RaceCalendarView.as_view(), name='race-calendar'),
     path('races/sports/', views.RaceSportsView.as_view(), name='race-sports'),
     path('races/regions/', views.RaceRegionsView.as_view(), name='race-regions'),

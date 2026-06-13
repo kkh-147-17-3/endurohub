@@ -413,6 +413,98 @@ class RaceListView(APIView):
         return Response(response_data)
 
 
+class RaceNlSearchView(APIView):
+    """자연어 대회 검색. q(자연어)를 LLM으로 구조화 필터로 파싱 후 목록 반환.
+
+    LLM 미설정/실패 시 q를 제목 키워드로 쓰는 폴백으로 동작한다.
+    응답은 RaceListView 와 동일한 data/meta/links 형태에 interpretation(요약·칩)을 더한다.
+    """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        from .nl_search import VALID_DISTANCE_CATEGORIES, interpret_query
+
+        raw_query = (request.query_params.get('q') or '').strip()
+
+        today = timezone.now().date()
+        parsed = interpret_query(raw_query, today) if raw_query else None
+
+        if parsed is None:
+            # 폴백: 키워드(제목) 검색만
+            parsed = {
+                'sports': [], 'regions': [], 'statuses': [],
+                'distance_categories': [], 'month_from': '', 'month_to': '',
+                'fee_max': None, 'q': raw_query, 'summary': '', 'chips': [],
+            }
+
+        sports = parsed['sports']
+        regions = parsed['regions']
+        statuses = parsed['statuses']
+        distance_categories = parsed['distance_categories']
+        fee_max = parsed['fee_max']
+        keyword = parsed['q']
+
+        # 월 범위: LLM 미지정 시 현재 월부터 (RaceListView 기본 동작과 동일)
+        month_from = parsed['month_from'] or today.strftime('%Y-%m')
+        month_to = parsed['month_to'] or None
+
+        qs = Race.objects.all()
+        if statuses:
+            qs = qs.by_status(statuses)
+        if sports:
+            qs = qs.by_sport(sports)
+        if regions:
+            qs = qs.by_region(regions)
+        # 거리 카테고리는 단일 종목일 때만 적용 (DISTANCE_CATEGORIES 가 종목별 키)
+        applied_distance = []
+        if distance_categories and len(sports) == 1:
+            valid = VALID_DISTANCE_CATEGORIES.get(sports[0], set())
+            applied_distance = [c for c in distance_categories if c in valid]
+            if applied_distance:
+                qs = qs.by_distance_category(sports[0], applied_distance)
+        if fee_max:
+            qs = qs.by_fee_max(fee_max)
+        qs = qs.by_month_range(month_from, month_to)
+        if keyword:
+            qs = qs.by_name(keyword)
+
+        paginator = LaravelStylePagination()
+        per_page = request.query_params.get('per_page')
+        if per_page:
+            paginator.page_size = min(int(per_page), 100)
+
+        page = paginator.paginate_queryset(qs, request)
+        page_ids = [r.id for r in page]
+        favorite_ids = _favorite_race_ids(request, page_ids)
+        serializer = RaceSerializer(page, many=True, context={'favorite_race_ids': favorite_ids})
+
+        response_data = paginator.get_paginated_response(serializer.data).data
+        response_data['interpretation'] = {
+            'summary': parsed['summary'],
+            'chips': parsed['chips'],
+        }
+        applied = {
+            'query': raw_query,
+            'sport': sports,
+            'region': regions,
+            'status': statuses,
+            'distanceCategory': applied_distance,
+            'feeMax': fee_max,
+            'monthFrom': month_from,
+            'monthTo': month_to,
+            'name': keyword,
+        }
+        response_data['applied'] = applied
+
+        if raw_query:
+            track('race_search_nl', request, {
+                k: v for k, v in applied.items() if v
+            })
+
+        return Response(response_data)
+
+
 class RaceDetailView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [AllowAny]

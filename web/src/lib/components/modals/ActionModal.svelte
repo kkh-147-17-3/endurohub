@@ -68,24 +68,22 @@
     <div class="req-list">
         {#each reqs as r, i (i)}
             <div class="req-row">
-                <span class="req-mark {r.ok ? 'ok' : 'todo'}"></span>
-                <span class="req-name"
-                    >{r.name}{#if r.note}<span class="note">{r.note}</span>{/if}</span
-                >
-                <span class="req-state {r.ok ? 'ok' : 'todo'}">{r.state}</span>
+                <span>
+                    <span class="nm">{r.name}{#if r.note}<span class="note">{r.note}</span>{/if}</span>
+                </span>
+                <span class="req-badge" class:ok={r.ok} class:todo={!r.ok}>{r.state}</span>
             </div>
         {/each}
     </div>
 
     {#snippet foot()}
-        <div class="btn-row">
-            <button class="btn primary" onclick={() => onPrimary?.()}>
-                {primaryLabel} <span class="arrow">→</span>
-            </button>
-            {#if secondaryLabel}
-                <button class="btn ghost" onclick={onClose}>{secondaryLabel}</button>
-            {/if}
-        </div>
+        <button class="btn signal" onclick={() => onPrimary?.()}>
+            {primaryLabel} <span class="arrow">→</span>
+        </button>
+        <span class="spacer"></span>
+        {#if secondaryLabel}
+            <button class="btn ghost" onclick={onClose}>{secondaryLabel}</button>
+        {/if}
     {/snippet}
 </Modal>
 
@@ -93,5 +91,29 @@
     /* newlines in the title prop become visible line breaks */
     .pre {
         white-space: pre-line;
+    }
+    /* req-badge: inline state label */
+    .req-badge {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: var(--track-micro);
+        text-transform: uppercase;
+        padding: 3px 8px;
+        border: 1px solid var(--line);
+        color: var(--text-faint);
+        white-space: nowrap;
+    }
+    .req-badge.ok {
+        color: var(--positive);
+        border-color: var(--positive);
+        background: var(--positive-bg);
+    }
+    .req-badge.todo {
+        color: var(--danger);
+        border-color: var(--danger);
+        background: var(--danger-bg);
+    }
+    .arrow {
+        font-family: var(--font-sans);
     }
 </style>

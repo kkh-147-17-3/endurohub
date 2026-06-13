@@ -22,7 +22,7 @@ export function arenaDistLabel(race: Race): string {
     const ds = race.distances ?? [];
     if (ds.length === 0) return '—';
     const meters = ds
-        .map((d) => d.distance_meter)
+        .map((d) => d.distanceMeter)
         .filter((m): m is number => typeof m === 'number' && m > 0);
     if (meters.length > 0) {
         const max = Math.max(...meters);

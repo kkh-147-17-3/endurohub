@@ -25,6 +25,7 @@ print(f"[settings.py] ALLOWED_HOSTS={ALLOWED_HOSTS}  (raw env={os.environ.get('D
 INSTALLED_APPS = [
     'unfold',
     'unfold.contrib.filters',
+    'unfold.contrib.forms',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -38,6 +39,7 @@ INSTALLED_APPS = [
     'races',
     'posts',
     'accounts',
+    'notices',
 ]
 
 MIDDLEWARE = [
@@ -174,6 +176,18 @@ TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID', '')
 # Gemini (image generation)
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
 GEMINI_IMAGE_MODEL = os.environ.get('GEMINI_IMAGE_MODEL', 'gemini-2.0-flash-exp-image-generation')
+
+# LLM — 자연어 대회 검색 파서
+# provider: 'anthropic'(공식 SDK, Claude) | 'openai'(OpenAI 호환 HTTP, 로컬 LM Studio 등)
+LLM_PROVIDER = os.environ.get('LLM_PROVIDER', 'openai').strip().lower()
+LLM_API_KEY = os.environ.get('LLM_API_KEY', '')
+# 모델 미지정 시 provider별 기본값을 코드에서 채운다 (anthropic→claude-opus-4-8, openai→gpt-4o-mini).
+LLM_MODEL = os.environ.get('LLM_MODEL', '').strip()
+LLM_TIMEOUT = float(os.environ.get('LLM_TIMEOUT', '8'))
+# --- openai(호환) provider 전용 ---
+LLM_BASE_URL = os.environ.get('LLM_BASE_URL', 'https://api.openai.com/v1').rstrip('/')
+# JSON 강제 모드: '' (프롬프트만, 모든 서버 호환·기본) | 'json_schema' (LM Studio·최신 OpenAI) | 'json_object' (OpenAI)
+LLM_JSON_MODE = os.environ.get('LLM_JSON_MODE', '').strip()
 
 # Storage URL for generating absolute image URLs
 STORAGE_URL = os.environ.get('STORAGE_URL', '/storage/')

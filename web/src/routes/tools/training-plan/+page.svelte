@@ -1,558 +1,500 @@
 <script lang="ts">
-    import { page } from '$app/stores';
-    import ToolsShell from '$lib/components/arena/ToolsShell.svelte';
-    import {
-        STD_DISTANCES,
-        ZONE_INK,
-        type ZoneKey,
-        buildPlan,
-        fmtPace,
-        parseTime,
-        vdot,
-    } from '$lib/tools';
+	import { page } from '$app/stores';
+	import ToolsShell from '$lib/components/arena/ToolsShell.svelte';
+	import StatBlock from '$lib/components/eh/StatBlock.svelte';
+	import Select from '$lib/components/eh/Select.svelte';
+	import FilterChip from '$lib/components/eh/FilterChip.svelte';
+	import {
+		buildPlan,
+		dayDetail,
+		daysUntil,
+		fmtPace,
+		parseTime,
+		trainingPaces,
+		vdot,
+		PHASE_DEFS,
+		ZONE_INK,
+		type RunDays,
+		type ZoneKey
+	} from '$lib/tools';
 
-    let { data } = $props();
-    const pf = data.prefill;
+	let { data } = $props();
+	const pf = data.prefill;
 
-    let weeks = $state(12);
-    let openWeek = $state(3);
-    let baseDistKm = $state(pf?.distKm ?? 21.0975);
-    let baseTimeStr = $state(pf?.timeStr ?? '1:42:15');
+	// Target races come from the user's 관심대회 (favorites), upcoming only.
+	const goalRaces = data.goalRaces;
+	const hasGoals = goalRaces.length > 0;
 
-    const baseTimeSec = $derived(parseTime(baseTimeStr));
-    const v = $derived(vdot(baseDistKm, baseTimeSec));
-    const built = $derived(buildPlan(weeks, v));
-    const focusedWeek = $derived(built.plan[openWeek] ?? built.plan[0]);
+	// fitness basis: signed-in user's recent record, else the design's sample.
+	const recentDistKm = pf?.distKm ?? 21.0975;
+	const recentTimeSec = pf?.timeSec ?? parseTime('1:42:15');
 
-    const phaseLabelKr: Record<string, string> = {
-        BASE: '베이스',
-        BUILD: '빌드',
-        PEAK: '피크',
-        TAPER: '테이퍼',
-    };
+	// ── inputs ──
+	let raceId = $state(goalRaces[0]?.id ?? ''); // nearest goal (sorted by date)
+	let days = $state<RunDays>(5);
+	let lenChoice = $state<number | null>(null);
+	let focus = $state(0);
 
-    const dayLabelKr = ['월', '화', '수', '목', '금', '토', '일'];
+	const race = $derived(goalRaces.find((r) => r.id === raceId) ?? goalRaces[0]);
+	const raceOptions = $derived(
+		goalRaces.map((r) => ({
+			value: r.id,
+			label: `${r.name} · ${r.date.slice(5).replace('-', '.')}`
+		}))
+	);
 
-    function workoutDescription(zone: string, weekKm: number, paces: ReturnType<typeof buildPlan>['paces']): string {
-        if (zone === 'REST') return '';
-        if (zone === 'LONG E') return `~${Math.round(weekKm * 0.35)}K @ ${fmtPace(paces.E.sec)}`;
-        if (zone === 'RACE/E') return `대회/E @ ${fmtPace(paces.E.sec)}`;
-        const z = zone[0] as ZoneKey;
-        if (z === 'E') return `~${Math.round(weekKm * 0.15)}K @ ${fmtPace(paces.E.sec)}`;
-        if (z === 'T') return `~8K @ ${fmtPace(paces.T.sec)}`;
-        if (z === 'I') return `5×1K @ ${fmtPace(paces.I.sec)}`;
-        if (z === 'M') return `~6K @ ${fmtPace(paces.M.sec)}`;
-        if (z === 'R') return `8×400m @ ${fmtPace(paces.R.sec)}`;
-        return '';
-    }
+	const daysOut = $derived(race ? daysUntil(race.date) : 0);
+	const maxWeeks = $derived(Math.floor(daysOut / 7));
+	// A 4-phase plan needs at least one week per phase; below that the race is too
+	// imminent to periodize and we show a notice instead of a fabricated plan.
+	const MIN_PLAN_WEEKS = 4;
+	const canPlan = $derived(maxWeeks >= MIN_PLAN_WEEKS);
+	// Offer only plan lengths that fit before race day; fall back to whatever fits.
+	const lenOptions = $derived.by(() => {
+		if (!canPlan) return [];
+		const cand = [8, 12, 16, 18, 20].filter((w) => w <= maxWeeks);
+		return cand.length ? cand : [maxWeeks];
+	});
+	const weeks = $derived(
+		!canPlan
+			? 0
+			: lenChoice != null && lenOptions.includes(lenChoice)
+				? lenChoice
+				: (lenOptions.find((w) => w <= 16 && w >= 12) ?? lenOptions[lenOptions.length - 1])
+	);
 
-    function zoneText(zone: string): string {
-        if (zone === 'REST') return '휴식';
-        if (zone === 'LONG E') return '롱 E';
-        if (zone === 'RACE/E') return '대회';
-        return zone;
-    }
+	// ── plan ──
+	const v = $derived(vdot(recentDistKm, recentTimeSec));
+	const paces = $derived(trainingPaces(v));
+	const built = $derived(canPlan && race ? buildPlan(weeks, v, days, race.date, race.name) : null);
+	const fIdx = $derived(built ? Math.min(focus, built.plan.length - 1) : 0);
+	const fw = $derived(built ? built.plan[fIdx] : null);
 
-    function cellBg(zone: string): string {
-        if (zone === 'REST') return 'var(--arena-paper-alt)';
-        if (zone === 'LONG E') return 'oklch(92% 0.04 145)';
-        if (zone[0] === 'E') return 'var(--arena-paper)';
-        return 'oklch(94% 0.05 80)';
-    }
-
-    function cellInk(zone: string): string {
-        if (zone === 'REST') return 'var(--arena-ink-mute)';
-        const k = zone[0] === 'L' ? 'E' : (zone[0] as ZoneKey);
-        return ZONE_INK[k] ?? 'var(--arena-ink)';
-    }
+	const fmtMonth = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
+	const fmtKm = (km: number) => `${parseFloat(km.toFixed(1))}`;
 </script>
 
 <svelte:head>
-    <title>훈련 플랜 — endurohub</title>
+	<title>트레이닝 플랜 — endurohub</title>
 </svelte:head>
 
+{#snippet sechead(title: string, aux: string)}
+	<div class="sechead">
+		<h2 class="sechead-title">{title}</h2>
+		<span class="eh-micro sechead-aux">{aux}</span>
+	</div>
+{/snippet}
+
 <ToolsShell currentPath={$page.url.pathname}>
-    <div class="page">
-        <header class="head">
-            <div class="head-left">
-                <div class="arena-kicker">02 · TRAINING</div>
-                <h2>훈련 플랜</h2>
-                <p>
-                    최근 기록 ({baseDistKm}K · {baseTimeStr}) · VDOT
-                    <strong>{v.toFixed(1)}</strong> 기준
-                </p>
-            </div>
-            <div class="weeks-toggle">
-                {#each [8, 12, 16] as w}
-                    <button
-                        type="button"
-                        class:active={weeks === w}
-                        onclick={() => {
-                            weeks = w;
-                            openWeek = Math.min(openWeek, w - 1);
-                        }}>{w}주</button
-                    >
-                {/each}
-            </div>
-        </header>
+<div class="page v-container">
+	{#if !hasGoals}
+		<!-- No upcoming 관심대회 to target — guide the user to register one -->
+		<div class="empty-panel">
+			<span class="eh-micro"><span class="acc">INPUT</span> · 플랜 구성</span>
+			<h2 class="empty-title">목표 대회를 먼저 등록하세요</h2>
+			{#if data.signedIn}
+				<p class="empty-desc">
+					관심대회로 등록한 다가오는 대회가 없습니다. 대회 카드의 하트를 눌러 목표 대회를
+					추가하면 일정에 맞춘 트레이닝 플랜을 만들어 드립니다.
+				</p>
+				<a class="empty-cta" href="/races">대회 둘러보기 <span class="arrow">→</span></a>
+			{:else}
+				<p class="empty-desc">
+					로그인하면 관심대회로 등록한 목표 대회에 맞춰 단계별 트레이닝 플랜을 만들어 드립니다.
+				</p>
+				<a class="empty-cta" href="/auth/login?next=/tools/training-plan"
+					>로그인 <span class="arrow">→</span></a
+				>
+			{/if}
+		</div>
+	{:else}
+		<div class="tool-layout">
+			<!-- INPUT -->
+			<div class="panel">
+				<span class="eh-micro"><span class="acc">INPUT</span> · 플랜 구성</span>
+				<Select label="목표 대회 (관심 대회 기반)" options={raceOptions} bind:value={raceId} />
 
-        {#if pf}
-            <div class="prefill-note">최근 기록 <b>{pf.label}</b> 을(를) 불러왔어요</div>
-        {/if}
+				{#if canPlan}
+					<div>
+						<span class="eh-micro field-label">PLAN LENGTH</span>
+						<div class="row">
+							{#each lenOptions as w (w)}
+								<FilterChip selected={weeks === w} onclick={() => (lenChoice = w)}>{w}주</FilterChip>
+							{/each}
+						</div>
+					</div>
 
-        <!-- Base inputs -->
-        <div class="base-row">
-            <div class="base-cell">
-                <div class="base-lbl">최근 기록 거리</div>
-                <div class="dist-buttons">
-                    {#each STD_DISTANCES as d}
-                        <button
-                            type="button"
-                            class="dist-btn"
-                            class:active={Math.abs(baseDistKm - d.km) < 0.01}
-                            onclick={() => (baseDistKm = d.km)}>{d.label}</button
-                        >
-                    {/each}
-                </div>
-            </div>
-            <div class="base-cell">
-                <div class="base-lbl">완주 시간</div>
-                <input
-                    class="base-input"
-                    value={baseTimeStr}
-                    oninput={(e) => (baseTimeStr = (e.currentTarget as HTMLInputElement).value)}
-                />
-                <div class="hint">시:분:초</div>
-            </div>
-        </div>
+					<div>
+						<span class="eh-micro field-label">RUN DAYS / WEEK</span>
+						<div class="row">
+							{#each [5, 6] as d (d)}
+								<FilterChip selected={days === d} onclick={() => (days = d as RunDays)}>주 {d}일</FilterChip>
+							{/each}
+						</div>
+					</div>
+				{/if}
 
-        <!-- Phase bar -->
-        <div class="phase-bar">
-            {#each built.plan as w, i}
-                <button
-                    type="button"
-                    class="phase-cell"
-                    class:active={openWeek === i}
-                    style="background: {w.phaseColor}; opacity: {openWeek === i ? 1 : 0.55}"
-                    onclick={() => (openWeek = i)}
-                    title={`${phaseLabelKr[w.phase]} · ${w.weekNum}주차 · ${w.weekKm}km`}
-                >
-                    {w.weekNum}
-                </button>
-            {/each}
-        </div>
+				<div class="panel-stats">
+					<StatBlock label="D-Day" value={'D-' + daysOut} size="md" accent />
+					<StatBlock label="현재 VDOT" value={v.toFixed(1)} size="md" />
+				</div>
+				{#if canPlan}
+					<p class="src-note">
+						VDOT {v.toFixed(1)} 기준 단계별 페이스가 적용됩니다. 4주마다 회복 주(volume −18%)가 자동
+						배치됩니다.
+					</p>
+				{/if}
+			</div>
 
-        <!-- Calendar -->
-        <section class="block">
-            <div class="block-title">
-                <span class="title-rule"></span>
-                {weeks}주 캘린더
-            </div>
-            <div class="cal">
-                <div class="cal-head">
-                    {#each dayLabelKr as d}
-                        <div class="cal-head-cell">{d}</div>
-                    {/each}
-                </div>
-                <div class="cal-grid">
-                    {#each built.plan as w, wi}
-                        {#each w.days as day, di (`${wi}-${di}`)}
-                            <button
-                                type="button"
-                                class="cal-cell"
-                                class:current={openWeek === wi}
-                                style="background: {cellBg(day.zone)}"
-                                onclick={() => (openWeek = wi)}
-                            >
-                                <div class="cal-w">W{w.weekNum}</div>
-                                <div class="cal-zone" style="color: {cellInk(day.zone)}">
-                                    {zoneText(day.zone)}
-                                </div>
-                            </button>
-                        {/each}
-                    {/each}
-                </div>
-            </div>
-        </section>
+			<!-- OUTPUT -->
+			<div class="out">
+			{#if built && fw}
+				<div class="out-hero">
+					<StatBlock label="총 볼륨" value={built.totalKm.toLocaleString()} unit="KM" size="xl" accent />
+					<StatBlock label="피크 주차" value={built.peak.weekKm} unit="KM" size="lg" />
+					<StatBlock label="최장 LSD" value={built.longMax} unit="KM" size="lg" />
+					<StatBlock label="기간" value={weeks} unit="주" size="lg" />
+				</div>
 
-        <!-- Focused week detail -->
-        {#if focusedWeek}
-            <section class="focus-card">
-                <div class="focus-head">
-                    <div>
-                        <div class="focus-phase" style="color: {focusedWeek.phaseColor}">
-                            {phaseLabelKr[focusedWeek.phase]} · {focusedWeek.weekNum}주차
-                        </div>
-                        <div class="focus-km">{focusedWeek.weekKm} km / 주</div>
-                    </div>
-                    <div class="focus-meta">
-                        포커스: <span class="hl" style="color: {ZONE_INK[focusedWeek.focus]}"
-                            >{focusedWeek.focus}</span
-                        > 존
-                    </div>
-                </div>
-                <div class="focus-grid">
-                    {#each focusedWeek.days as day, di}
-                        <div class="focus-day">
-                            <div class="focus-day-name">{dayLabelKr[di]}</div>
-                            <div class="focus-day-zone" style="color: {cellInk(day.zone)}">
-                                {zoneText(day.zone)}
-                            </div>
-                            {#if day.zone !== 'REST'}
-                                <div class="focus-day-desc">
-                                    {workoutDescription(day.zone, focusedWeek.weekKm, built.paces)}
-                                </div>
-                            {/if}
-                        </div>
-                    {/each}
-                </div>
-            </section>
-        {/if}
+				<!-- periodization + weekly load -->
+				<div>
+					{@render sechead('주기화 · 주간 부하', `${built.raceName} 까지 ${weeks}주`)}
+					<div class="phaseband">
+						{#each PHASE_DEFS as ph, i (ph.name)}
+							<div style="flex:{built.alloc[i]};background:{ph.color}">
+								<span class="eh-data band-lbl" style="color:{ph.ink}">{ph.name} {built.alloc[i]}W</span>
+							</div>
+						{/each}
+					</div>
+					<div class="loadwrap">
+						<div class="loadrow">
+							{#each built.plan as w, i (w.wk)}
+								{@const h = Math.max(6, Math.round((w.weekKm / built.peak.weekKm) * 116))}
+								<button
+									type="button"
+									class="loadbar"
+									class:on={i === fIdx}
+									onclick={() => (focus = i)}
+									title={`W${w.wk} · ${w.weekKm}km`}
+								>
+									<span class="cap" style="background:{w.ink}"></span>
+									<span
+										class="fill"
+										style="height:{h}px;background:{w.color};opacity:{i === fIdx
+											? 1
+											: 0.78};border-top:2px solid {w.ink}"
+									></span>
+								</button>
+							{/each}
+						</div>
+						<div class="weekaxis">
+							{#each built.plan as w, i (w.wk)}
+								<span class="eh-data" class:on={i === fIdx}>
+									{i === fIdx || w.wk === 1 || w.wk === built.plan.length || w.wk % 4 === 0
+										? 'W' + w.wk
+										: '·'}
+								</span>
+							{/each}
+						</div>
+					</div>
+				</div>
 
-        <!-- Pace reference -->
-        <section class="block">
-            <div class="block-title">
-                <span class="title-rule"></span>
-                트레이닝 페이스 기준 (VDOT {v.toFixed(1)})
-            </div>
-            <div class="pace-table">
-                {#each Object.entries(built.paces) as [k, p] (k)}
-                    <div class="pace-row">
-                        <span class="pace-zone" style="color: {ZONE_INK[k as ZoneKey]}">{k}</span>
-                        <span class="pace-name">{p.label}</span>
-                        <span class="pace-val">{fmtPace(p.sec)}/km</span>
-                        <span class="pace-hr">심박 {p.hr}</span>
-                    </div>
-                {/each}
-            </div>
-        </section>
-    </div>
+				<!-- focused week detail -->
+				<div>
+					{@render sechead(
+						`WEEK ${fw.wk} 상세`,
+						`${fmtMonth(fw.monday)} 주 · D-${(weeks - fw.wk + 1) * 7}`
+					)}
+					<div class="week-meta">
+						<div class="week-tag-row">
+							<span class="phase-tag eh-data" style="background:{fw.color};color:{fw.ink}">{fw.phase}</span>
+							{#if fw.cutback}<span class="eh-micro cutback">회복 주</span>{/if}
+						</div>
+						<StatBlock label="주간 거리" value={fw.weekKm} unit="KM" size="lg" accent />
+						<StatBlock label="러닝" value={fw.days.filter((d) => d.zone !== 'REST').length} unit="일" size="md" />
+					</div>
+					<div class="daygrid">
+						{#each fw.days as d (d.dow)}
+							{@const det = dayDetail(d.zone, fw.weekKm, paces, built.raceName)}
+							<div class="daycell" class:rest={det.rest} class:race={det.race}>
+								<span class="dn eh-data">{d.dow}</span>
+								<span
+									class="zlabel"
+									style="color:{det.rest
+										? 'var(--text-faint)'
+										: det.race
+											? 'var(--text-accent)'
+											: det.zoneInk || 'var(--text-strong)'}">{det.label}</span
+								>
+								<span class="zsub">{det.sub}</span>
+								{#if !det.rest}
+									<span class="zspec">
+										{#if det.race}
+											{#if race?.distKm != null}
+												<span class="zkm eh-data race-km">{fmtKm(race.distKm)}K</span>
+											{/if}
+										{:else}
+											<span class="zkm eh-data">{det.km}K</span>
+											<span class="zpace eh-data">{fmtPace(det.pace ?? 0)}</span>
+										{/if}
+									</span>
+								{/if}
+							</div>
+						{/each}
+					</div>
+				</div>
+
+				<!-- training paces -->
+				<div>
+					{@render sechead('트레이닝 페이스', `DANIELS · VDOT ${v.toFixed(1)}`)}
+					<div class="paceref">
+						{#each Object.entries(paces) as [z, p] (z)}
+							<div>
+								<div class="pace-head">
+									<span class="pace-dot" style="background:{ZONE_INK[z as ZoneKey]}"></span>
+									<span class="eh-micro pace-zone">{z} · {p.label}</span>
+								</div>
+								<div class="eh-data pace-val">{fmtPace(p.sec)}</div>
+								<div class="eh-micro pace-hr">HR {p.hr}</div>
+							</div>
+						{/each}
+					</div>
+				</div>
+			{:else}
+				<div class="too-soon">
+					{@render sechead('플랜 구성 불가', `D-${daysOut}`)}
+					<p class="too-soon-desc">
+						이 대회는 일정이 너무 임박해 단계별 트레이닝 플랜을 구성할 수 없습니다. 최소 {MIN_PLAN_WEEKS}주
+						이상 여유가 있는 목표 대회를 선택해 주세요.
+					</p>
+				</div>
+			{/if}
+			</div>
+		</div>
+	{/if}
+</div>
 </ToolsShell>
 
 <style>
-    .page {
-        max-width: 1100px;
-        margin: 0 auto;
-        padding: 32px 24px 60px;
-    }
-    @media (min-width: 1024px) {
-        .page {
-            padding: 40px 32px 80px;
-        }
-    }
-    .head {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 16px;
-        align-items: flex-end;
-        margin-bottom: 24px;
-    }
-    @media (min-width: 768px) {
-        .head {
-            grid-template-columns: 1fr auto;
-        }
-    }
-    .head h2 {
-        font-family: var(--arena-f-display);
-        font-size: clamp(24px, 3vw, 32px);
-        font-weight: 700;
-        letter-spacing: -0.8px;
-        margin: 8px 0 6px;
-        color: var(--arena-ink);
-    }
-    .prefill-note {
-        margin: 0 0 20px;
-        padding: 8px 12px;
-        border: 1px solid var(--arena-line-soft);
-        background: var(--arena-paper-alt);
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        letter-spacing: 0.3px;
-        color: var(--arena-ink-soft);
-    }
-    .prefill-note b {
-        color: var(--arena-ink);
-        font-weight: 700;
-    }
-    .head p {
-        margin: 0;
-        font-size: 13px;
-        color: var(--arena-ink-soft);
-    }
-    .head p strong {
-        color: var(--arena-ink);
-    }
-    .weeks-toggle {
-        display: flex;
-        border: 1px solid var(--arena-line);
-    }
-    .weeks-toggle button {
-        padding: 8px 14px;
-        background: transparent;
-        color: var(--arena-ink);
-        border: none;
-        border-right: 1px solid var(--arena-line);
-        font-family: var(--arena-f-mono);
-        font-size: 12px;
-        cursor: pointer;
-    }
-    .weeks-toggle button:last-child {
-        border-right: none;
-    }
-    .weeks-toggle button.active {
-        background: var(--arena-ink);
-        color: var(--arena-paper);
-    }
+	.page { padding-top: 28px; padding-bottom: var(--sp-20); }
 
-    .base-row {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 12px;
-        margin-bottom: 22px;
-    }
-    @media (min-width: 768px) {
-        .base-row {
-            grid-template-columns: 1fr 1fr;
-        }
-    }
-    .base-cell {
-        border: 1px solid var(--arena-line);
-        padding: 14px 16px;
-    }
-    .base-lbl {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 1.5px;
-        color: var(--arena-ink-soft);
-        text-transform: uppercase;
-        margin-bottom: 6px;
-    }
-    .dist-buttons {
-        display: flex;
-        gap: 6px;
-    }
-    .dist-btn {
-        flex: 1;
-        padding: 8px 12px;
-        background: transparent;
-        color: var(--arena-ink);
-        border: 1px solid var(--arena-line);
-        font-family: var(--arena-f-mono);
-        font-size: 12px;
-        cursor: pointer;
-    }
-    .dist-btn.active {
-        background: var(--arena-ink);
-        color: var(--arena-paper);
-    }
-    .base-input {
-        width: 100%;
-        background: transparent;
-        border: none;
-        outline: none;
-        font-family: var(--arena-f-display);
-        font-size: 24px;
-        font-weight: 700;
-        letter-spacing: -0.5px;
-        color: var(--arena-ink);
-        padding: 0;
-    }
-    .hint {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        color: var(--arena-ink-mute);
-        margin-top: 2px;
-    }
+	.tool-layout {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: var(--sp-6);
+		align-items: start;
+	}
+	@media (min-width: 960px) {
+		.tool-layout { grid-template-columns: 380px minmax(0, 1fr); gap: var(--sp-10); }
+	}
 
-    .phase-bar {
-        display: flex;
-        height: 36px;
-        margin-bottom: 20px;
-        border: 1px solid var(--arena-line);
-    }
-    .phase-cell {
-        flex: 1;
-        border: none;
-        border-right: 1px solid var(--arena-paper);
-        cursor: pointer;
-        color: var(--arena-paper);
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.5px;
-        display: grid;
-        place-items: center;
-    }
-    .phase-cell:last-child {
-        border-right: none;
-    }
-    .phase-cell.active {
-        outline: 2px solid var(--arena-ink);
-        outline-offset: -2px;
-    }
+	.panel {
+		border: 1px solid var(--ink-900);
+		padding: var(--sp-6);
+		background: var(--paper-0);
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-5);
+	}
+	.panel .row { display: flex; gap: 8px; flex-wrap: wrap; }
+	.field-label { display: block; margin-bottom: 8px; }
+	.panel-stats {
+		display: flex;
+		gap: 30px;
+		flex-wrap: wrap;
+		border-top: var(--border-hair);
+		padding-top: 16px;
+	}
+	.src-note { margin: 0; font-size: 12px; color: var(--text-faint); line-height: 1.6; }
 
-    .block {
-        margin-bottom: 24px;
-    }
-    .block-title {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 2px;
-        color: var(--arena-ink-soft);
-        text-transform: uppercase;
-        margin-bottom: 10px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .title-rule {
-        width: 14px;
-        height: 1px;
-        background: var(--arena-ink);
-    }
+	.out { display: flex; flex-direction: column; gap: var(--sp-6); }
+	.out-hero {
+		border-top: var(--border-rule);
+		padding-top: 16px;
+		display: flex;
+		gap: 48px;
+		flex-wrap: wrap;
+		align-items: flex-end;
+	}
 
-    .cal {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-    .cal-head {
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-        gap: 4px;
-    }
-    .cal-head-cell {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 1.5px;
-        color: var(--arena-ink-soft);
-        padding: 4px 6px;
-    }
-    .cal-grid {
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-        gap: 4px;
-    }
-    .cal-cell {
-        padding: 8px;
-        border: 1px solid var(--arena-line-soft);
-        cursor: pointer;
-        min-height: 56px;
-        text-align: left;
-    }
-    .cal-cell.current {
-        border: 1.5px solid var(--arena-ink);
-    }
-    .cal-w {
-        font-family: var(--arena-f-mono);
-        font-size: 9px;
-        color: var(--arena-ink-soft);
-    }
-    .cal-zone {
-        font-family: var(--arena-f-display);
-        font-size: 13px;
-        font-weight: 700;
-        margin-top: 2px;
-    }
+	/* section head */
+	.sechead {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 16px;
+		padding-bottom: 10px;
+		border-bottom: var(--border-hair);
+	}
+	.sechead-title {
+		margin: 0;
+		font-size: var(--text-h3);
+		font-weight: var(--w-strong);
+		letter-spacing: var(--track-heading);
+		color: var(--text-strong);
+	}
+	.sechead-aux { color: var(--text-faint); }
 
-    .focus-card {
-        border: 1px solid var(--arena-line);
-        padding: 22px;
-        margin-bottom: 24px;
-    }
-    .focus-head {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 14px;
-        flex-wrap: wrap;
-        gap: 12px;
-    }
-    .focus-phase {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 1.5px;
-        font-weight: 700;
-        margin-bottom: 4px;
-    }
-    .focus-km {
-        font-family: var(--arena-f-display);
-        font-size: 22px;
-        font-weight: 700;
-        letter-spacing: -0.4px;
-    }
-    .focus-meta {
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        color: var(--arena-ink-soft);
-        align-self: flex-end;
-    }
-    .focus-meta .hl {
-        font-weight: 700;
-    }
-    .focus-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 6px;
-    }
-    @media (min-width: 768px) {
-        .focus-grid {
-            grid-template-columns: repeat(7, 1fr);
-        }
-    }
-    .focus-day {
-        border: 1px solid var(--arena-line-soft);
-        padding: 10px;
-        min-height: 84px;
-    }
-    .focus-day-name {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        color: var(--arena-ink-soft);
-        margin-bottom: 4px;
-    }
-    .focus-day-zone {
-        font-family: var(--arena-f-display);
-        font-size: 14px;
-        font-weight: 700;
-        margin-bottom: 4px;
-    }
-    .focus-day-desc {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        color: var(--arena-ink-soft);
-    }
+	/* phase band */
+	.phaseband { display: flex; border: 1px solid var(--line); height: 30px; margin-top: 14px; }
+	.phaseband > div {
+		display: grid;
+		place-items: center;
+		min-width: 0;
+		border-right: 1px solid var(--paper-0);
+	}
+	.phaseband > div:last-child { border-right: 0; }
+	.band-lbl { font-size: 10.5px; font-weight: 800; letter-spacing: 0.07em; }
+	.phase-tag {
+		font-size: 10.5px;
+		font-weight: 800;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		padding: 2px 7px;
+		border-radius: var(--r-2);
+	}
 
-    .pace-table {
-        border: 1px solid var(--arena-line);
-    }
-    .pace-row {
-        display: grid;
-        grid-template-columns: 50px 1fr 110px 110px;
-        gap: 16px;
-        padding: 12px 16px;
-        border-top: 1px solid var(--arena-line-soft);
-        align-items: center;
-    }
-    .pace-row:first-child {
-        border-top: none;
-    }
-    .pace-zone {
-        font-family: var(--arena-f-display);
-        font-weight: 700;
-        font-size: 18px;
-    }
-    .pace-name {
-        font-weight: 600;
-        font-size: 14px;
-    }
-    .pace-val {
-        font-family: var(--arena-f-mono);
-        font-weight: 700;
-        font-size: 14px;
-    }
-    .pace-hr {
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        color: var(--arena-ink-soft);
-    }
+	/* weekly load chart */
+	.loadwrap { border: 1px solid var(--line); padding: 16px 16px 12px; margin-top: 8px; }
+	.loadrow { display: flex; align-items: flex-end; gap: 2px; height: 132px; }
+	.loadbar {
+		flex: 1;
+		min-width: 0;
+		align-self: stretch;
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
+		cursor: pointer;
+		padding: 0;
+		border: 0;
+		background: none;
+	}
+	.loadbar .fill { width: 100%; transition: opacity var(--dur-fast) var(--ease-out); }
+	.loadbar:hover .fill { opacity: 1 !important; }
+	.loadbar .cap { height: 3px; width: 100%; opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
+	.loadbar.on .cap, .loadbar:hover .cap { opacity: 1; }
+	.weekaxis {
+		display: flex;
+		gap: 2px;
+		margin-top: 7px;
+		border-top: var(--border-hair);
+		padding-top: 6px;
+	}
+	.weekaxis > span {
+		flex: 1;
+		min-width: 0;
+		text-align: center;
+		font-size: 9.5px;
+		color: var(--text-faint);
+		letter-spacing: 0.02em;
+	}
+	.weekaxis > span.on { color: var(--text-strong); font-weight: 700; }
+
+	/* focused week */
+	.week-meta {
+		display: flex;
+		align-items: flex-end;
+		gap: 36px;
+		flex-wrap: wrap;
+		margin: 14px 0;
+	}
+	.week-tag-row { display: flex; align-items: center; gap: 10px; }
+	.cutback { color: var(--caution); }
+
+	.daygrid {
+		display: grid;
+		grid-template-columns: repeat(7, 1fr);
+		gap: 1px;
+		background: var(--line);
+		border: 1px solid var(--line);
+	}
+	.daycell {
+		background: var(--paper-0);
+		padding: 12px 10px;
+		min-height: 112px;
+		display: flex;
+		flex-direction: column;
+		gap: 5px;
+	}
+	.daycell.rest { background: var(--paper-50); }
+	.daycell.race { background: var(--signal-100); }
+	.daycell .dn { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: var(--text-faint); }
+	.daycell .zlabel { font-weight: 800; font-size: 14px; letter-spacing: -0.01em; line-height: 1.1; }
+	.daycell .zsub { font-size: 11px; color: var(--text-muted); line-height: 1.35; }
+	.daycell .zspec { margin-top: auto; display: flex; align-items: baseline; gap: 8px; }
+	.daycell .zkm { font-weight: 700; font-size: 13px; }
+	.daycell .race-km { color: var(--text-accent); }
+	.daycell .zpace { font-size: 11.5px; color: var(--text-accent); font-weight: 700; }
+
+	/* training paces */
+	.paceref {
+		display: grid;
+		grid-template-columns: repeat(5, 1fr);
+		gap: 1px;
+		background: var(--line);
+		border: 1px solid var(--line);
+		margin-top: 14px;
+	}
+	.paceref > div { background: var(--paper-0); padding: 13px 14px; }
+	.pace-head { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
+	.pace-dot { width: 9px; height: 9px; border-radius: 50%; }
+	.pace-zone { color: var(--text-strong); }
+	.pace-val { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; }
+	.pace-hr { color: var(--text-faint); margin-top: 2px; }
+
+	@media (max-width: 768px) {
+		.daycell { padding: 9px 6px; min-height: 96px; }
+		.daycell .zsub { display: none; }
+		.paceref { grid-template-columns: repeat(3, 1fr); }
+	}
+
+	/* output notice — selected race too imminent to plan (defensive) */
+	.too-soon { border: 1px solid var(--line); padding: var(--sp-6); background: var(--paper-0); }
+	.too-soon-desc {
+		margin: 14px 0 0;
+		font-size: 13.5px;
+		line-height: 1.7;
+		color: var(--text-body);
+		word-break: keep-all;
+	}
+
+	/* empty state — no upcoming 관심대회 to target */
+	.empty-panel {
+		border: 1px solid var(--ink-900);
+		padding: var(--sp-10) var(--sp-8);
+		background: var(--paper-0);
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--sp-4);
+		max-width: 560px;
+	}
+	.empty-title {
+		margin: 0;
+		font-size: var(--text-h3);
+		font-weight: var(--w-strong);
+		letter-spacing: var(--track-heading);
+		color: var(--text-strong);
+	}
+	.empty-desc {
+		margin: 0;
+		font-size: 13.5px;
+		line-height: 1.7;
+		color: var(--text-body);
+		word-break: keep-all;
+	}
+	.empty-cta {
+		display: inline-flex;
+		align-items: center;
+		gap: 10px;
+		margin-top: var(--sp-2);
+		padding: 11px 18px;
+		background: var(--ink-900);
+		color: var(--paper-0);
+		font-size: 13px;
+		font-weight: 700;
+		letter-spacing: -0.2px;
+		text-decoration: none;
+	}
+	.empty-cta .arrow { color: var(--accent); }
 </style>

@@ -1,4 +1,6 @@
 @import 'tailwindcss';
+@import './lib/styles/eh-tokens.css';
+@import './lib/styles/eh-components.css';
 @plugin "daisyui" {
     themes: light --default, dark --prefersdark;
 }
@@ -10,53 +12,22 @@
 /* IBM Plex Mono).                                                     */
 /* ------------------------------------------------------------------ */
 
+/* --arena-* tokens are now defined in eh-tokens.css as a bridge to the
+   official DS palette. Training-zone inks (used by /tools tables) keep
+   their dedicated hues here. */
 :root {
-    --arena-paper: oklch(96% 0.01 110);
-    --arena-paper-alt: oklch(92% 0.015 110);
-    --arena-paper-deep: oklch(88% 0.02 110);
-    --arena-ink: oklch(22% 0.03 145);
-    --arena-ink-soft: oklch(45% 0.02 145);
-    --arena-ink-mute: oklch(68% 0.015 140);
-    --arena-line: oklch(22% 0.03 145);
-    --arena-line-soft: oklch(80% 0.015 120);
-    --arena-accent: oklch(68% 0.17 145);
-    --arena-accent-deep: oklch(45% 0.14 145);
-    --arena-urgent: oklch(58% 0.2 30);
-
-    /* Training-zone inks (used by /tools tables) */
     --arena-zone-e: oklch(58% 0.13 145);
     --arena-zone-m: oklch(55% 0.14 80);
     --arena-zone-t: oklch(60% 0.15 55);
     --arena-zone-i: oklch(60% 0.18 30);
     --arena-zone-r: oklch(50% 0.18 25);
-
-    --arena-f-display: 'Space Grotesk', 'Pretendard Variable', Pretendard, -apple-system, system-ui, sans-serif;
-    --arena-f-body: 'Pretendard Variable', Pretendard, -apple-system, system-ui, sans-serif;
-    --arena-f-mono: 'IBM Plex Mono', 'IBM Plex Sans KR', ui-monospace, Menlo, monospace;
 }
 
-:root[data-theme='dark'] {
-    --arena-paper: oklch(15% 0.02 145);
-    --arena-paper-alt: oklch(19% 0.025 145);
-    --arena-paper-deep: oklch(23% 0.03 145);
-
-    --arena-ink: oklch(94% 0.02 110);
-    --arena-ink-soft: oklch(72% 0.02 145);
-    --arena-ink-mute: oklch(50% 0.02 145);
-
-    --arena-line: oklch(35% 0.03 145);
-    --arena-line-soft: oklch(28% 0.025 145);
-
-    --arena-accent: oklch(72% 0.15 145);
-    --arena-accent-deep: oklch(55% 0.13 145);
-    --arena-urgent: oklch(65% 0.18 30);
-}
-
-/* Apply Arena paper as page background — overrides daisyUI base for Arena pages */
+/* Arena page background now driven by DS tokens */
 body.arena {
-    background: var(--arena-paper);
-    color: var(--arena-ink);
-    font-family: var(--arena-f-body);
+    background: var(--bg-page);
+    color: var(--text-strong);
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
 }
 

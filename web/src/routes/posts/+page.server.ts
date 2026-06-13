@@ -1,18 +1,9 @@
+import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { apiFetch } from '$lib/api';
-import type { PostListResponse } from '$lib/types';
 
+// /posts is now the canonical community feed — redirect there,
+// preserving all query params (page, category, search, sort).
 export const load: PageServerLoad = async ({ url }) => {
-	const params: Record<string, string> = {};
-	const page = url.searchParams.get('page');
-	if (page) params.page = page;
-	const search = url.searchParams.get('search');
-	if (search) params.search = search;
-	const category = url.searchParams.get('category');
-	if (category) params.category = category;
-	const sort = url.searchParams.get('sort');
-	if (sort) params.sort = sort;
-
-	const data = await apiFetch<PostListResponse>('/posts/', {}, params);
-	return data;
+	const dest = '/community' + (url.search || '');
+	redirect(301, dest);
 };

@@ -9,12 +9,12 @@
 
     let isLoggedIn = $derived(!!$page.data.user);
 
-    let nickname = $state('');
-    let title = $state('');
-    let content = $state('');
-    let textLength = $state(0);
-    let password = $state('');
-    let category = $state('');
+    let nickname    = $state('');
+    let title       = $state('');
+    let content     = $state('');
+    let textLength  = $state(0);
+    let password    = $state('');
+    let category    = $state('');
     let selectedRaceIds = $state<number[]>([]);
 
     let isSubmitting = $state(false);
@@ -31,6 +31,7 @@
     }
 
     $effect(() => {
+        if (typeof localStorage === 'undefined') return;
         const savedNickname = localStorage.getItem('nickname');
         const savedPassword = localStorage.getItem('postPassword');
         if (savedNickname) nickname = savedNickname;
@@ -51,15 +52,15 @@
 
 <svelte:head>
     <title>글쓰기 - 엔듀로허브</title>
-    <meta name="description" content="자유게시판에 글을 작성합니다." />
+    <meta name="description" content="커뮤니티에 글을 작성합니다." />
     <meta name="robots" content="noindex" />
 </svelte:head>
 
-<div class="form-wrap">
+<div class="v-container form-page">
     <header class="page-head">
-        <a href="/posts" class="back-link">← 커뮤니티</a>
-        <div class="kicker">NEW POST · 글쓰기</div>
-        <h1 class="page-title">새 글 작성</h1>
+        <a href="/community" class="back-link eh-micro">← 커뮤니티</a>
+        <div class="eh-micro page-kicker">NEW POST · 글쓰기</div>
+        <h1 class="eh-h2 page-title">새 글 작성</h1>
     </header>
 
     <form
@@ -69,87 +70,88 @@
         use:enhance={handleEnhance}
         class="form-grid"
     >
+        <!-- Nickname + Password (anonymous users) -->
         {#if !isLoggedIn}
-            <div class="row two">
-                <div class="field">
-                    <label class="label" for="nickname">
-                        <span>닉네임</span>
-                        <span class="hint">선택</span>
+            <div class="row row--two">
+                <div class="eh-field" class:eh-field--error={errors.nickname}>
+                    <label class="eh-field__label" for="nickname">
+                        닉네임 <span class="label-hint">선택</span>
                     </label>
                     <input
                         type="text"
                         id="nickname"
                         name="nickname"
-                        class="text-input"
+                        class="eh-input"
                         placeholder="익명"
                         maxlength="50"
                         bind:value={nickname}
                     />
                 </div>
 
-                <div class="field">
-                    <label class="label" for="password">
-                        <span>비밀번호 <em>*</em></span>
-                        <span class="hint">수정/삭제 시 필요</span>
+                <div class="eh-field" class:eh-field--error={!!errors.password}>
+                    <label class="eh-field__label" for="password">
+                        비밀번호 <em class="required">*</em> <span class="label-hint">수정/삭제 시 필요</span>
                     </label>
                     <input
                         type="password"
                         id="password"
                         name="password"
-                        class="text-input"
-                        class:error={errors.password}
+                        class="eh-input"
                         placeholder="4자 이상"
                         minlength="4"
                         maxlength="50"
                         required
                         bind:value={password}
                     />
-                    {#if errors.password}<p class="err-msg" role="alert">{errors.password}</p>{/if}
+                    {#if errors.password}<p class="eh-field__hint">{errors.password}</p>{/if}
                 </div>
             </div>
         {/if}
 
-        <div class="row two">
-            <div class="field">
-                <label class="label" for="category">
-                    <span>카테고리</span>
-                    <span class="hint">선택</span>
+        <!-- Category + Title -->
+        <div class="row row--two">
+            <div class="eh-field">
+                <label class="eh-field__label" for="category">
+                    카테고리 <span class="label-hint">선택</span>
                 </label>
-                <select id="category" name="category" class="select" bind:value={category}>
-                    <option value="">— 미선택 —</option>
-                    <option value="free">자유</option>
-                    <option value="race_review">대회 후기</option>
-                    <option value="injury">부상/재활</option>
-                    <option value="gear">장비</option>
-                    <option value="training">훈련</option>
-                    <option value="question">질문</option>
-                </select>
+                <div class="select-wrap">
+                    <select id="category" name="category" class="eh-select" bind:value={category}>
+                        <option value="">— 미선택 —</option>
+                        <option value="race_review">후기</option>
+                        <option value="question">Q&A</option>
+                        <option value="free">자유</option>
+                        <option value="injury">부상/재활</option>
+                        <option value="gear">장비</option>
+                        <option value="training">훈련</option>
+                    </select>
+                    <svg class="select-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
             </div>
 
-            <div class="field">
-                <label class="label" for="title">
-                    <span>제목 <em>*</em></span>
-                    <span class="hint">{title.length} / 100</span>
+            <div class="eh-field" class:eh-field--error={!!errors.title}>
+                <label class="eh-field__label" for="title">
+                    제목 <em class="required">*</em>
+                    <span class="label-hint">{title.length} / 100</span>
                 </label>
                 <input
                     type="text"
                     id="title"
                     name="title"
-                    class="text-input"
-                    class:error={errors.title}
+                    class="eh-input"
                     placeholder="제목을 입력하세요"
                     maxlength="100"
                     required
                     bind:value={title}
                 />
-                {#if errors.title}<p class="err-msg" role="alert">{errors.title}</p>{/if}
+                {#if errors.title}<p class="eh-field__hint">{errors.title}</p>{/if}
             </div>
         </div>
 
-        <div class="field">
-            <div class="label">
-                <span>내용 <em>*</em></span>
-                <span class="hint">최대 10,000자</span>
+        <!-- Content -->
+        <div class="eh-field" class:eh-field--error={!!errors.content}>
+            <div class="eh-field__label">
+                내용 <em class="required">*</em>
+                <span class="label-hint">최대 10,000자</span>
             </div>
             {#if browser}
                 <div class="editor-wrap">
@@ -165,12 +167,13 @@
                 <div class="editor-skeleton"></div>
             {/if}
             <input type="hidden" name="content" value={content} />
-            {#if errors.content}<p class="err-msg" role="alert">{errors.content}</p>{/if}
+            {#if errors.content}<p class="eh-field__hint">{errors.content}</p>{/if}
         </div>
 
-        <div class="field">
+        <!-- Race tag selector -->
+        <div class="eh-field">
             <RaceTagSelector races={data.races} bind:selectedIds={selectedRaceIds} />
-            {#if errors.race_ids}<p class="err-msg" role="alert">{errors.race_ids}</p>{/if}
+            {#if errors.race_ids}<p class="eh-field__hint">{errors.race_ids}</p>{/if}
         </div>
 
         {#each selectedRaceIds as raceId}
@@ -182,202 +185,129 @@
         {/if}
 
         <div class="submit-row">
-            <a href="/posts" class="btn ghost">취소</a>
-            <button type="submit" class="btn primary" disabled={isSubmitting}>
-                {isSubmitting ? '등록 중...' : '등록하기 →'}
+            <a href="/community" class="eh-btn eh-btn--md eh-btn--ghost">취소</a>
+            <button type="submit" class="eh-btn eh-btn--md eh-btn--primary" disabled={isSubmitting}>
+                {isSubmitting ? '등록 중...' : '등록하기'}
             </button>
         </div>
     </form>
 </div>
 
 <style>
-    .form-wrap {
+    .form-page {
         max-width: 760px;
-        margin: 0 auto;
-        padding: 32px 24px 60px;
-    }
-    @media (min-width: 1024px) {
-        .form-wrap {
-            padding: 40px 32px 80px;
-        }
+        padding-top: 0;
+        padding-bottom: var(--sp-20);
     }
 
     .page-head {
-        margin-bottom: 28px;
-        padding-bottom: 18px;
-        border-bottom: 1px solid var(--arena-line);
+        padding: var(--sp-8) 0 var(--sp-6);
+        border-bottom: var(--border-rule);
+        margin-bottom: var(--sp-8);
+        display: flex;
+        flex-direction: column;
+        gap: var(--sp-2);
     }
     .back-link {
-        display: inline-block;
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        letter-spacing: 1px;
-        color: var(--arena-ink-soft);
-        text-transform: uppercase;
+        color: var(--text-muted);
         text-decoration: none;
-        margin-bottom: 14px;
+        transition: color var(--dur-fast) var(--ease-out);
     }
-    .back-link:hover {
-        color: var(--arena-ink);
-    }
-    .kicker {
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 2px;
-        color: var(--arena-ink-soft);
-        text-transform: uppercase;
-        margin-bottom: 6px;
-    }
-    .page-title {
-        font-family: var(--arena-f-display);
-        font-size: clamp(24px, 3.5vw, 32px);
-        font-weight: 700;
-        letter-spacing: -0.5px;
-        margin: 0;
-        color: var(--arena-ink);
-    }
+    .back-link:hover { color: var(--text-strong); }
+    .page-kicker { color: var(--text-muted); }
+    .page-title { margin: 0; }
 
     .form-grid {
         display: flex;
         flex-direction: column;
-        gap: 24px;
+        gap: var(--sp-6);
     }
-    .row.two {
+
+    .row { display: flex; flex-direction: column; gap: var(--sp-4); }
+    .row--two {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 16px;
+        gap: var(--sp-4);
     }
-    @media (max-width: 640px) {
-        .row.two {
-            grid-template-columns: 1fr;
-        }
+    @media (max-width: 600px) {
+        .row--two { grid-template-columns: 1fr; }
     }
-    .field {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
+
+    /* Label extras */
+    .label-hint {
+        font-weight: 400;
+        color: var(--text-faint);
+        margin-left: 6px;
+        text-transform: none;
+        letter-spacing: 0;
     }
-    .label {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        font-family: var(--arena-f-mono);
-        font-size: 10px;
-        letter-spacing: 1.5px;
-        color: var(--arena-ink-soft);
-        text-transform: uppercase;
-    }
-    .label em {
+    .required {
         font-style: normal;
-        color: var(--arena-urgent);
+        color: var(--danger);
         margin-left: 2px;
     }
-    .hint {
-        color: var(--arena-ink-mute);
-        font-size: 10px;
-        letter-spacing: 1px;
-    }
 
-    .text-input,
-    .select {
-        width: 100%;
-        border: 1px solid var(--arena-line);
-        border-radius: 0;
-        background: var(--arena-paper);
-        padding: 10px 12px;
-        font-family: var(--arena-f-body);
-        font-size: 14px;
-        color: var(--arena-ink);
-        line-height: 1.4;
+    /* Select wrapper (chevron overlay) */
+    .select-wrap {
+        position: relative;
+    }
+    .eh-select {
         appearance: none;
-        -webkit-appearance: none;
-        -moz-appearance: none;
+        height: 44px;
+        padding: 0 36px 0 14px;
+        font-family: var(--font-sans);
+        font-size: 15px;
+        color: var(--text-strong);
+        background: var(--paper-0);
+        border: 1px solid var(--line);
+        border-radius: var(--r-1);
+        cursor: pointer;
+        width: 100%;
+        transition: border-color var(--dur-fast) var(--ease-out);
     }
-    .select {
-        background-image: linear-gradient(45deg, transparent 50%, var(--arena-ink) 50%),
-            linear-gradient(135deg, var(--arena-ink) 50%, transparent 50%);
-        background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
-        background-size: 5px 5px, 5px 5px;
-        background-repeat: no-repeat;
-        padding-right: 32px;
-    }
-    .text-input:focus,
-    .select:focus {
-        outline: none;
-        border-color: var(--arena-ink);
-        background-color: var(--arena-paper-alt);
-    }
-    .text-input::placeholder {
-        color: var(--arena-ink-mute);
-    }
-    .text-input.error {
-        border-color: var(--arena-urgent);
+    .eh-select:hover { border-color: var(--ink-300); }
+    .eh-select:focus { outline: none; border-color: var(--ink-900); }
+    .select-chev {
+        position: absolute;
+        right: 12px;
+        bottom: 50%;
+        transform: translateY(50%);
+        pointer-events: none;
+        color: var(--text-muted);
     }
 
+    /* Editor */
     .editor-wrap {
-        border: 1px solid var(--arena-line);
-        background: var(--arena-paper);
+        border: 1px solid var(--line);
+        border-radius: var(--r-1);
+        background: var(--paper-0);
+        overflow: hidden;
+        transition: border-color var(--dur-fast) var(--ease-out);
     }
+    .editor-wrap:focus-within { border-color: var(--ink-900); }
     .editor-skeleton {
         min-height: 240px;
-        background: var(--arena-paper-alt);
-        border: 1px solid var(--arena-line);
+        background: var(--paper-50);
+        border: 1px solid var(--line);
+        border-radius: var(--r-1);
     }
 
-    .err-msg {
-        margin: 0;
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        color: var(--arena-urgent);
-        letter-spacing: 0.5px;
-    }
     .error-box {
-        border: 1px solid var(--arena-urgent);
-        background: color-mix(in oklch, var(--arena-urgent), transparent 92%);
-        color: var(--arena-urgent);
+        border: 1px solid var(--danger);
+        background: var(--danger-bg);
+        color: var(--danger);
         padding: 10px 14px;
-        font-family: var(--arena-f-mono);
-        font-size: 12px;
+        font-size: 13px;
+        font-weight: 600;
+        border-radius: var(--r-1);
     }
 
     .submit-row {
         display: flex;
         justify-content: flex-end;
-        gap: 8px;
-        margin-top: 8px;
-        padding-top: 20px;
-        border-top: 1px solid var(--arena-line-soft);
-    }
-    .btn {
-        border: 1px solid var(--arena-ink);
-        padding: 10px 18px;
-        font-family: var(--arena-f-mono);
-        font-size: 12px;
-        letter-spacing: 1px;
-        text-transform: uppercase;
-        cursor: pointer;
-        text-decoration: none;
-        line-height: 1.4;
-        display: inline-flex;
-        align-items: center;
-    }
-    .btn.primary {
-        background: var(--arena-ink);
-        color: var(--arena-paper);
-    }
-    .btn.primary:hover:not(:disabled) {
-        background: var(--arena-ink-soft);
-    }
-    .btn.primary:disabled {
-        opacity: 0.4;
-        cursor: not-allowed;
-    }
-    .btn.ghost {
-        background: var(--arena-paper);
-        color: var(--arena-ink);
-        border-color: var(--arena-line);
-    }
-    .btn.ghost:hover {
-        border-color: var(--arena-ink);
+        gap: var(--sp-2);
+        margin-top: var(--sp-2);
+        padding-top: var(--sp-5);
+        border-top: var(--border-hair);
     }
 </style>
