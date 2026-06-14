@@ -61,25 +61,6 @@
                         <span class="id-email">{user.email || '이메일 미등록'}</span>
                     </span>
                 </div>
-                <div class="id-badges">
-                    {#if user.emailVerified}
-                        <span class="badge ok">VERIFIED</span>
-                    {:else if user.email}
-                        <span class="badge warn">미인증</span>
-                    {/if}
-                    <span class="eh-micro" style="color: var(--text-faint)">GOOGLE OAUTH</span>
-                </div>
-            </div>
-            <!-- Stat cells -->
-            <div class="id-stat">
-                <span class="stat-label">Saved races</span>
-                <span class="stat-val eh-data">—</span>
-                <span class="stat-note">저장한 대회</span>
-            </div>
-            <div class="id-stat">
-                <span class="stat-label">PB records</span>
-                <span class="stat-val eh-data accent">—</span>
-                <span class="stat-note">개인 최고 기록</span>
             </div>
         </div>
 
@@ -114,7 +95,7 @@
                             <span class="badge ok" style="margin-left: var(--sp-2)">인증됨</span>
                         {/if}
                     </span>
-                    <a href="/auth/onboarding" class="info-action">변경</a>
+                    <span></span>
                 </div>
                 <div class="info-row">
                     <span class="eh-micro info-key">NICKNAME</span>
@@ -122,14 +103,14 @@
                         {user.nickname || '미설정'}
                         <span class="info-note">커뮤니티 표시 이름</span>
                     </span>
-                    <a href="/auth/onboarding" class="info-action">변경</a>
+                    <span></span>
                 </div>
                 <div class="info-row info-row--last">
                     <span class="eh-micro info-key">PASSWORD</span>
                     <span class="info-val">
                         <span class="info-note">소셜 로그인 계정 — 비밀번호 없음</span>
                     </span>
-                    <span class="info-action faint">설정</span>
+                    <span></span>
                 </div>
             </div>
         </section>
@@ -252,7 +233,7 @@
 
             <div class="danger-box" style="margin-top: var(--sp-4)">
                 <!-- Logout -->
-                <div class="danger-row">
+                <div class="danger-row danger-row--last">
                     <div>
                         <div class="danger-name">로그아웃</div>
                         <p class="danger-desc">이 기기에서 로그아웃합니다. 저장한 대회와 설정은 유지됩니다.</p>
@@ -260,14 +241,6 @@
                     <form method="POST" action="/auth/logout">
                         <button type="submit" class="ghost-btn">로그아웃</button>
                     </form>
-                </div>
-                <!-- Delete account -->
-                <div class="danger-row danger-row--last">
-                    <div>
-                        <div class="danger-name">계정 삭제</div>
-                        <p class="danger-desc">모든 기록·관심 대회·커뮤니티 활동이 영구 삭제됩니다. 30일 이내 복구할 수 없습니다.</p>
-                    </div>
-                    <button type="button" class="danger-btn">계정 삭제</button>
                 </div>
             </div>
         </section>
@@ -304,23 +277,18 @@
 
     /* ── Identity strip ── */
     .identity {
-        display: grid;
-        grid-template-columns: 1.4fr 1fr 1fr;
         border: 1px solid var(--ink-900);
         background: var(--paper-0);
     }
     .identity > div {
         padding: 22px 24px;
-        border-right: var(--border-hair);
         min-height: 116px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
         gap: var(--sp-2);
     }
-    .identity > div:last-child { border-right: 0; }
 
-    .id-main { /* first cell: wider */ }
     .id-row {
         display: flex;
         align-items: center;
@@ -378,29 +346,6 @@
     }
     .badge.ok { color: var(--positive); background: var(--positive-bg); }
     .badge.warn { color: var(--danger); background: var(--danger-bg); }
-
-    /* Stat cells */
-    .id-stat { }
-    .stat-label {
-        font-size: var(--text-micro);
-        font-weight: var(--w-strong);
-        letter-spacing: var(--track-micro);
-        text-transform: uppercase;
-        color: var(--text-muted);
-    }
-    .stat-val {
-        font-size: 28px;
-        font-weight: 800;
-        letter-spacing: -0.02em;
-        line-height: 1;
-        color: var(--text-strong);
-        font-variant-numeric: tabular-nums;
-    }
-    .stat-val.accent { color: var(--accent-strong); }
-    .stat-note {
-        font-size: 12px;
-        color: var(--text-muted);
-    }
 
     /* ── Alert bar ── */
     .alert-bar {
@@ -469,23 +414,6 @@
         font-size: 12px;
         color: var(--text-faint);
     }
-    .info-action {
-        font-size: 12px;
-        font-weight: var(--w-strong);
-        color: var(--text-muted);
-        text-decoration: none;
-        border-bottom: 1px solid var(--line);
-        white-space: nowrap;
-        cursor: pointer;
-        background: transparent;
-        border-top: 0;
-        border-left: 0;
-        border-right: 0;
-        padding: 0;
-        font-family: var(--font-sans);
-    }
-    .info-action:hover { color: var(--text-strong); border-bottom-color: var(--ink-900); }
-    .info-action.faint { color: var(--text-faint); cursor: default; }
 
     /* ── Shortcuts grid ── */
     .shortcuts {
@@ -672,25 +600,9 @@
         transition: border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
     }
     .ghost-btn:hover { border-color: var(--ink-900); color: var(--text-strong); }
-    .danger-btn {
-        height: 34px;
-        padding: 0 14px;
-        font-size: 13px;
-        font-weight: var(--w-strong);
-        background: transparent;
-        border: 1px solid var(--danger);
-        color: var(--danger);
-        cursor: pointer;
-        font-family: var(--font-sans);
-        border-radius: var(--r-1);
-    }
-    .danger-btn:hover { background: var(--danger-bg); }
 
     /* ── Responsive ── */
     @media (max-width: 900px) {
-        .identity { grid-template-columns: 1fr 1fr; }
-        .identity > .id-main { grid-column: 1 / -1; border-bottom: var(--border-hair); }
-        .identity > .id-stat:first-of-type { border-right: var(--border-hair); }
         .shortcuts { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 768px) {
