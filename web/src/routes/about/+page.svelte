@@ -31,6 +31,33 @@
             body: '대회 일시, 장소, 참가비, 거리별 종목까지 정리해 드립니다.',
         },
     ];
+
+    const steps = [
+        {
+            num: '01',
+            title: '대회 둘러보기',
+            body: '홈에서 이달의 대회 수 · 접수 중 · 오늘 개최를 한눈에 보고, 캘린더 · 리스트 · 지도로 전환합니다.',
+            shot: '/images/guide/m-home.png',
+        },
+        {
+            num: '02',
+            title: '조건으로 검색',
+            body: '종목 · 지역 · 상태 · 거리 · 개최월로 좁히거나, 대회명을 직접 입력해 바로 찾습니다.',
+            shot: '/images/guide/m-search.png',
+        },
+        {
+            num: '03',
+            title: '상세 보기 & 관심 등록',
+            body: '대회를 눌러 접수 마감일 · 장소 · 참가비 · 코스를 확인하고, ♡로 저장하거나 공식 페이지로 이동합니다.',
+            shot: '/images/guide/m-race-detail.png',
+        },
+        {
+            num: '04',
+            title: '커뮤니티 · 도구',
+            body: '커뮤니티에서 후기와 정보를 나누고, 페이스 계산기 · VO₂max · 기록 예측 같은 러닝 도구를 활용합니다.',
+            shot: '/images/guide/m-community.png',
+        },
+    ];
 </script>
 
 <svelte:head>
@@ -94,6 +121,27 @@
                     </div>
                 {/each}
             </div>
+        </section>
+
+        <section class="page-section">
+            <div class="arena-kicker">이용 방법 · 06</div>
+            <p class="section-body">
+                모바일에서는 화면 하단 탭바(대회 · 검색 · 시즌 · 커뮤니티 · 메뉴)만으로 핵심 기능을 모두 오갈 수 있습니다.
+            </p>
+            <ol class="step-list">
+                {#each steps as s}
+                    <li class="step-row">
+                        <div class="step-text">
+                            <span class="step-num">{s.num}</span>
+                            <span class="step-title">{s.title}</span>
+                            <p class="step-body">{s.body}</p>
+                        </div>
+                        <div class="step-shot">
+                            <img src={s.shot} alt="{s.title} 화면" loading="lazy" />
+                        </div>
+                    </li>
+                {/each}
+            </ol>
         </section>
 
         <section class="page-section">
@@ -261,6 +309,74 @@
         font-size: 10px;
         letter-spacing: 0.5px;
         color: var(--arena-ink-mute);
+    }
+
+    /* Step list (이용 방법) */
+    .step-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        border: 1px solid var(--arena-line);
+        border-bottom: none;
+    }
+    .step-row {
+        display: flex;
+        gap: 20px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px;
+        border-bottom: 1px solid var(--arena-line-soft);
+    }
+    .step-num {
+        font-family: var(--arena-f-mono);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 1.5px;
+        color: var(--arena-accent-deep);
+    }
+    .step-text {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        max-width: 42ch;
+    }
+    .step-shot {
+        flex-shrink: 0;
+        width: 132px;
+    }
+    .step-shot img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border: 1px solid var(--arena-line);
+        background: var(--arena-paper-alt);
+    }
+    @media (max-width: 560px) {
+        .step-row {
+            flex-direction: column-reverse;
+            align-items: stretch;
+            gap: 16px;
+        }
+        .step-shot {
+            width: 100%;
+            max-width: 240px;
+            margin: 0 auto;
+        }
+    }
+    .step-title {
+        font-family: var(--arena-f-display);
+        font-size: 17px;
+        font-weight: 600;
+        letter-spacing: -0.3px;
+        color: var(--arena-ink);
+    }
+    .step-body {
+        font-family: var(--arena-f-body);
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--arena-ink-soft);
+        margin: 0;
+        word-break: keep-all;
     }
 
     /* Contact */

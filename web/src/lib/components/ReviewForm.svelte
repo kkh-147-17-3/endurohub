@@ -11,6 +11,7 @@
         raceEndDate?: string | null;
         open: boolean;
         onclose: () => void;
+        onsubmitted?: (detail: { rating: number }) => void;
         errors?: Record<string, string[]>;
     }
 
@@ -23,6 +24,7 @@
         raceEndDate,
         open = $bindable(false),
         onclose,
+        onsubmitted,
         errors = {},
     }: Props = $props();
 
@@ -150,6 +152,7 @@
                         return async ({ result, update }) => {
                             isSubmitting = false;
                             if (result.type === 'success') {
+                                onsubmitted?.({ rating });
                                 resetForm();
                                 close();
                             }
