@@ -296,6 +296,11 @@
     <div class="eh-sheet" role="presentation" onclick={(e) => { if (e.target === e.currentTarget) mobileMenuOpen = false; }}>
         <div class="eh-sheet__panel">
             <div class="eh-sheet__sec">
+                <div class="eh-micro">대회</div>
+                <a href={`/races/year/${currentYear}`} class="eh-sheet__link"><span>{currentYear} 대회</span><span class="eh-sheet__code">YEAR</span></a>
+                <a href="/calendar" class="eh-sheet__link"><span>캘린더</span><span class="eh-sheet__code">CAL</span></a>
+            </div>
+            <div class="eh-sheet__sec">
                 <div class="eh-micro">종목</div>
                 {#each sportLinks as s (s.href)}
                     <a href={s.href} class="eh-sheet__link"><span>{s.label}</span><span class="eh-sheet__code">{s.code}</span></a>
