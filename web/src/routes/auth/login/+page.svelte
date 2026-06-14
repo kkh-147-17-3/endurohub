@@ -308,10 +308,26 @@
     .terms-link:hover { color: var(--text-strong); }
 
     @media (max-width: 880px) {
-        .auth { grid-template-columns: 1fr; }
-        .auth-hero { display: none; }
-        .form-brand { display: block; }
+        .auth {
+            grid-template-columns: 1fr;
+            grid-template-rows: auto 1fr;
+        }
+
+        /* Hero collapses into a top band instead of disappearing */
+        .auth-hero {
+            min-height: 0;
+            height: 40vh;
+            max-height: 340px;
+            padding: 22px 24px 26px;
+        }
+        .hero-display {
+            font-size: clamp(32px, 9.5vw, 46px);
+            margin-bottom: 0;
+        }
+
+        /* Wordmark lives in the hero band, so keep the form brand hidden */
+        .form-brand { display: none; }
         .pane-url { display: none; }
-        .auth-pane { padding-top: 64px; align-items: start; }
+        .auth-pane { padding-top: 36px; align-items: start; }
     }
 </style>
