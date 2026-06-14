@@ -59,6 +59,16 @@ export const load: PageServerLoad = async ({ params, url, cookies }) => {
 		});
 		cookies.delete('pending_social_token', { path: '/' });
 
+		// Bridge a one-shot login event to the client (redirects happen server-side,
+		// so the browser can't fire it directly). The layout reads + clears this.
+		cookies.set('eh_evt', `login:${provider}`, {
+			path: '/',
+			httpOnly: false,
+			secure: url.protocol === 'https:',
+			sameSite: 'lax',
+			maxAge: 60,
+		});
+
 		// Any incomplete signup state funnels into the unified onboarding flow.
 		if (
 			data.user.needsNickname ||
