@@ -114,9 +114,56 @@
 
     // ── Current-month highlight (set client-side to avoid hydration mismatch) ──
     let nowMonth = $state<number | null>(null);
+
+    // ── Scroll-spy: which month section is under the sticky index right now ──
+    let activeMonth = $state<number | null>(null);
+
+    function stickyOffset(): number {
+        const idx = document.querySelector('.yr-index') as HTMLElement | null;
+        return (window.innerWidth <= 768 ? 52 : 64) + (idx?.offsetHeight ?? 0) + 8;
+    }
+
     onMount(() => {
         const d = new Date();
         if (d.getFullYear() === year) nowMonth = d.getMonth() + 1;
+
+        let raf = 0;
+        const compute = () => {
+            raf = 0;
+            const line = stickyOffset();
+            const sections = document.querySelectorAll<HTMLElement>('.yr-month');
+            let current: number | null = null;
+            for (const sec of sections) {
+                if (sec.getBoundingClientRect().top - line <= 0) {
+                    current = Number(sec.id.replace('yr-m-', ''));
+                } else break;
+            }
+            if (current == null && sections.length) current = Number(sections[0].id.replace('yr-m-', ''));
+            if (current !== activeMonth) activeMonth = current;
+        };
+        const onScroll = () => {
+            if (!raf) raf = requestAnimationFrame(compute);
+        };
+        compute();
+        window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('resize', onScroll);
+        return () => {
+            window.removeEventListener('scroll', onScroll);
+            window.removeEventListener('resize', onScroll);
+            if (raf) cancelAnimationFrame(raf);
+        };
+    });
+
+    // Keep the active month cell visible in the horizontally-scrolling index.
+    $effect(() => {
+        if (activeMonth == null) return;
+        const idx = document.querySelector('.yr-index') as HTMLElement | null;
+        const cell = idx?.children[activeMonth - 1] as HTMLElement | undefined;
+        if (!idx || !cell) return;
+        const cellRect = cell.getBoundingClientRect();
+        const boxRect = idx.getBoundingClientRect();
+        const left = idx.scrollLeft + (cellRect.left - boxRect.left) - (idx.clientWidth - cell.offsetWidth) / 2;
+        idx.scrollTo({ left, behavior: 'smooth' });
     });
 
     // ── Sheet behaviour: lock scroll + ESC ────────────────────────────────────
@@ -135,11 +182,12 @@
     });
 
     // ── Month jump ────────────────────────────────────────────────────────────
+    // Land the section top just above the scroll-spy line so the clicked month
+    // registers as active (not the one before it).
     function jump(m: number) {
         const el = document.getElementById('yr-m-' + m);
         if (!el) return;
-        const idx = document.querySelector('.yr-index');
-        const off = 12 + (idx ? idx.getBoundingClientRect().height : 0) + (window.innerWidth <= 768 ? 52 : 64);
+        const off = stickyOffset() - 6;
         window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - off, behavior: 'smooth' });
     }
 
@@ -241,7 +289,7 @@
                 disabled={n === 0}
                 class="yr-cell"
                 class:off={n === 0}
-                class:now={m === nowMonth}
+                class:now={m === activeMonth}
                 onclick={() => jump(m)}
             >
                 <span class="yr-num eh-data">{m}<span class="yr-suf">월</span></span>
@@ -672,8 +720,14 @@
         }
 
         .yr-index {
-            grid-template-columns: repeat(6, 1fr);
+            grid-template-columns: repeat(12, minmax(48px, 1fr));
+            grid-auto-flow: column;
             top: 52px;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+        .yr-index::-webkit-scrollbar {
+            display: none;
         }
         .yr-cell {
             padding: 11px 2px;
