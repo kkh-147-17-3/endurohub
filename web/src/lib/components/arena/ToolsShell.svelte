@@ -51,5 +51,6 @@
 
 	@media (max-width: 768px) {
 		.hd { padding-top: 22px; }
+		.hd h1 { font-size: var(--text-h2); }
 	}
 </style>

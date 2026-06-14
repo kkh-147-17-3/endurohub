@@ -138,6 +138,8 @@
 	.zone-hr { color: var(--text-faint); font-size: 12px; }
 
 	@media (max-width: 768px) {
+		.panel { padding: 18px; min-width: 0; }
+		.out-hero { gap: 22px 28px; }
 		.zcols { grid-template-columns: 14px 90px 1fr 90px; }
 		.hide-m { display: none; }
 	}

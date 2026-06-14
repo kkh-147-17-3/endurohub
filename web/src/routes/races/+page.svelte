@@ -3,8 +3,34 @@
     import RaceFilterBar from '$lib/components/races/RaceFilterBar.svelte';
     import RaceResultList from '$lib/components/eh/RaceResultList.svelte';
     import { sportLabels } from '$lib/race';
+    import { track } from '$lib/analytics';
 
     let { data } = $props();
+
+    // Fire a GA4/PostHog `search` event whenever the user lands on a filtered
+    // result set. Deduped by query string so re-renders don't double-count.
+    let lastSearchKey = $state('');
+    $effect(() => {
+        const a = (data.applied ?? {}) as Record<string, unknown>;
+        const norm = (v: unknown) => (Array.isArray(v) ? v.join(',') : (v ?? '')) as string;
+        const term = String(norm(a.name));
+        const sport = String(norm(a.sport));
+        const region = String(norm(a.region));
+        const statusF = String(norm(a.status));
+        const distance = String(norm(a.distanceCategory));
+        const hasFilters = !!(term || sport || region || statusF || distance);
+        const key = $page.url.search;
+        if (hasFilters && key !== lastSearchKey) {
+            lastSearchKey = key;
+            track('search', {
+                search_term: term,
+                sport,
+                region,
+                status: statusF,
+                distance_category: distance,
+            });
+        }
+    });
 
     let closingSoon = $derived(Array.isArray(data.applied.status) && data.applied.status.includes('closing_soon'));
 

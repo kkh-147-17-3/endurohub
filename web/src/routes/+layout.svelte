@@ -8,6 +8,7 @@
     import { afterNavigate, beforeNavigate } from '$app/navigation';
     import { onMount } from 'svelte';
     import { capturePostHogPageView, initPostHog, syncPostHogUser } from '$lib/posthog';
+    import { track } from '$lib/analytics';
     import { getTheme, toggleTheme, type Theme } from '$lib/theme';
     import ProgressBar from '$lib/components/ProgressBar.svelte';
 
@@ -91,6 +92,21 @@
         theme = toggleTheme();
     }
 
+    // Auth conversions complete via server-side redirects, so the server sets a
+    // one-shot `eh_evt` cookie that we read here, fire to GA/PostHog, then clear.
+    function fireAuthEvent() {
+        if (typeof document === 'undefined') return;
+        const match = document.cookie.match(/(?:^|;\s*)eh_evt=([^;]+)/);
+        if (!match) return;
+        const value = decodeURIComponent(match[1]);
+        document.cookie = 'eh_evt=; Max-Age=0; path=/';
+        if (value.startsWith('login')) {
+            track('login', { method: value.split(':')[1] || '' });
+        } else if (value.startsWith('signup')) {
+            track('sign_up', { method: value.split(':')[1] || '' });
+        }
+    }
+
     afterNavigate(() => {
         const pathWithSearch = `${$page.url.pathname}${$page.url.search}`;
         if (lastTrackedPath !== pathWithSearch) {
@@ -100,6 +116,7 @@
         if (googleAnalyticsId && typeof gtag === 'function') {
             gtag('config', googleAnalyticsId, { page_path: $page.url.pathname });
         }
+        fireAuthEvent();
         mobileMenuOpen = false;
         userMenuOpen = false;
     });
@@ -295,6 +312,11 @@
 {#if mobileMenuOpen}
     <div class="eh-sheet" role="presentation" onclick={(e) => { if (e.target === e.currentTarget) mobileMenuOpen = false; }}>
         <div class="eh-sheet__panel">
+            <div class="eh-sheet__sec">
+                <div class="eh-micro">대회</div>
+                <a href={`/races/year/${currentYear}`} class="eh-sheet__link"><span>{currentYear} 대회</span><span class="eh-sheet__code">YEAR</span></a>
+                <a href="/calendar" class="eh-sheet__link"><span>캘린더</span><span class="eh-sheet__code">CAL</span></a>
+            </div>
             <div class="eh-sheet__sec">
                 <div class="eh-micro">종목</div>
                 {#each sportLinks as s (s.href)}

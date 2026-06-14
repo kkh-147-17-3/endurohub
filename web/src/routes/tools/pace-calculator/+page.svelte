@@ -118,4 +118,9 @@
 	.splits .v-trow { padding: 9px 18px; }
 	.split-bar { height: 4px; background: var(--paper-100); position: relative; align-self: center; }
 	.split-fill { position: absolute; inset: 0; background: var(--accent); }
+
+	@media (max-width: 768px) {
+		.panel { padding: 18px; min-width: 0; }
+		.out-hero { gap: 22px 28px; }
+	}
 </style>

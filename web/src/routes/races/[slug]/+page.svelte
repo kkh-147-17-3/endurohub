@@ -1053,6 +1053,13 @@
     raceEndDate={race.raceEndDate}
     bind:open={reviewModalOpen}
     onclose={() => (reviewModalOpen = false)}
+    onsubmitted={({ rating }) =>
+        track('review_submit', {
+            item_type: 'race',
+            item_id: race.id,
+            sport: race.sport,
+            rating,
+        })}
 />
 
 <!-- Mobile sticky CTA -->
