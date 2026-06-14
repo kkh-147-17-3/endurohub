@@ -129,6 +129,7 @@
 	.goal-gap { font-size: 13px; font-weight: 700; padding-bottom: 4px; }
 
 	@media (max-width: 768px) {
+		.panel { padding: 18px; min-width: 0; }
 		.pred-cols { grid-template-columns: 70px 1fr 110px; }
 		.hide-m { display: none; }
 	}
