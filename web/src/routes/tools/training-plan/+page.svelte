@@ -443,9 +443,28 @@
 	.pace-hr { color: var(--text-faint); margin-top: 2px; }
 
 	@media (max-width: 768px) {
-		.daycell { padding: 9px 6px; min-height: 96px; }
-		.daycell .zsub { display: none; }
-		.paceref { grid-template-columns: repeat(3, 1fr); }
+		.panel { padding: 18px; min-width: 0; }
+		.out-hero { gap: 22px 28px; }
+
+		/* day plan: 7-col grid → start-list rows */
+		.daygrid { grid-template-columns: 1fr; gap: 0; }
+		.daycell {
+			flex-direction: row;
+			align-items: center;
+			min-height: 0;
+			gap: 12px;
+			padding: 11px 14px;
+			border-bottom: 1px solid var(--line);
+		}
+		.daygrid .daycell:last-child { border-bottom: 0; }
+		.daycell .dn { flex: 0 0 36px; }
+		.daycell .zlabel { flex: 0 0 90px; font-size: 15px; }
+		.daycell .zsub { display: block; flex: 1 1 auto; min-width: 0; font-size: 11.5px; }
+		.daycell .zspec { margin-top: 0; flex: 0 0 auto; gap: 10px; align-items: baseline; }
+
+		.paceref { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+		.paceref > div { padding: 11px 12px; }
+		.pace-zone { white-space: normal; }
 	}
 
 	/* output notice — selected race too imminent to plan (defensive) */
