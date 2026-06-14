@@ -48,13 +48,16 @@
 
 <!-- ── Hero (DS: desaturated-cool photo + ink protection gradient, r-0, no shadow) ── -->
 <section class="home-hero">
-    <img
-        class="home-hero__img"
-        src="/images/home-hero.jpg"
-        alt="마라톤, 사이클, 수영, 트레일 러닝, 철인3종 — 다섯 종목의 선수들"
-        loading="eager"
-        fetchpriority="high"
-    />
+    <picture>
+        <source media="(max-width: 768px)" srcset="/images/home-hero-mobile.jpg" />
+        <img
+            class="home-hero__img"
+            src="/images/home-hero.jpg"
+            alt="마라톤, 사이클, 수영, 트레일 러닝, 철인3종 — 다섯 종목의 선수들"
+            loading="eager"
+            fetchpriority="high"
+        />
+    </picture>
     <div class="home-hero__ink">
         <div class="v-container home-hero__copy">
             <div class="home-hero__micro eh-data">
@@ -90,13 +93,13 @@
         width: 100%;
         height: 100%;
         object-fit: cover;
-        object-position: center 15%;
+        object-position: center 20%;
         display: block;
         filter: saturate(0.35);
     }
     .home-hero__ink {
         position: relative;
-        min-height: clamp(230px, 30vw, 360px);
+        min-height: clamp(230px, 30vw, 420px);
         display: flex;
         align-items: flex-end;
         background: linear-gradient(transparent 30%, rgba(16, 19, 18, 0.78));

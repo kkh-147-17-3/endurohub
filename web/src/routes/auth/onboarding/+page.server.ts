@@ -171,7 +171,7 @@ export const actions: Actions = {
 	},
 
 	// STEPS 03–05 — persist sports/regions, save the collected records, and finish onboarding.
-	complete: async ({ request, locals }) => {
+	complete: async ({ request, locals, cookies, url }) => {
 		if (!locals.authToken) {
 			redirect(303, '/auth/login');
 		}
@@ -216,6 +216,17 @@ export const actions: Actions = {
 		if (isApiError(result)) {
 			return fail(400, { action: 'complete', errors: result.errors });
 		}
+
+		// Bridge a one-shot sign_up event to the client (fired by the layout after
+		// the client navigates away from onboarding).
+		cookies.set('eh_evt', 'signup', {
+			path: '/',
+			httpOnly: false,
+			secure: url.protocol === 'https:',
+			sameSite: 'lax',
+			maxAge: 60,
+		});
+
 		return { action: 'complete', user: result.user, done: true };
 	},
 };

@@ -4,6 +4,7 @@
     import { page } from '$app/stores';
     import RaceTagSelector from '$lib/components/RaceTagSelector.svelte';
     import RichEditor from '$lib/components/RichEditor.svelte';
+    import { track } from '$lib/analytics';
 
     let { data, form } = $props();
 
@@ -43,8 +44,17 @@
         if (nickname) localStorage.setItem('nickname', nickname);
         if (password) localStorage.setItem('postPassword', password);
 
-        return async ({ update }: { update: () => Promise<void> }) => {
+        return async ({ result, update }: { result: { type: string; location?: string }; update: () => Promise<void> }) => {
             isSubmitting = false;
+            if (result.type === 'redirect') {
+                const postId = result.location?.match(/\/posts\/(\d+)/)?.[1] ?? '';
+                track('post_create', {
+                    item_type: 'post',
+                    item_id: postId,
+                    category: category || '',
+                    race_count: selectedRaceIds.length,
+                });
+            }
             await update();
         };
     }
