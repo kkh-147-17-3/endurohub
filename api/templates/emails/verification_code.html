@@ -1,46 +1,133 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" xmlns:v="urn:schemas-microsoft-com:vml">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light">
-    <title>endurohub 이메일 인증</title>
+    <meta name="supported-color-schemes" content="light">
+    <title>ENDUROHUB 이메일 인증</title>
     <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    {% include "emails/_styles.html" %}
+    <!--[if mso]>
+    <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+    <![endif]-->
+    <style>
+    /* @import is honored by clients that load web fonts (Apple Mail, iOS Mail,
+       Naver/Daum apps). Gmail and Outlook ignore custom web fonts entirely and
+       fall back to the inline system stack — that is expected, not a bug. */
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+    /* Endurohub design system — Pretendard only, one signal color (green),
+       hairline rules (#e2e2dc) + 2px ink rules (#101312), sharp corners,
+       big tabular numerals (the verification code is the hero figure),
+       uppercase tracked English micro-labels. Styling is duplicated inline
+       on each element because most email clients strip class-based styles.
+       The rules below only provide mobile width adjustments via @media,
+       which cannot be expressed inline. !important is required to beat
+       inline styles. */
+    @media only screen and (max-width: 600px) {
+        .container { width: 100% !important; }
+        .header, .hero, .section, .cta-wrapper, .footer {
+            padding-left: 20px !important;
+            padding-right: 20px !important;
+        }
+        .hero { padding-top: 36px !important; padding-bottom: 30px !important; }
+        .hero h1 { font-size: 32px !important; }
+        .code-num { font-size: 38px !important; letter-spacing: 0.16em !important; }
+        .section-title { font-size: 21px !important; }
+        .meta-table td { display: block !important; width: 100% !important; border-right: 0 !important; border-bottom: 1px solid #e2e2dc !important; }
+        .meta-table td:last-child { border-bottom: 0 !important; }
+    }
+</style>
 </head>
-<body style="margin: 0; padding: 0; width: 100%; background: #F4F4EE; color: #1A2520; font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
-    <div style="width: 100%; background: #F4F4EE;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; background: #F4F4EE;">
+<body style="margin: 0; padding: 0; width: 100%; background: #f7f7f4; color: #2c322f; font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
+
+    <!-- Preheader (hidden) -->
+    <div style="display: none; max-height: 0; overflow: hidden; opacity: 0; mso-hide: all;">인증 코드 {{ code }} · 10분 후 만료됩니다. 가입을 완료하려면 이메일을 인증해 주세요.</div>
+
+    <div style="width: 100%; background: #f7f7f4;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; background: #f7f7f4;">
             <tr>
-                <td align="center" style="padding: 32px 16px;">
-                    <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="border: 1px solid #1A2520; max-width: 600px; margin: 0 auto; background: #F4F4EE; border-collapse: collapse;">
+                <td align="center" style="padding: 40px 16px;">
+                    <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="border: 1px solid #101312; max-width: 600px; margin: 0 auto; background: #ffffff; border-collapse: collapse;">
 
-                        {% include "emails/_header.html" with header_meta="이메일 인증" %}
-
+                        <!-- Masthead -->
                         <tr>
-                            <td class="hero" style="padding: 44px 32px 32px; border-bottom: 1px solid #1A2520; background: #F4F4EE;">
-                                <div style="font-family: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A6661;">이메일 인증</div>
-                                <h1 style="font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif; font-weight: 700; font-size: 36px; letter-spacing: -1.5px; line-height: 1.05; margin: 14px 0 0; color: #1A2520;">인증을<br><em style="font-style: normal; color: #3A8556;">완료해주세요.</em></h1>
-                                <p style="margin: 18px 0 0; font-size: 14px; line-height: 1.6; color: #5A6661; font-family: 'Pretendard Variable', Pretendard, -apple-system, sans-serif;">아래 코드를 입력하면 가입이 마무리됩니다.</p>
+                            <td class="header" style="padding: 18px 32px; border-bottom: 2px solid #101312; background: #ffffff;">
+                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
+                                    <tr>
+                                        <td align="left" valign="middle">
+                                            <span style="font-weight: 900; font-size: 19px; letter-spacing: -0.02em; color: #101312;">ENDURO<span style="color: #43a564;">/</span>HUB</span>
+                                        </td>
+                                        <td align="right" valign="middle">
+                                            <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: #565e5a;">이메일 인증</span>
+                                        </td>
+                                    </tr>
+                                </table>
                             </td>
                         </tr>
 
+                        <!-- Hero -->
                         <tr>
-                            <td class="section" style="padding: 36px 32px 28px; border-bottom: 1px solid #1A2520; background: #F4F4EE;">
-                                <div style="font-family: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #5A6661;">인증 코드</div>
-                                <div style="border: 2px solid #1A2520; background: #F4F4EE; padding: 28px 16px; text-align: center; margin-top: 8px;">
-                                    <div style="font-family: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace; font-weight: 600; font-size: 36px; letter-spacing: 14px; color: #1A2520; line-height: 1; padding-left: 14px;">{{ code }}</div>
-                                </div>
-                                <div style="font-family: 'IBM Plex Mono', Menlo, monospace; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #D14E2C; margin-top: 14px;">10분 유효</div>
+                            <td class="hero" style="padding: 44px 32px 34px; border-bottom: 1px solid #e2e2dc; background: #ffffff;">
+                                <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: #565e5a;">가입 인증</div>
+                                <h1 style="font-weight: 800; font-size: 40px; letter-spacing: -0.035em; line-height: 1.0; margin: 16px 0 0; color: #101312;">이메일을<br><span style="color: #2f7d49;">인증해 주세요.</span></h1>
+                                <p style="margin: 20px 0 0; font-size: 15px; line-height: 1.6; color: #565e5a;">가입을 완료하려면 이메일 주소를 인증해야 합니다. 아래 코드를 인증 페이지에 입력해 진행합니다. 인증 후 대회 마감·일정 변경 알림이 이 주소로 전송됩니다.</p>
                             </td>
                         </tr>
 
+                        <!-- Verification code (hero figure) -->
                         <tr>
-                            <td class="footer" style="padding: 24px 32px; background: #F4F4EE; font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 11px; color: #5A6661;">
-                                <div style="font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif; font-weight: 700; font-size: 14px; letter-spacing: -0.3px; color: #1A2520; margin-bottom: 8px;"><span style="display: inline-block; width: 8px; height: 8px; background: #5FB37A; margin-right: 8px; vertical-align: 1px;"></span>endurohub</div>
-                                <p style="margin: 4px 0; line-height: 1.6;">본인이 요청하지 않았다면 이 메일을 무시하셔도 됩니다.</p>
-                                <p style="margin: 12px 0 4px; line-height: 1.6; opacity: 0.7;">&copy; {% now "Y" %} endurohub</p>
+                            <td class="section" style="padding: 34px 32px 30px; border-bottom: 1px solid #e2e2dc; background: #ffffff;">
+                                <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: #565e5a;">인증 코드</div>
+                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top: 12px; border-top: 2px solid #101312; border-bottom: 2px solid #101312; border-collapse: collapse;">
+                                    <tr>
+                                        <td align="center" style="padding: 26px 12px 22px;">
+                                            <span class="code-num" style="font-size: 48px; font-weight: 800; letter-spacing: 0.22em; line-height: 1.0; color: #101312; font-variant-numeric: tabular-nums; padding-left: 0.22em;">{{ code }}</span>
+                                        </td>
+                                    </tr>
+                                </table>
+                                <p style="margin: 14px 0 0; font-size: 12.5px; line-height: 1.5; color: #79817c;">이 코드는 <span style="color: #c93a2a; font-weight: 600;">10분 후 만료</span>됩니다{% if expires_at_label %} · 만료 {{ expires_at_label }} (한국시간){% endif %}</p>
+                            </td>
+                        </tr>
+
+                        <!-- CTA -->
+                        <tr>
+                            <td class="cta-wrapper" style="text-align: center; padding: 30px 32px 30px; background: #ffffff; border-bottom: 1px solid #e2e2dc;">
+                                <a href="{{ verify_url }}" style="display: inline-block; background: #101312; color: #ffffff; font-weight: 600; font-size: 14px; letter-spacing: -0.01em; padding: 14px 28px; text-decoration: none; border: 1px solid #101312; border-radius: 2px; white-space: nowrap;">인증 페이지로 이동&nbsp;&nbsp;→</a>
+                                <p style="margin: 18px 0 0; font-size: 12px; line-height: 1.6; color: #79817c;">버튼이 열리지 않으면 아래 주소를 복사해 브라우저에 붙여넣습니다.<br><a href="{{ verify_url }}" style="color: #2f7d49; text-decoration: underline; text-underline-offset: 3px; word-break: break-all;">{{ verify_url }}</a></p>
+                            </td>
+                        </tr>
+
+                        <!-- Request meta (trust / security context) -->
+                        <tr>
+                            <td class="section" style="padding: 32px 32px 30px; border-bottom: 1px solid #e2e2dc; background: #ffffff;">
+                                <div style="font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: #565e5a;">요청 정보</div>
+                                <table role="presentation" class="meta-table" width="100%" cellpadding="0" cellspacing="0" style="margin-top: 14px; border: 1px solid #e2e2dc; border-collapse: collapse;">
+                                    <tr>
+                                        <td width="33%" style="padding: 13px 14px; border-right: 1px solid #e2e2dc; vertical-align: top; line-height: 1.2;">
+                                            <small style="display: block; font-size: 10.5px; font-weight: 600; letter-spacing: 0.02em; margin-bottom: 4px; color: #79817c;">계정</small>
+                                            <span style="font-size: 13px; font-weight: 600; color: #101312; word-break: break-all;">{{ account_email|default:"—" }}</span>
+                                        </td>
+                                        <td width="33%" style="padding: 13px 14px; border-right: 1px solid #e2e2dc; vertical-align: top; line-height: 1.2;">
+                                            <small style="display: block; font-size: 10.5px; font-weight: 600; letter-spacing: 0.02em; margin-bottom: 4px; color: #79817c;">요청 시각</small>
+                                            <span style="font-size: 13px; font-weight: 600; color: #101312; font-variant-numeric: tabular-nums; letter-spacing: 0.01em;">{{ requested_at|default:"—" }}</span>
+                                        </td>
+                                        <td style="padding: 13px 14px; vertical-align: top; line-height: 1.2;">
+                                            <small style="display: block; font-size: 10.5px; font-weight: 600; letter-spacing: 0.02em; margin-bottom: 4px; color: #79817c;">기기</small>
+                                            <span style="font-size: 13px; font-weight: 600; color: #101312;">{{ device_label|default:"—" }}</span>
+                                        </td>
+                                    </tr>
+                                </table>
+                                <p style="margin: 16px 0 0; font-size: 12.5px; line-height: 1.6; color: #565e5a;">본인이 요청하지 않았다면 이 메일을 무시하셔도 됩니다. 코드를 입력하지 않으면 계정은 생성되지 않으며, 누구에게도 코드를 공유하지 마십시오.</p>
+                            </td>
+                        </tr>
+
+                        <!-- Footer -->
+                        <tr>
+                            <td class="footer" style="padding: 26px 32px; background: #ffffff; font-size: 12px; color: #565e5a;">
+                                <div style="font-weight: 900; font-size: 15px; letter-spacing: -0.02em; color: #101312; margin-bottom: 10px;">ENDURO<span style="color: #43a564;">/</span>HUB</div>
+                                <p style="margin: 4px 0; line-height: 1.6;">지구력 스포츠 대회 큐레이션 플랫폼 · 본 메일은 가입 인증을 위해 발송되는 시스템 메일입니다.</p>
+                                <p style="margin: 4px 0; line-height: 1.6;">도움이 필요하면 <a href="{{ app_url }}/help" style="color: #101312; text-decoration: underline; text-underline-offset: 3px;">고객센터</a> · <a href="{{ app_url }}/privacy" style="color: #101312; text-decoration: underline; text-underline-offset: 3px;">개인정보처리방침</a></p>
+                                <p style="margin: 14px 0 4px; line-height: 1.6; font-size: 11px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: #79817c;">© {% now "Y" %} ENDUROHUB</p>
                             </td>
                         </tr>
 
