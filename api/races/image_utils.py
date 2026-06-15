@@ -8,6 +8,11 @@ from PIL import Image
 THUMB_WIDTH = 600
 WEBP_QUALITY = 82
 
+try:
+    RESAMPLE_FILTER = Image.Resampling.LANCZOS
+except AttributeError:
+    RESAMPLE_FILTER = Image.LANCZOS
+
 
 def save_upload(uploaded_file, subdir='races'):
     """Save an uploaded file under MEDIA_ROOT/<subdir>/ and return its relative path."""

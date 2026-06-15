@@ -161,7 +161,7 @@ def send_weekly():
     print('2) weekly_digest')
     ctx = {
         'nickname': '테리',
-        'week_label': f'{today.month}월 {today.day}일',
+        'week_label': f'{today.month}.{today.day}',
         'recommended_races': SAMPLE_RACES[:3],
         'closing_soon_races': CLOSING_SOON,
         'new_races': SAMPLE_RACES,
