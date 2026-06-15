@@ -1,0 +1,6 @@
+# 개발 전용 도구 (런타임에는 불필요). 설치: pip install -r requirements-dev.txt
+-r requirements.txt
+
+mypy>=1.13
+django-stubs[compatible-mypy]>=5.1
+djangorestframework-stubs[compatible-mypy]>=3.15

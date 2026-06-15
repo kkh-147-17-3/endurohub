@@ -1,6 +1,12 @@
+from typing import TYPE_CHECKING
+
 from django.conf import settings
 from django.contrib.auth.hashers import check_password
 from django.db import models
+
+if TYPE_CHECKING:
+    # 타입 검사 전용 import (런타임에는 실행되지 않음 → 순환참조 없음)
+    from races.models import Race
 
 
 class Post(models.Model):
@@ -28,7 +34,7 @@ class Post(models.Model):
     password = models.CharField(max_length=255, blank=True, default='')
     ip_hash = models.CharField(max_length=64)
     view_count = models.PositiveIntegerField(default=0)
-    races = models.ManyToManyField(
+    races: "models.ManyToManyField[Race, PostRace]" = models.ManyToManyField(
         'races.Race',
         through='PostRace',
         related_name='posts',
