@@ -49,8 +49,63 @@ def parse_checkbox_value(value) -> bool:
     return str(value).strip().lower() in {'1', 'true', 'on', 'yes'}
 
 
-def send_verification_email(email: str, code: str) -> None:
-    html_message = render_to_string('emails/verification_code.html', {'code': code})
+def _parse_device_label(user_agent: str) -> str:
+    """Best-effort 'Browser · OS' label from a User-Agent string for the email's
+    request-info panel. Returns '' when nothing recognizable is found."""
+    if not user_agent:
+        return ''
+    ua = user_agent
+    browser = next(
+        (
+            name
+            for token, name in (
+                ('Edg', 'Edge'),
+                ('OPR', 'Opera'),
+                ('SamsungBrowser', 'Samsung Internet'),
+                ('Chrome', 'Chrome'),
+                ('Firefox', 'Firefox'),
+                ('Safari', 'Safari'),
+            )
+            if token in ua
+        ),
+        '',
+    )
+    os_name = next(
+        (
+            name
+            for token, name in (
+                ('iPhone', 'iPhone'),
+                ('iPad', 'iPad'),
+                ('Android', 'Android'),
+                ('Mac OS X', 'macOS'),
+                ('Windows', 'Windows'),
+                ('Linux', 'Linux'),
+            )
+            if token in ua
+        ),
+        '',
+    )
+    return ' · '.join(p for p in (browser, os_name) if p)
+
+
+def send_verification_email(email: str, code: str, request=None) -> None:
+    now = timezone.localtime()
+    expires_at = now + timezone.timedelta(minutes=10)
+
+    context = {
+        'code': code,
+        'account_email': email,
+        'requested_at': now.strftime('%m.%d %H:%M'),
+        'expires_at_label': expires_at.strftime('%H:%M'),
+        'verify_url': f'{settings.APP_URL}/auth/onboarding',
+        'app_url': settings.APP_URL,
+    }
+    if request is not None:
+        context['device_label'] = _parse_device_label(
+            request.META.get('HTTP_USER_AGENT', '')
+        )
+
+    html_message = render_to_string('emails/verification_code.html', context)
     send_mail(
         subject='[EnduroHub] 이메일 인증 코드',
         message=f'인증 코드: {code}\n\n이 코드는 10분간 유효합니다.',
@@ -366,7 +421,7 @@ class EmailSendView(APIView):
         )
 
         try:
-            send_verification_email(email, code)
+            send_verification_email(email, code, request=request)
         except Exception:
             logger.exception('Failed to send verification email', extra={'email': email})
             return Response(
@@ -418,7 +473,7 @@ class PendingSocialEmailSendView(APIView):
         ])
 
         try:
-            send_verification_email(email, code)
+            send_verification_email(email, code, request=request)
         except Exception:
             logger.exception('Failed to send pending social verification email', extra={'email': email})
             return Response(

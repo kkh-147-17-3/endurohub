@@ -140,7 +140,7 @@ def send_weekly_digest_email(profile):
     new_races = _prepare_races_for_email(new_races)
 
     today = timezone.now().date()
-    week_label = f'{today.month}월 {today.day}일'
+    week_label = f'{today.month}.{today.day}'
 
     context = {
         'nickname': profile.nickname or user.email.split('@')[0],
@@ -203,10 +203,21 @@ def send_new_races_alert(races):
             user_races = races
 
         nickname = profile.nickname or user.email.split('@')[0]
+
+        match_parts = []
+        if profile.preferred_sports:
+            match_parts.append(
+                '/'.join(SPORT_LABELS.get(s, s) for s in profile.preferred_sports)
+            )
+        if profile.preferred_regions:
+            match_parts.append('/'.join(profile.preferred_regions))
+        match_summary = ' · '.join(match_parts)
+
         context = {
             'nickname': nickname,
             'new_races': user_races,
             'race_count': len(user_races),
+            'match_summary': match_summary,
             'app_url': APP_URL,
         }
 

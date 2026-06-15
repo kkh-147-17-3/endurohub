@@ -1,0 +1,23 @@
+[tool.mypy]
+# Django 모델/ORM의 동적 동작을 정적 분석기에 알려주는 플러그인
+plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
+
+python_version = "3.13"
+
+# --- 점진 도입용 설정 (처음엔 느슨하게, 익숙해지면 조여간다) ---
+# 타입 힌트가 없는 함수는 검사하지 않음 (기존 코드 전체가 에러로 도배되는 걸 방지)
+check_untyped_defs = false
+disallow_untyped_defs = false
+ignore_missing_imports = true
+
+# 유용한 경고는 켜둔다
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
+pretty = true
+
+# 마이그레이션 파일은 자동 생성물이라 검사 제외
+exclude = "(^|/)migrations/"
+
+[tool.django-stubs]
+django_settings_module = "config.settings"
