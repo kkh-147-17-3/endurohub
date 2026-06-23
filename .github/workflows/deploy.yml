@@ -13,10 +13,12 @@ jobs:
     steps:
       - name: Pull latest code
         working-directory: ${{ vars.DEPLOY_PATH }}
+        # 배포는 커밋 상태 그대로 반영한다. stash/pop 은 파일 재구성 시 충돌 마커를 남겨
+        # docker compose 를 깨뜨릴 수 있어 fetch + reset --hard 로 대체.
+        # (reset --hard 는 추적 파일만 되돌리고 .env 등 untracked 파일은 보존)
         run: |
-          git stash --include-untracked || true
-          git pull origin master
-          git stash pop || true
+          git fetch origin master
+          git reset --hard origin/master
 
       # 앱↔관측성 공유 네트워크/볼륨을 보장한다(이미 있으면 무시). 앱 compose 가
       # 이 둘을 external 로 참조하므로 어느 compose 든 up 전에 존재해야 한다.
