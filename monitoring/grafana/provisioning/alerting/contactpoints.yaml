@@ -1,0 +1,14 @@
+# Grafana 알림 수신처 — Telegram(기존 에러알림 채널 재사용).
+# 토큰/챗ID 는 lgtm 컨테이너 환경변수에서 주입(${...} = Grafana 의 env 보간).
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: Telegram
+    receivers:
+      - uid: telegram_ehub
+        type: telegram
+        settings:
+          bottoken: ${TELEGRAM_BOT_TOKEN}
+          chatid: "${TELEGRAM_CHAT_ID}"
+        disableResolveMessage: false

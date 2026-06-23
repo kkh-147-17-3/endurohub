@@ -1,0 +1,113 @@
+# 리소스 알림 규칙 — 디스크 풀 / 컨테이너 OOM 임박을 사전 감지.
+# 주의: 메트릭 이름(system_filesystem_utilization, container_memory_percent)은 OTLP→Prometheus
+#       변환으로 _ratio 등 접미사가 붙을 수 있다. 최초 배포 후 Grafana metrics browser 에서
+#       실제 이름을 확인하고 expr 을 맞춰라. (Alerting UI 또는 `docker compose logs lgtm` 으로 로드 확인)
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: resource-alerts
+    folder: EnduroHub
+    interval: 1m
+    rules:
+      # ── 디스크 사용률 경고(>80%) — 디스크 풀 → 앱 다운 #1 위험 ──────────────
+      - uid: ehub-disk-usage-warning
+        title: Disk usage > 80% (root fs)
+        condition: C
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: '루트 디스크 사용률 80% 초과 — 디스크 풀 시 앱 다운 위험. `docker system df -v` 로 무엇이 차는지 확인(특히 lgtm_data).'
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              datasource: { type: prometheus, uid: prometheus }
+              expr: 'max(system_filesystem_utilization{mountpoint="/"})'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              datasource: { type: __expr__, uid: __expr__ }
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.8] }
+                  operator: { type: and }
+                  query: { params: [C] }
+                  reducer: { type: last, params: [] }
+                  type: query
+              refId: C
+
+      # ── 디스크 사용률 긴급(>90%) ─────────────────────────────────────────
+      - uid: ehub-disk-usage-critical
+        title: Disk usage > 90% (root fs)
+        condition: C
+        for: 2m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: critical
+        annotations:
+          summary: '루트 디스크 사용률 90% 초과 — 즉시 조치 필요. retention 축소 또는 디스크 정리.'
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              datasource: { type: prometheus, uid: prometheus }
+              expr: 'max(system_filesystem_utilization{mountpoint="/"})'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              datasource: { type: __expr__, uid: __expr__ }
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.9] }
+                  operator: { type: and }
+                  query: { params: [C] }
+                  reducer: { type: last, params: [] }
+                  type: query
+              refId: C
+
+      # ── 컨테이너 메모리 한도의 90% 초과 — OOM-kill 임박 경고 ───────────────
+      - uid: ehub-container-mem-warning
+        title: Container memory > 90% of limit
+        condition: C
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $labels.compose_service }} 컨테이너 메모리가 mem_limit 의 90% 초과 — OOM-kill 임박. 사용량 확인 후 mem_limit 상향 검토.'
+        data:
+          - refId: A
+            relativeTimeRange: { from: 600, to: 0 }
+            datasourceUid: prometheus
+            model:
+              datasource: { type: prometheus, uid: prometheus }
+              expr: 'max by (compose_service) (container_memory_percent)'
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              datasource: { type: __expr__, uid: __expr__ }
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [90] }
+                  operator: { type: and }
+                  query: { params: [C] }
+                  reducer: { type: last, params: [] }
+                  type: query
+              refId: C

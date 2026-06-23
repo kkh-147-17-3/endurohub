@@ -1,0 +1,39 @@
+# OpenTelemetry Collector — 컨테이너 + 호스트 리소스 메트릭 수집기.
+#  - docker_stats: 컨테이너별 CPU/메모리/네트워크/블록IO (Docker 소켓)
+#  - hostmetrics : 호스트 디스크 사용량(파일시스템) — 디스크 풀 → 앱 다운 위험 자동 감지
+# 둘 다 OTLP 로 lgtm 에 전송한다.
+receivers:
+  docker_stats:
+    endpoint: unix:///var/run/docker.sock
+    collection_interval: 15s
+    # compose 서비스 이름을 메트릭 라벨(compose_service)로 노출 → 컨테이너별 그룹핑 쿼리에 사용.
+    container_labels_to_metric_labels:
+      com.docker.compose.service: compose_service
+
+  hostmetrics:
+    # 호스트 루트를 /hostfs 에 read-only 로 마운트하고 root_path 로 알려준다(컨테이너 내부가 아닌 호스트 디스크를 읽기 위함).
+    root_path: /hostfs
+    collection_interval: 30s
+    scrapers:
+      filesystem:
+        # 가상 파일시스템(tmpfs/overlay 등)은 기본 제외됨(include_virtual_filesystems: false).
+        metrics:
+          system.filesystem.utilization:  # 0~1 사용률(기본 비활성) — 디스크 풀 알림에 직접 사용.
+            enabled: true
+
+processors:
+  batch: {}
+
+exporters:
+  otlphttp:
+    endpoint: http://lgtm:4318
+
+service:
+  pipelines:
+    metrics:
+      receivers: [docker_stats, hostmetrics]
+      processors: [batch]
+      exporters: [otlphttp]
+  telemetry:
+    logs:
+      level: info
