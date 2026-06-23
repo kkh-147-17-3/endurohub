@@ -11,6 +11,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+# 설치된 라이브러리(Django/Celery/psycopg2/redis/httpx/requests 등)에 맞는
+# OpenTelemetry instrumentation 패키지를 자동 탐지·설치한다.
+RUN opentelemetry-bootstrap -a install
 
 COPY . .
 
