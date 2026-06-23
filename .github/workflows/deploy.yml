@@ -18,6 +18,14 @@ jobs:
           git pull origin master
           git stash pop || true
 
+      # 앱↔관측성 공유 네트워크/볼륨을 보장한다(이미 있으면 무시). 앱 compose 가
+      # 이 둘을 external 로 참조하므로 어느 compose 든 up 전에 존재해야 한다.
+      - name: Bootstrap shared network/volume
+        working-directory: ${{ vars.DEPLOY_PATH }}
+        run: |
+          docker network create endurohub_obs 2>/dev/null || true
+          docker volume create endurohub_nginx_logs 2>/dev/null || true
+
       - name: Detect changes
         id: changes
         working-directory: ${{ vars.DEPLOY_PATH }}
@@ -28,6 +36,7 @@ jobs:
           echo "api=false" >> $GITHUB_OUTPUT
           echo "web=false" >> $GITHUB_OUTPUT
           echo "infra=false" >> $GITHUB_OUTPUT
+          echo "obs=false" >> $GITHUB_OUTPUT
 
           if echo "$CHANGED" | grep -q "^api/"; then
             echo "api=true" >> $GITHUB_OUTPUT
@@ -38,11 +47,17 @@ jobs:
           if echo "$CHANGED" | grep -qE "^(nginx/|docker-compose\.yml)"; then
             echo "infra=true" >> $GITHUB_OUTPUT
           fi
+          # 관측성 스택은 앱과 독립 배포(앱 재빌드 없이 관측성만 갱신).
+          if echo "$CHANGED" | grep -qE "^(monitoring/|docker-compose\.observability\.yml)"; then
+            echo "obs=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Rebuild all (infra changed)
         if: steps.changes.outputs.infra == 'true'
         working-directory: ${{ vars.DEPLOY_PATH }}
-        run: docker compose up -d --build
+        # --remove-orphans: 분리 이전 app 프로젝트에 남아있던 관측성 컨테이너(lgtm 등)를 정리
+        # → 새 endurohub-obs 프로젝트의 lgtm 과 3001 포트 충돌 방지.
+        run: docker compose up -d --build --remove-orphans
 
       - name: Rebuild api only
         if: steps.changes.outputs.infra == 'false' && steps.changes.outputs.api == 'true'
@@ -53,6 +68,13 @@ jobs:
         if: steps.changes.outputs.infra == 'false' && steps.changes.outputs.web == 'true'
         working-directory: ${{ vars.DEPLOY_PATH }}
         run: docker compose up -d --build web
+
+      # 관측성 스택은 앱과 별도로 배포한다. mounted config(알림 규칙/otelcol/promtail)
+      # 변경은 컨테이너 재생성으로만 반영되므로 --force-recreate 로 강제 갱신한다.
+      - name: Deploy observability (obs changed)
+        if: steps.changes.outputs.obs == 'true'
+        working-directory: ${{ vars.DEPLOY_PATH }}
+        run: docker compose -f docker-compose.observability.yml up -d --force-recreate
 
       - name: Run migrations
         if: steps.changes.outputs.api == 'true' || steps.changes.outputs.infra == 'true'

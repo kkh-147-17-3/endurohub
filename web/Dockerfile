@@ -22,6 +22,7 @@ RUN addgroup --system --gid 1001 nodejs && \
 COPY --from=build --chown=sveltekit:nodejs /app/build ./build
 COPY --from=build --chown=sveltekit:nodejs /app/node_modules ./node_modules
 COPY --from=build --chown=sveltekit:nodejs /app/package.json ./
+COPY --from=build --chown=sveltekit:nodejs /app/otel.mjs ./otel.mjs
 
 USER sveltekit
 
@@ -31,4 +32,6 @@ ENV HOST=0.0.0.0
 
 EXPOSE 3000
 
-CMD ["node", "build"]
+# otel.mjs를 앱보다 먼저 로드해 OpenTelemetry 자동계측을 활성화한다.
+# OTEL_EXPORTER_OTLP_ENDPOINT 가 없으면 otel.mjs는 no-op이므로 비계측 환경에서도 안전.
+CMD ["node", "--import", "./otel.mjs", "build"]

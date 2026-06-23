@@ -1,8 +1,26 @@
+# OpenTelemetry 공통 환경변수 — api / celery / web 가 공유한다.
+# OTEL_EXPORTER_OTLP_ENDPOINT 가 비면 각 SDK 가 계측을 사실상 비활성화(또는 무해한 재시도)하므로
+# LGTM 없이 단독 실행도 안전. 서비스별 OTEL_SERVICE_NAME 만 각자 덮어쓴다.
+x-otel-env: &otel-env
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://lgtm:4318}
+  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  OTEL_TRACES_EXPORTER: otlp
+  OTEL_METRICS_EXPORTER: otlp
+  OTEL_LOGS_EXPORTER: otlp
+  OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED: "true"
+  OTEL_RESOURCE_ATTRIBUTES: deployment.environment=${DEPLOY_ENV:-production}
+
+# 앱 프로젝트 이름(관측성 프로젝트 endurohub-obs 와 분리).
+name: endurohub
+
 services:
   api:
     build: ./api
-    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4 --threads 2 --timeout 30 --keep-alive 5
+    command: opentelemetry-instrument gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4 --threads 2 --timeout 30 --keep-alive 5
+    mem_limit: 1536m
     environment:
+      <<: *otel-env
+      OTEL_SERVICE_NAME: endurohub-api
       DATABASE_HOST: ${DATABASE_HOST:-localhost}
       DATABASE_PORT: ${DATABASE_PORT:-5432}
       DATABASE_NAME: ${DATABASE_NAME:-endurohub}
@@ -39,12 +57,18 @@ services:
       - api_media:/app/storage
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - obs
     restart: unless-stopped
 
   celery-worker:
     build: ./api
-    command: celery -A config worker -l info
+    command: opentelemetry-instrument celery -A config worker -l info
+    mem_limit: 1g
     environment:
+      <<: *otel-env
+      OTEL_SERVICE_NAME: endurohub-celery-worker
       DATABASE_HOST: ${DATABASE_HOST:-localhost}
       DATABASE_PORT: ${DATABASE_PORT:-5432}
       DATABASE_NAME: ${DATABASE_NAME:-endurohub}
@@ -67,12 +91,18 @@ services:
       CRAWL_SEND_EMPTY_REPORT: ${CRAWL_SEND_EMPTY_REPORT:-false}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - obs
     restart: unless-stopped
 
   celery-beat:
     build: ./api
-    command: celery -A config beat -l info
+    command: opentelemetry-instrument celery -A config beat -l info
+    mem_limit: 256m
     environment:
+      <<: *otel-env
+      OTEL_SERVICE_NAME: endurohub-celery-beat
       DATABASE_HOST: ${DATABASE_HOST:-localhost}
       DATABASE_PORT: ${DATABASE_PORT:-5432}
       DATABASE_NAME: ${DATABASE_NAME:-endurohub}
@@ -95,11 +125,17 @@ services:
       CRAWL_SEND_EMPTY_REPORT: ${CRAWL_SEND_EMPTY_REPORT:-false}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - obs
     restart: unless-stopped
 
   web:
     build: ./web
+    mem_limit: 1g
     environment:
+      <<: *otel-env
+      OTEL_SERVICE_NAME: endurohub-web
       API_URL_INTERNAL: http://api:8000
       PUBLIC_API_URL: /api
       PUBLIC_KAKAO_JAVASCRIPT_KEY: ${KAKAO_JAVASCRIPT_KEY:-}
@@ -118,14 +154,19 @@ services:
       - "3000:3000"
     depends_on:
       - api
+    networks:
+      - default
+      - obs
     restart: unless-stopped
 
   nginx:
     image: nginx:alpine
+    mem_limit: 128m
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - api_static:/var/www/static:ro
       - api_media:/var/www/media:ro
+      - nginx_logs:/var/log/nginx
     ports:
       - "80:80"
       - "443:443"
@@ -134,6 +175,18 @@ services:
       - web
     restart: unless-stopped
 
+# 관측성 스택(lgtm/promtail/otelcol)은 docker-compose.observability.yml 로 분리됨.
+
+networks:
+  # 관측성 프로젝트와 공유하는 외부 네트워크. api/celery/web 가 여기 붙어 `lgtm:4318` 로 OTLP 전송.
+  obs:
+    external: true
+    name: endurohub_obs
+
 volumes:
   api_static:
   api_media:
+  # nginx 가 기록하고 관측성 프로젝트의 promtail 이 읽는 공유 볼륨(프로젝트 간 공유 → external).
+  nginx_logs:
+    external: true
+    name: endurohub_nginx_logs
