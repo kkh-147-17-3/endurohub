@@ -10,5 +10,8 @@ contactPoints:
         type: telegram
         settings:
           bottoken: ${TELEGRAM_BOT_TOKEN}
-          chatid: "${TELEGRAM_CHAT_ID}"
+          # chatid 는 정수형이라 ${VAR}/$__env{} 보간 시 Grafana 가 JSON number 로
+          # 파싱해 "cannot unmarshal number into ... chatid of type string" 로 부팅 실패한다.
+          # 정적 문자열 리터럴은 타입 변환을 타지 않으므로 직접 기입한다(시크릿은 bottoken 뿐).
+          chatid: "8581246573"
         disableResolveMessage: false
