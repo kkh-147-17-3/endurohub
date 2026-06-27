@@ -73,13 +73,23 @@ function entry(
 ): string {
 	const loc = `${baseUrl}${path}`;
 	let xml = `  <url>\n    <loc>${escapeXml(loc)}</loc>`;
-	if (lastmod) {
-		xml += `\n    <lastmod>${lastmod}</lastmod>`;
+	const lastmodValue = formatLastmod(lastmod);
+	if (lastmodValue) {
+		xml += `\n    <lastmod>${lastmodValue}</lastmod>`;
 	}
 	xml += `\n    <changefreq>${changefreq}</changefreq>`;
 	xml += `\n    <priority>${priority}</priority>`;
 	xml += `\n  </url>`;
 	return xml;
+}
+
+// Google Search Console rejects lastmod values with sub-second precision
+// (e.g. "2026-06-27T12:34:56.789012Z"). Normalize to W3C date format (YYYY-MM-DD).
+function formatLastmod(value?: string): string | null {
+	if (!value) return null;
+	const date = new Date(value);
+	if (isNaN(date.getTime())) return null;
+	return date.toISOString().slice(0, 10);
 }
 
 function escapeXml(str: string): string {
