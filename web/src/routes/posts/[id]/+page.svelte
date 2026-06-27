@@ -64,6 +64,7 @@
         '@context': 'https://schema.org',
         '@type': 'Article',
         headline: post.title,
+        description: contentText.substring(0, 160),
         author: { '@type': 'Person', name: post.nickname },
         datePublished: post.createdAt,
         dateModified: post.updatedAt,
