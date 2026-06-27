@@ -19,12 +19,9 @@ export const GET: RequestHandler = async () => {
 		urls.push(entry(baseUrl, `/calendar?month=${cm.month}&year=${cm.year}`, 'weekly', '0.6'));
 	}
 
-	// Sport category pages
-	urls.push(entry(baseUrl, '/running', 'daily', '0.8'));
-	urls.push(entry(baseUrl, '/swimming', 'daily', '0.8'));
-	urls.push(entry(baseUrl, '/cycling', 'daily', '0.8'));
-	urls.push(entry(baseUrl, '/triathlon', 'daily', '0.8'));
-	urls.push(entry(baseUrl, '/trail-running', 'daily', '0.8'));
+	// NOTE: /running, /swimming, /cycling, /triathlon, /trail-running are intentionally
+	// excluded — they 301-redirect to /races?sport=X, and sitemaps must list final
+	// (200) canonical URLs, not redirects.
 
 	// Tool pages
 	urls.push(entry(baseUrl, '/tools', 'monthly', '0.8'));
@@ -36,15 +33,16 @@ export const GET: RequestHandler = async () => {
 
 	// Info pages
 	urls.push(entry(baseUrl, '/about', 'monthly', '0.5'));
-	urls.push(entry(baseUrl, '/privacy', 'monthly', '0.3'));
+	// /privacy is excluded — the page sets <meta name="robots" content="noindex">,
+	// so listing it in the sitemap would be contradictory.
 
 	// Race detail pages
 	for (const race of data.races) {
 		urls.push(entry(baseUrl, `/races/${race.slug}`, 'weekly', '0.7', race.updatedAt));
 	}
 
-	// Posts list
-	urls.push(entry(baseUrl, '/posts', 'daily', '0.8'));
+	// Community feed (/posts 301-redirects here, so list the canonical /community)
+	urls.push(entry(baseUrl, '/community', 'daily', '0.8'));
 
 	// Post detail pages
 	for (const post of data.posts) {
