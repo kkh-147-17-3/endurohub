@@ -354,16 +354,7 @@
                 race.status === 'registration_open'
                     ? 'https://schema.org/InStock'
                     : 'https://schema.org/SoldOut',
-            price: race.distances?.length
-                ? String(
-                      Math.min(
-                          ...race.distances
-                              .filter((d) => typeof d !== 'string' && d.fee)
-                              .map((d) => Number((d as Distance).fee))
-                              .filter((n) => !isNaN(n) && n > 0),
-                      ) || 0,
-                  )
-                : '0',
+            price: String(arenaMinFee(race) ?? 0),
             priceCurrency: 'KRW',
             validFrom: race.registrationStart || race.raceDate,
         },
