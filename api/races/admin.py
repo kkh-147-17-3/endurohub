@@ -13,7 +13,14 @@ from django.utils.safestring import mark_safe
 from unfold.admin import ModelAdmin
 
 from .forms import RaceAdminForm
-from .models import DeviceToken, Race, RacePendingChange, Review
+from .models import (
+    DeviceToken,
+    Race,
+    RaceFavorite,
+    RaceParticipation,
+    RacePendingChange,
+    Review,
+)
 
 
 def _save_upload(f, subdir='races'):
@@ -784,3 +791,60 @@ class DeviceTokenAdmin(ModelAdmin):
     @admin.display(description='토큰')
     def token_short(self, obj):
         return obj.token[:20] + '...'
+
+
+# ---------------------------------------------------------------------------
+# RaceFavoriteAdmin (관심대회 - 단순 북마크)
+# ---------------------------------------------------------------------------
+
+@admin.register(RaceFavorite)
+class RaceFavoriteAdmin(ModelAdmin):
+    list_display = ['user', 'race_link', 'created_at']
+    search_fields = ['user__email', 'race__title']
+    ordering = ['-created_at']
+    readonly_fields = ['created_at']
+    autocomplete_fields = ['race']
+
+    @admin.display(description='대회명')
+    def race_link(self, obj):
+        if obj.race:
+            url = reverse('admin:races_race_change', args=[obj.race_id])
+            return format_html('<a href="{}">{}</a>', url, obj.race.title[:30])
+        return '-'
+
+
+# ---------------------------------------------------------------------------
+# RaceParticipationAdmin (관심대회 - 참가 계획 "내 시즌")
+# ---------------------------------------------------------------------------
+
+@admin.register(RaceParticipation)
+class RaceParticipationAdmin(ModelAdmin):
+    list_display = [
+        'user', 'race_link', 'status_badge', 'planned_codes',
+        'main_goal', 'updated_at',
+    ]
+    list_filter = ['status', 'main_goal', 'updated_at']
+    search_fields = ['user__email', 'race__title', 'note']
+    ordering = ['-updated_at']
+    readonly_fields = ['created_at', 'updated_at']
+    autocomplete_fields = ['race']
+
+    @admin.display(description='대회명')
+    def race_link(self, obj):
+        if obj.race:
+            url = reverse('admin:races_race_change', args=[obj.race_id])
+            return format_html('<a href="{}">{}</a>', url, obj.race.title[:30])
+        return '-'
+
+    @admin.display(description='상태')
+    def status_badge(self, obj):
+        colors = {
+            RaceParticipation.STATUS_MAYBE: '#6b7280',
+            RaceParticipation.STATUS_GOING: '#22c55e',
+        }
+        color = colors.get(obj.status, '#6b7280')
+        return format_html(
+            '<span style="background:{}; color:white; padding:2px 8px; '
+            'border-radius:4px; font-size:12px;">{}</span>',
+            color, obj.get_status_display(),
+        )
