@@ -41,7 +41,7 @@
     const appUrl = $derived(data.appUrl || 'https://www.endurohub.kr');
     const kakaoJsKey = $derived(data.kakaoJsKey as string);
     const isAdmin: boolean = $derived(data.isAdmin ?? false);
-    const pageUrl = $derived(`${appUrl}${$page.url.pathname}`);
+    const pageUrl = $derived(`${appUrl}${page.url.pathname}`);
 
     const badgeStatus = $derived(dsBadgeStatus(race.status, race.daysUntilRegistrationEnd));
     const dday = $derived(arenaDday(race));
@@ -207,8 +207,8 @@
 
     async function toggleFavorite() {
         if (isTogglingFavorite) return;
-        if (!$page.data.user) {
-            goto(`/auth/login?next=${encodeURIComponent($page.url.pathname)}`);
+        if (!page.data.user) {
+            goto(`/auth/login?next=${encodeURIComponent(page.url.pathname)}`);
             return;
         }
         const prevOverride = favoriteOverride;
