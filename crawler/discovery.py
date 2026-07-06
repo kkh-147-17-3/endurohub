@@ -26,7 +26,7 @@ def discover_recipe(base_url: str, feedback: str | None = None) -> ExtractionRec
     if feedback:                                        # 직전 평가의 지적을 반영해 재탐색
         user += f"\n\n직전 시도의 문제점(고쳐서 다시): {feedback}"
     out = run_agent(system, user, EXPLORER_TOOLS, EXPLORER_IMPLS,
-                    terminal_tool="submit_recipe", effort=config.EFFORT_DISCOVERY, max_steps=15)
+                    terminal_tool="submit_recipe", max_steps=15)
     if "result" not in out:                              # 모델이 submit_recipe 없이 종료 → 명확한 실패
         raise RecipeBuildFailed(f"{base_url}: 모델이 submit_recipe를 호출하지 않고 종료")
     discovered = DiscoveredRecipe.model_validate(out["result"])

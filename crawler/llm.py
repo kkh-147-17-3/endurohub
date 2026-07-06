@@ -17,8 +17,13 @@ from . import config
 logger = logging.getLogger("marathon_crawler")
 
 
-def _get_llm(effort: str, max_tokens: int) -> ChatOpenAI:
-    return ChatOpenAI(model=config.MODEL, reasoning_effort=effort, max_tokens=max_tokens, timeout=60)
+def _get_llm(effort: str | None, max_tokens: int) -> ChatOpenAI:
+    # 주의: 이 모델군은 function tool + reasoning_effort 조합을 거부한다.
+    # → 도구/구조화(function calling) 호출은 effort=None 으로, vision 등 비도구 호출만 effort 지정.
+    kwargs: dict = {"model": config.MODEL, "max_tokens": max_tokens, "timeout": 60}
+    if effort:
+        kwargs["reasoning_effort"] = effort
+    return ChatOpenAI(**kwargs)
 
 
 def _text_of(msg: BaseMessage) -> str:
@@ -41,10 +46,9 @@ def _log_usage(label: str, msg: BaseMessage) -> None:
 
 
 def run_agent(system: str, user: str, tools: list[BaseTool], tool_impls: dict[str, BaseTool], *,
-              terminal_tool: str | None = None, effort: str = config.EFFORT_FAST,
-              max_steps: int = 8) -> dict:
+              terminal_tool: str | None = None, max_steps: int = 8) -> dict:
     """모델은 도구 호출만, 실행은 코드. 정지조건 2개(모델 최종답 / max_steps)."""
-    llm = _get_llm(effort, 4096).bind_tools(tools)
+    llm = _get_llm(None, 4096).bind_tools(tools)       # 도구 바인딩 → reasoning_effort 미지원
     messages: list[BaseMessage] = [SystemMessage(content=system), HumanMessage(content=user)]
     for step in range(max_steps):                      # 정지조건②: 코드 안전장치
         logger.info("agent step %d/%d", step + 1, max_steps)
@@ -75,13 +79,13 @@ def run_agent(system: str, user: str, tools: list[BaseTool], tool_impls: dict[st
 
 T = TypeVar("T", bound=BaseModel)
 
-def structured_call(system: str, user: str, model_cls: type[T], *, effort: str = config.EFFORT_FAST) -> T:
+def structured_call(system: str, user: str, model_cls: type[T]) -> T:
     """단발 구조화 출력 (LangChain with_structured_output).
 
     method='function_calling': OpenAI strict json_schema 는 동적 키(dict[str, ...] 등
     additionalProperties) 스키마를 거부하므로, 더 관용적인 function calling 방식을 쓴다.
     """
-    llm = _get_llm(effort, 2048).with_structured_output(model_cls, method="function_calling")
+    llm = _get_llm(None, 2048).with_structured_output(model_cls, method="function_calling")  # function tool → effort 미지원
     parsed = llm.invoke([SystemMessage(content=system), HumanMessage(content=user)])
     if parsed is None:
         raise RuntimeError("structured output 실패 (parsed=None)")

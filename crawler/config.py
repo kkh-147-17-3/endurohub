@@ -17,7 +17,6 @@ def _load_env() -> None:
 _load_env()
 
 MODEL: str = os.environ.get("CRAWLER_MODEL", "gpt-5.4-nano")
-EFFORT_DISCOVERY: str = "medium"       # 탐색은 약간의 추론 필요
-EFFORT_FAST: str = "low"               # 추출/평가/vision — 빠르고 싸게
+EFFORT_FAST: str = "low"               # vision(비도구 호출)용 reasoning_effort
 TARGET_FIELDS: list[str] = ["name", "date", "location", "reg_open", "reg_close", "register_url", "fee"]
 STORE_DIR: Path = Path(os.environ.get("CRAWLER_STORE", Path(__file__).resolve().parent / "store"))
