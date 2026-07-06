@@ -4,12 +4,12 @@
 </script>
 
 <script lang="ts">
-    import { page } from '$app/stores';
+    import { page } from '$app/state';
     import { goto } from '$app/navigation';
     import ReviewForm from '$lib/components/ReviewForm.svelte';
-    import { Badge, Button } from '$lib/components/eh';
+    import { Badge, Button, FilterChip } from '$lib/components/eh';
     import { dsBadgeStatus, SPORT_META, dsSport } from '$lib/components/eh/meta';
-    import type { Race, Review, ReviewStats, Distance, FavoriteToggleResponse } from '$lib/types';
+    import type { Race, Review, ReviewStats, Distance, FavoriteToggleResponse, SeasonRecord } from '$lib/types';
     import { formatDateFull, formatDateDay, formatDateShort, formatDistanceToNow } from '$lib/date';
     import {
         arenaDday,
@@ -36,6 +36,7 @@
     const reviews: Review[] = $derived(data.reviews);
     const reviewStats: ReviewStats = $derived(data.reviewStats);
     const hasReviewed: boolean = $derived(data.hasReviewed);
+    const seasonRecords: SeasonRecord[] = $derived(data.seasonRecords ?? []);
 
     const appUrl = $derived(data.appUrl || 'https://www.endurohub.kr');
     const kakaoJsKey = $derived(data.kakaoJsKey as string);
@@ -500,6 +501,62 @@
     const descNeedsClamp = $derived(descBody.replace(/<[^>]+>/g, '').length > 140);
     const hasOverview = $derived(!!descBody || overviewRows.length > 0);
 
+    // ── 시즌 기록 ─────────────────────────────────────────
+    let recCourse = $state('전체');
+    let recSort = $state<'기록순' | '최신순'>('기록순');
+    const recSortOpts: Array<'기록순' | '최신순'> = ['기록순', '최신순'];
+    $effect(() => {
+        race.slug;
+        recCourse = '전체';
+        recSort = '기록순';
+    });
+
+    const recCourseOpts = $derived.by<string[]>(() => {
+        const names = distanceList.map((d) => d.name).filter(Boolean);
+        return ['전체', ...names];
+    });
+
+    const recRows = $derived.by<SeasonRecord[]>(() => {
+        const rows =
+            recCourse === '전체'
+                ? [...seasonRecords]
+                : seasonRecords.filter((r) => r.courseLabel === recCourse);
+        rows.sort(
+            recSort === '기록순'
+                ? (a, b) => a.durationSeconds - b.durationSeconds
+                : (a, b) => (b.date ?? '').localeCompare(a.date ?? ''),
+        );
+        return rows;
+    });
+    const recMine = $derived(recRows.find((r) => r.me) ?? null);
+    const recOthers = $derived(recRows.filter((r) => !r.me));
+    const recDisplay = $derived(recMine ? [recMine, ...recOthers] : recOthers);
+    const hasMyRecord = $derived(seasonRecords.some((r) => r.me));
+
+    /** "1:24:37" / "41:56" from seconds. */
+    function fmtDur(secs: number): string {
+        const s = Math.round(secs);
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const ss = s % 60;
+        const pad = (n: number) => String(n).padStart(2, '0');
+        return h > 0 ? `${h}:${pad(m)}:${pad(ss)}` : `${m}:${pad(ss)}`;
+    }
+    const recBest = $derived(
+        recRows.length ? fmtDur(Math.min(...recRows.map((r) => r.durationSeconds))) : '—',
+    );
+    const recAvg = $derived(
+        recRows.length
+            ? fmtDur(recRows.reduce((a, r) => a + r.durationSeconds, 0) / recRows.length)
+            : '—',
+    );
+    const seasonYear = $derived(race.raceDate ? race.raceDate.slice(0, 4) : '');
+    const recAux = $derived(
+        seasonRecords.length > 0
+            ? `${recRows.length} RECORDS${seasonYear ? ` · ${seasonYear} SEASON` : ''}`
+            : '0 RECORDS',
+    );
+
     // ── related races (flattened, deduped) ───────────────
     const relatedFlat = $derived.by<Race[]>(() => {
         const seen = new Set<number>();
@@ -537,6 +594,7 @@
                 label: '구성품',
                 show: !!race.giveaways?.length || !!race.giveawayImageSrcs?.length,
             },
+            { id: 'records', label: '시즌 기록', show: true },
             { id: 'reviews', label: '후기', show: true },
             { id: 'related', label: '연관 대회', show: relatedFlat.length > 0 },
         ];
@@ -872,6 +930,103 @@
                     {/if}
                 </section>
             {/if}
+
+            <!-- 시즌 기록 -->
+            <section id="records" class="rd-sec">
+                {@render sechead(secN('records'), '시즌 기록', recAux)}
+                {#if seasonRecords.length === 0}
+                    <div class="rd-rec-empty">
+                        <p class="rd-rec-empty__t">아직 등록된 기록이 없습니다</p>
+                        <p class="rd-rec-empty__s">
+                            기록은 시즌 타임라인에서 입력하거나, 리뷰 작성 시 함께 남길 수 있습니다
+                        </p>
+                        <div class="rd-rec-empty__btns">
+                            {#if !hasReviewed}
+                                <Button variant="primary" size="md" onclick={() => (reviewModalOpen = true)}>
+                                    리뷰 작성하기 →
+                                </Button>
+                            {/if}
+                            <Button variant="secondary" size="md" href="/timeline">시즌 탭에서 입력 →</Button>
+                        </div>
+                    </div>
+                {:else}
+                    <div class="rd-rec-stats">
+                        <div class="rd-rec-stat">
+                            <div class="rd-rec-stat__k">RECORDS</div>
+                            <div class="rd-rec-stat__v eh-data">{recRows.length}<small> 건</small></div>
+                        </div>
+                        <div class="rd-rec-stat rd-rec-stat--best">
+                            <div class="rd-rec-stat__k">BEST</div>
+                            <div class="rd-rec-stat__v eh-data">{recBest}</div>
+                        </div>
+                        <div class="rd-rec-stat">
+                            <div class="rd-rec-stat__k">AVG FINISH</div>
+                            <div class="rd-rec-stat__v eh-data">{recAvg}</div>
+                        </div>
+                    </div>
+                    <div class="rd-rec-filters">
+                        {#each recCourseOpts as c (c)}
+                            <FilterChip selected={recCourse === c} onclick={() => (recCourse = c)}>
+                                {c === '전체' ? c : c.toUpperCase()}
+                            </FilterChip>
+                        {/each}
+                        <span class="rd-rec-sortsep">
+                            {#each recSortOpts as s (s)}
+                                <button
+                                    type="button"
+                                    class="rd-rec-sort"
+                                    class:rd-rec-sort--on={recSort === s}
+                                    onclick={() => (recSort = s)}
+                                >
+                                    {s}
+                                </button>
+                            {/each}
+                        </span>
+                    </div>
+                    {#if !hasMyRecord}
+                        <div class="rd-rec-tblnote" style="margin-top: 12px;">
+                            <span class="eh-micro rd-rec-tblnote__k">MY RECORD</span>
+                            <span>관심 추가한 대회는 <a href="/timeline">시즌 탭</a>에서 기록을 입력할 수 있습니다.</span>
+                        </div>
+                    {/if}
+                    <div class="v-table" style="margin-top: 12px;">
+                        <div class="v-thead rd-rec-row">
+                            <span>#</span>
+                            <span>러너</span>
+                            <span class="rd-hide-m">종목</span>
+                            <span>TIME</span>
+                            <span class="rd-hide-m">PACE</span>
+                            <span style="text-align: right;">DATE</span>
+                        </div>
+                        {#if recDisplay.length === 0}
+                            <div class="rd-rec-tblnote"><span>선택한 종목의 기록이 아직 없습니다.</span></div>
+                        {:else}
+                            {#each recDisplay as r (r.nickname + r.courseLabel + r.time)}
+                                <div class="v-trow rd-rec-row" class:rd-rec-row--me={r.me}>
+                                    <span class="rd-rec-rank eh-data">
+                                        {r.me ? '—' : String(recOthers.indexOf(r) + 1).padStart(2, '0')}
+                                    </span>
+                                    <span class="rd-rec-runner">
+                                        <span class="rd-rec-runner__nm">{r.nickname}</span>
+                                        {#if r.me}<span class="rd-rec-runner__tag">MY RECORD</span>{/if}
+                                    </span>
+                                    <span class="rd-rec-crs eh-data rd-hide-m">{r.courseLabel.toUpperCase()}</span>
+                                    <span class="rd-rec-time eh-data">{r.time}</span>
+                                    <span class="rd-rec-pace eh-data rd-hide-m">{r.pace ? `${r.pace} /km` : '—'}</span>
+                                    <span class="rd-rec-date eh-data">{r.date ? formatDateShort(r.date) : '—'}</span>
+                                </div>
+                            {/each}
+                        {/if}
+                    </div>
+                    <p class="rd-rec-note">
+                        기록은 참가자가 직접 등록한 값이며 공식 기록과 다를 수 있습니다. 기록 입력은
+                        <a href="/timeline">시즌 탭 →</a>
+                        {#if !hasReviewed}
+                            또는 <button class="rd-rec-note__btn" onclick={() => (reviewModalOpen = true)}>리뷰 작성 →</button>
+                        {/if}
+                    </p>
+                {/if}
+            </section>
 
             <!-- 후기 -->
             <section id="reviews" class="rd-sec">
@@ -1521,6 +1676,142 @@
         padding: 14px 16px;
         font-size: 14px;
         font-weight: 500;
+    }
+
+    /* 시즌 기록 */
+    .rd-rec-stats {
+        display: flex;
+        flex-wrap: wrap;
+        margin-top: 16px;
+        border-top: var(--border-rule);
+        border-bottom: var(--border-hair);
+    }
+    .rd-rec-stat {
+        flex: 1;
+        min-width: 130px;
+        padding: 16px 18px 18px;
+        border-left: var(--border-hair);
+    }
+    .rd-rec-stat:first-child { border-left: 0; padding-left: 0; }
+    .rd-rec-stat__k {
+        font-size: var(--text-micro);
+        font-weight: 600;
+        letter-spacing: var(--track-micro);
+        text-transform: uppercase;
+        color: var(--text-faint);
+        white-space: nowrap;
+    }
+    .rd-rec-stat__v {
+        font-size: 26px;
+        font-weight: 800;
+        letter-spacing: -0.025em;
+        line-height: 1.05;
+        margin-top: 7px;
+        white-space: nowrap;
+    }
+    .rd-rec-stat__v small { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+    .rd-rec-stat--best .rd-rec-stat__v { color: var(--text-accent); }
+
+    .rd-rec-filters {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        flex-wrap: wrap;
+        margin-top: 18px;
+    }
+    .rd-rec-sortsep { margin-left: auto; display: flex; gap: 4px; align-items: center; }
+    .rd-rec-sort {
+        border: 0;
+        background: none;
+        padding: 6px 8px;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--text-faint);
+        cursor: pointer;
+        transition: color var(--dur-fast) var(--ease-out);
+    }
+    .rd-rec-sort:hover { color: var(--text-strong); }
+    .rd-rec-sort--on { color: var(--text-strong); text-decoration: underline; text-underline-offset: 3px; }
+
+    .rd-rec-tblnote {
+        display: flex;
+        gap: 10px;
+        align-items: baseline;
+        padding: 12px 18px;
+        border-top: var(--border-hair);
+        font-size: 13px;
+        color: var(--text-muted);
+        background: var(--paper-50);
+    }
+    .rd-rec-tblnote__k { color: var(--text-faint); }
+    .rd-rec-tblnote a { color: var(--text-strong); font-weight: 600; }
+
+    .rd-rec-row {
+        grid-template-columns: 34px minmax(120px, 1fr) 100px 112px 96px 76px;
+        gap: 12px;
+        align-items: baseline;
+    }
+    .rd-rec-rank { font-size: 12px; font-weight: 700; color: var(--text-faint); }
+    .rd-rec-runner {
+        font-weight: 600;
+        font-size: 14px;
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        min-width: 0;
+    }
+    .rd-rec-runner__nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rd-rec-runner__tag {
+        flex: none;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        color: var(--text-accent);
+    }
+    .rd-rec-crs { font-size: 13px; color: var(--text-muted); }
+    .rd-rec-time { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; }
+    .rd-rec-pace { font-size: 13px; color: var(--text-muted); }
+    .rd-rec-date { font-size: 12.5px; color: var(--text-faint); text-align: right; }
+    .v-trow.rd-rec-row--me { background: var(--paper-50); box-shadow: inset 2px 0 0 var(--accent); }
+
+    .rd-rec-note { margin-top: 12px; font-size: 12.5px; color: var(--text-faint); }
+    .rd-rec-note a,
+    .rd-rec-note__btn {
+        color: var(--text-muted);
+        font-weight: 600;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+    }
+    .rd-rec-note__btn {
+        border: 0;
+        background: none;
+        padding: 0;
+        font-size: inherit;
+        cursor: pointer;
+    }
+    .rd-rec-note a:hover,
+    .rd-rec-note__btn:hover { color: var(--text-strong); }
+
+    .rd-rec-empty {
+        border: var(--border-hair);
+        background: var(--paper-50);
+        padding: 40px 24px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        margin-top: 16px;
+    }
+    .rd-rec-empty__t { font-size: 15px; font-weight: 700; margin: 0; }
+    .rd-rec-empty__s { font-size: 13.5px; color: var(--text-muted); margin: 0; }
+    .rd-rec-empty__btns { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; justify-content: center; }
+
+    @media (max-width: 768px) {
+        .rd-rec-row { grid-template-columns: 24px minmax(0, 1fr) 96px 68px; }
+        .rd-rec-time { font-size: 17px; }
+        .rd-rec-stat { min-width: 104px; padding: 13px 12px 14px; }
+        .rd-rec-stat__v { font-size: 21px; }
     }
 
     /* reviews */

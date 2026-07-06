@@ -348,6 +348,22 @@ export interface RaceListResponse extends PaginatedResponse<Race> {
 	};
 }
 
+/** 시즌 기록 — 대회에 연결된 공개 완주 기록 한 건. */
+export interface SeasonRecord {
+	nickname: string;
+	courseCode: string;
+	courseLabel: string;
+	/** "1:24:37" 또는 "41:56" */
+	time: string;
+	/** "4'01\"" — 코스 거리를 알 수 없으면 빈 문자열 */
+	pace: string;
+	/** ISO 날짜 문자열 (없으면 null) */
+	date: string | null;
+	durationSeconds: number;
+	/** 현재 로그인 사용자의 기록 여부 */
+	me: boolean;
+}
+
 export interface RaceDetailResponse {
 	race: Race;
 	relatedRaces: Race[];
@@ -355,6 +371,7 @@ export interface RaceDetailResponse {
 	reviews: Review[];
 	reviewStats: ReviewStats;
 	hasReviewed: boolean;
+	seasonRecords: SeasonRecord[];
 }
 
 export interface RaceYearlyResponse {

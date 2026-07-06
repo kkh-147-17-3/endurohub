@@ -7,6 +7,7 @@ from datetime import date, datetime, timedelta
 
 from django.conf import settings
 from django.core.cache import cache
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Avg, Count, F, Q
 from core.utils import post_count_subqueries
 from django.utils import timezone
@@ -559,6 +560,9 @@ class RaceDetailView(APIView):
         ip_hash = hash_ip(request)
         has_reviewed = Review.objects.filter(race=race, ip_hash=ip_hash).exists()
 
+        # Season records (공개 완주 기록 + 내 기록)
+        season_records = self._season_records(race, request)
+
         related_race_ids = [race.id]
         for slot in related_race_slots:
             related_race_ids.extend(r.id for r in slot['races'])
@@ -586,7 +590,57 @@ class RaceDetailView(APIView):
                 'difficultyDistribution': difficulty_dist,
             },
             'hasReviewed': has_reviewed,
+            'seasonRecords': season_records,
         })
+
+    def _season_records(self, race, request):
+        """이 대회의 공개 완주 기록 목록. 로그인 사용자의 기록은 비공개여도 me로 포함."""
+        from accounts.models import RaceRecord
+
+        user = request.user if request.user.is_authenticated else None
+        records = RaceRecord.objects.filter(race=race).select_related('user__profile')
+        out = []
+        for rec in records:
+            is_me = user is not None and rec.user_id == user.id
+            if not rec.is_public and not is_me:
+                continue
+            total = rec.duration_seconds or 0
+            hours, rem = divmod(total, 3600)
+            minutes, seconds = divmod(rem, 60)
+            time = f'{hours}:{minutes:02d}:{seconds:02d}' if hours else f'{minutes}:{seconds:02d}'
+            pace = ''
+            km = self._course_km(race, rec.course_code)
+            if km and total:
+                per_km = int(round(total / km))
+                pm, ps = divmod(per_km, 60)
+                pace = f'{pm}\'{ps:02d}"'
+            try:
+                nickname = rec.user.profile.nickname or ''
+            except ObjectDoesNotExist:
+                nickname = ''
+            out.append({
+                'nickname': nickname or '러너',
+                'courseCode': rec.course_code,
+                'courseLabel': rec.distance,
+                'time': time,
+                'pace': pace,
+                'date': rec.record_date or None,
+                'durationSeconds': total,
+                'me': is_me,
+            })
+        out.sort(key=lambda r: r['durationSeconds'])
+        return out
+
+    def _course_km(self, race, code):
+        from accounts.serializers import course_code_for
+        if not code:
+            return None
+        for d in race.distances or []:
+            if isinstance(d, dict) and course_code_for(d) == code:
+                meters = d.get('distance_meter')
+                if meters and meters > 0:
+                    return meters / 1000
+        return None
 
     def _get_related_races(self, race, request=None):
         from datetime import timedelta
