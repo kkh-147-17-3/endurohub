@@ -2,6 +2,10 @@ FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+# opentelemetry-instrument 가 wsgi/celery 임포트 전에 Django 계측을 초기화하므로
+# DJANGO_SETTINGS_MODULE 이 환경변수로 미리 존재해야 한다. 없으면 settings 가
+# 빈 UserSettingsHolder 로 굳어 ROOT_URLCONF 누락 → 모든 요청 500.
+ENV DJANGO_SETTINGS_MODULE=config.settings
 
 WORKDIR /app
 

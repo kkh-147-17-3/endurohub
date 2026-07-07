@@ -27,6 +27,10 @@ services:
       # Grafana 알림 프로비저닝(contact point/policy/rules). alerting 서브디렉터리만 마운트해
       # 이미지 기본 datasource/dashboard provisioning 은 건드리지 않는다.
       - ./monitoring/grafana/provisioning/alerting:/otel-lgtm/grafana/conf/provisioning/alerting:ro
+      # 커스텀 대시보드 프로바이더 + JSON. 이미지 기본 dashboard provider 와 공존하도록
+      # provider 파일 1개만 추가 마운트하고, JSON 은 별도 경로에서 로드한다.
+      - ./monitoring/grafana/provisioning/dashboards/endurohub.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/endurohub.yaml:ro
+      - ./monitoring/grafana/dashboards:/etc/grafana-dashboards-endurohub:ro
     restart: unless-stopped
 
   # nginx JSON access log → Loki 수집기. 앱 로그는 OTLP 로 직접 전송하므로 nginx 전용.
@@ -47,7 +51,17 @@ services:
     mem_limit: 512m
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
     # docker.sock 접근 권한(root:docker, 660). 소켓 마운트 자체가 root 권한급이므로 동일 신뢰수준.
-    user: root
+    # distroless 이미지라 /etc/passwd 가 없어 이름("root") 해석 불가 → 숫자 UID:GID 로 지정.
+    user: "0:0"
+    environment:
+      # redis receiver 인증용 — 앱 compose 와 동일한 기본값/주입 방식.
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-***REMOVED***}
+      # postgresql receiver 인증용 — 앱 compose 와 동일한 주입 방식.
+      DATABASE_USER: ${DATABASE_USER:-postgres}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:?DATABASE_PASSWORD is required}
+    # 호스트에서 도는 Redis 에 host.docker.internal 로 접근(앱 컨테이너들과 동일).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./monitoring/otelcol-config.yaml:/etc/otelcol-contrib/config.yaml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro

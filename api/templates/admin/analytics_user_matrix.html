@@ -1,0 +1,52 @@
+{% load i18n %}
+<section style="margin-bottom:28px; background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px; overflow:hidden;">
+    <div style="display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
+        <div>
+            <h2 style="margin:0; font-size:16px; font-weight:700; color:#111827;">회원별 일간 이벤트</h2>
+            <p style="margin:4px 0 0; font-size:12px; color:#6b7280;">
+                최근 {{ window_days }}일 · {{ start_date|date:"n.j" }} ~ {{ end_date|date:"n.j" }}
+                · 로그인 사용자 {{ user_count }}명 · 총 {{ grand_total }}건
+            </p>
+        </div>
+    </div>
+
+    {% if rows %}
+    <div style="overflow-x:auto;">
+        <table style="border-collapse:collapse; width:100%; font-size:12px; min-width:640px;">
+            <thead>
+                <tr>
+                    <th style="position:sticky; left:0; background:#fff; text-align:left; padding:6px 10px; border-bottom:2px solid #e5e7eb; color:#6b7280; font-weight:600; z-index:1;">사용자</th>
+                    {% for d in days %}
+                    <th style="padding:6px 4px; border-bottom:2px solid #e5e7eb; color:#6b7280; font-weight:600; text-align:center; white-space:nowrap;">{{ d|date:"j" }}<br><span style="font-size:10px; color:#9ca3af;">{{ d|date:"D" }}</span></th>
+                    {% endfor %}
+                    <th style="padding:6px 10px; border-bottom:2px solid #e5e7eb; color:#374151; font-weight:700; text-align:right;">합계</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    <td style="position:sticky; left:0; background:#fff; padding:6px 10px; border-bottom:1px solid #f3f4f6; white-space:nowrap; max-width:200px; overflow:hidden; text-overflow:ellipsis;">
+                        {% if row.url %}<a href="{{ row.url }}" style="color:#2563eb; text-decoration:none;">{{ row.label }}</a>{% else %}{{ row.label }}{% endif %}
+                    </td>
+                    {% for cell in row.cells %}
+                    <td style="padding:5px 4px; border-bottom:1px solid #f3f4f6; text-align:center; background:{{ cell.bg }}; color:{{ cell.fg }}; font-variant-numeric:tabular-nums;">{% if cell.count %}{{ cell.count }}{% else %}·{% endif %}</td>
+                    {% endfor %}
+                    <td style="padding:5px 10px; border-bottom:1px solid #f3f4f6; text-align:right; font-weight:700; color:#111827;">{{ row.total }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td style="position:sticky; left:0; background:#f9fafb; padding:6px 10px; font-weight:700; color:#6b7280;">일별 합계</td>
+                    {% for t in col_totals %}
+                    <td style="padding:6px 4px; text-align:center; background:#f9fafb; color:#374151; font-weight:600;">{{ t }}</td>
+                    {% endfor %}
+                    <td style="padding:6px 10px; text-align:right; background:#f9fafb; font-weight:800; color:#111827;">{{ grand_total }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    {% else %}
+    <p style="margin:8px 0 0; font-size:13px; color:#9ca3af;">최근 {{ window_days }}일간 로그인 사용자의 이벤트 기록이 없습니다.</p>
+    {% endif %}
+</section>

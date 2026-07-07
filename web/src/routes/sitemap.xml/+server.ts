@@ -19,12 +19,9 @@ export const GET: RequestHandler = async () => {
 		urls.push(entry(baseUrl, `/calendar?month=${cm.month}&year=${cm.year}`, 'weekly', '0.6'));
 	}
 
-	// Sport category pages
-	urls.push(entry(baseUrl, '/running', 'daily', '0.8'));
-	urls.push(entry(baseUrl, '/swimming', 'daily', '0.8'));
-	urls.push(entry(baseUrl, '/cycling', 'daily', '0.8'));
-	urls.push(entry(baseUrl, '/triathlon', 'daily', '0.8'));
-	urls.push(entry(baseUrl, '/trail-running', 'daily', '0.8'));
+	// NOTE: /running, /swimming, /cycling, /triathlon, /trail-running are intentionally
+	// excluded — they 301-redirect to /races?sport=X, and sitemaps must list final
+	// (200) canonical URLs, not redirects.
 
 	// Tool pages
 	urls.push(entry(baseUrl, '/tools', 'monthly', '0.8'));
@@ -36,15 +33,16 @@ export const GET: RequestHandler = async () => {
 
 	// Info pages
 	urls.push(entry(baseUrl, '/about', 'monthly', '0.5'));
-	urls.push(entry(baseUrl, '/privacy', 'monthly', '0.3'));
+	// /privacy is excluded — the page sets <meta name="robots" content="noindex">,
+	// so listing it in the sitemap would be contradictory.
 
 	// Race detail pages
 	for (const race of data.races) {
 		urls.push(entry(baseUrl, `/races/${race.slug}`, 'weekly', '0.7', race.updatedAt));
 	}
 
-	// Posts list
-	urls.push(entry(baseUrl, '/posts', 'daily', '0.8'));
+	// Community feed (/posts 301-redirects here, so list the canonical /community)
+	urls.push(entry(baseUrl, '/community', 'daily', '0.8'));
 
 	// Post detail pages
 	for (const post of data.posts) {
@@ -73,13 +71,23 @@ function entry(
 ): string {
 	const loc = `${baseUrl}${path}`;
 	let xml = `  <url>\n    <loc>${escapeXml(loc)}</loc>`;
-	if (lastmod) {
-		xml += `\n    <lastmod>${lastmod}</lastmod>`;
+	const lastmodValue = formatLastmod(lastmod);
+	if (lastmodValue) {
+		xml += `\n    <lastmod>${lastmodValue}</lastmod>`;
 	}
 	xml += `\n    <changefreq>${changefreq}</changefreq>`;
 	xml += `\n    <priority>${priority}</priority>`;
 	xml += `\n  </url>`;
 	return xml;
+}
+
+// Google Search Console rejects lastmod values with sub-second precision
+// (e.g. "2026-06-27T12:34:56.789012Z"). Normalize to W3C date format (YYYY-MM-DD).
+function formatLastmod(value?: string): string | null {
+	if (!value) return null;
+	const date = new Date(value);
+	if (isNaN(date.getTime())) return null;
+	return date.toISOString().slice(0, 10);
 }
 
 function escapeXml(str: string): string {

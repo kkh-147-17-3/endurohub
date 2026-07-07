@@ -1,8 +1,28 @@
 # OpenTelemetry Collector — 컨테이너 + 호스트 리소스 메트릭 수집기.
 #  - docker_stats: 컨테이너별 CPU/메모리/네트워크/블록IO (Docker 소켓)
 #  - hostmetrics : 호스트 디스크 사용량(파일시스템) — 디스크 풀 → 앱 다운 위험 자동 감지
-# 둘 다 OTLP 로 lgtm 에 전송한다.
+#  - redis       : 호스트 Redis 의 INFO(메모리/연결/명령/hit-miss 등) — OTLP 로 변환
+#  - postgresql  : 호스트 PostgreSQL 서버 메트릭(연결/트랜잭션/캐시 hit/용량 등) — OTLP 로 변환
+# 모두 OTLP 로 lgtm 에 전송한다.
 receivers:
+  # 호스트에서 도는 Redis(앱과 동일하게 host.docker.internal 로 접근)를 주기적으로 INFO 스크랩.
+  # 비밀번호는 compose 에서 REDIS_PASSWORD 환경변수로 주입한다.
+  redis:
+    endpoint: "host.docker.internal:6379"
+    password: "${env:REDIS_PASSWORD}"
+    collection_interval: 15s
+
+  # 호스트 PostgreSQL 의 서버 통계(pg_stat_*)를 주기적으로 수집.
+  # 자격증명은 compose 에서 DATABASE_USER/DATABASE_PASSWORD 환경변수로 주입.
+  postgresql:
+    endpoint: "host.docker.internal:5432"
+    username: "${env:DATABASE_USER}"
+    password: "${env:DATABASE_PASSWORD}"
+    databases: [endurohub]
+    tls:
+      insecure: true   # 호스트 내부 연결 — TLS 미사용.
+    collection_interval: 30s
+
   docker_stats:
     endpoint: unix:///var/run/docker.sock
     collection_interval: 15s
@@ -31,7 +51,7 @@ exporters:
 service:
   pipelines:
     metrics:
-      receivers: [docker_stats, hostmetrics]
+      receivers: [docker_stats, hostmetrics, redis, postgresql]
       processors: [batch]
       exporters: [otlphttp]
   telemetry:

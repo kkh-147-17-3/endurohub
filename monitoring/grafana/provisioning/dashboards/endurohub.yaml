@@ -1,0 +1,16 @@
+# EnduroHub 커스텀 대시보드 프로비저닝 프로바이더.
+# 이미지 기본 provider(grafana-dashboards.yaml/sample.yaml)는 건드리지 않고 추가만 한다.
+# path 의 JSON 들을 "EnduroHub" 폴더로 로드한다.
+apiVersion: 1
+
+providers:
+  - name: endurohub
+    orgId: 1
+    folder: EnduroHub
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana-dashboards-endurohub
+      foldersFromFilesStructure: false

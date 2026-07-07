@@ -1,27 +1,43 @@
+# robots.txt for endurohub.kr
+# 정책: AI "학습"에서는 제외, AI "검색/참조"는 허용
+# 검색 인덱싱 봇(Googlebot, Bingbot, 네이버 Yeti)과
+# AI 검색·인용 봇(OAI-SearchBot, Claude-SearchBot, PerplexityBot, Applebot 등)은
+# 아래에서 막지 않으므로 기본값(Allow)으로 전부 허용됩니다.
+
 User-agent: *
 Allow: /
 
+# ── 여기서부터 "학습 데이터 수집" 목적 봇/토큰만 차단 ──
+
+# OpenAI (학습) — OAI-SearchBot / ChatGPT-User 는 일부러 안 막음
 User-agent: GPTBot
 Disallow: /
 
-User-agent: ChatGPT-User
+# Anthropic (학습) — Claude-SearchBot / Claude-User 는 일부러 안 막음
+User-agent: ClaudeBot
 Disallow: /
 
+# Google (Gemini/Vertex 학습 opt-out 토큰) — Googlebot/검색엔 영향 없음
 User-agent: Google-Extended
 Disallow: /
 
+# Apple (Apple Intelligence 학습 opt-out 토큰) — Applebot(검색)은 안 막음
+User-agent: Applebot-Extended
+Disallow: /
+
+# Meta (Llama 학습 크롤러) — 링크 미리보기 봇은 안 막음 (아래 설명)
+User-agent: Meta-ExternalAgent
+Disallow: /
+
+# Common Crawl (다수 학습 파이프라인의 원천 데이터)
 User-agent: CCBot
 Disallow: /
 
-User-agent: anthropic-ai
-Disallow: /
-
-User-agent: Claude-Web
-Disallow: /
-
+# ByteDance — robots.txt 잘 무시함 (아래 설명)
 User-agent: Bytespider
 Disallow: /
 
+# Cohere (학습)
 User-agent: cohere-ai
 Disallow: /
 

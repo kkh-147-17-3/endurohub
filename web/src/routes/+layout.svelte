@@ -21,6 +21,24 @@
     let user = $derived(data.user);
     let currentPath = $derived($page.url.pathname);
 
+    // Canonical URL must include indexing-significant query params (e.g. calendar
+    // year/month) — otherwise every /calendar?year=&month= page canonicalizes to
+    // bare /calendar and Google drops them as "alternate page with proper canonical".
+    // Tracking params (utm_*, fbclid, …) are intentionally excluded. Keys are emitted
+    // in a fixed (alphabetical) order so the canonical matches the sitemap exactly.
+    const INDEXABLE_PARAMS = ['month', 'year'];
+    let canonicalPath = $derived(buildCanonicalPath($page.url));
+
+    function buildCanonicalPath(url: URL): string {
+        const params = new URLSearchParams();
+        for (const key of INDEXABLE_PARAMS) {
+            const value = url.searchParams.get(key);
+            if (value) params.set(key, value);
+        }
+        const qs = params.toString();
+        return qs ? `${url.pathname}?${qs}` : url.pathname;
+    }
+
     // Full-bleed routes render their own chrome (e.g. the split-screen login).
     const BARE_ROUTES = new Set(['/auth/login']);
     let bare = $derived(BARE_ROUTES.has(currentPath));
@@ -154,10 +172,10 @@
 
 <svelte:head>
     <meta property="og:site_name" content="endurohub" />
-    <meta property="og:url" content="{data.appUrl}{currentPath}" />
+    <meta property="og:url" content="{data.appUrl}{canonicalPath}" />
     <meta property="og:locale" content="ko_KR" />
     <meta name="twitter:card" content="summary_large_image" />
-    <link rel="canonical" href="{data.appUrl}{currentPath}" />
+    <link rel="canonical" href="{data.appUrl}{canonicalPath}" />
     {#if googleAnalyticsId}
         <script async src="https://www.googletagmanager.com/gtag/js?id={googleAnalyticsId}"></script>
         {@html `<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${googleAnalyticsId}');</script>`}

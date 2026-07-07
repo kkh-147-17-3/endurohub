@@ -167,6 +167,7 @@ services:
       - api_static:/var/www/static:ro
       - api_media:/var/www/media:ro
       - nginx_logs:/var/log/nginx
+      - /home/kkh/public:/var/www/cdn:ro
     ports:
       - "80:80"
       - "443:443"
