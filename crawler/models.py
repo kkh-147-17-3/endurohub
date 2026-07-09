@@ -47,6 +47,19 @@ class Verdict(BaseModel):
     issues: str = ""
 
 
-# future annotations 하에서 중첩 포워드레퍼런스(FieldSpec)를 미리 확정해 둔다.
+class DistanceFee(BaseModel):
+    """대회 종목 하나 — 페이지 원문 표기 그대로의 이름 + 참가비(원)."""
+    name: str
+    fee: int | None = None
+
+
+class EnrichExtraction(BaseModel):
+    """보강(enrich) 추출 결과 — 페이지에서 확인 못 한 필드는 None."""
+    distances: list[DistanceFee] | None = None
+    giveaways: list[str] | None = None
+
+
+# future annotations 하에서 중첩 포워드레퍼런스(FieldSpec 등)를 미리 확정해 둔다.
 DiscoveredRecipe.model_rebuild()
 ExtractionRecipe.model_rebuild()
+EnrichExtraction.model_rebuild()

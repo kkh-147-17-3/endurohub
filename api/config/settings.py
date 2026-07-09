@@ -248,6 +248,16 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'races.tasks.fetch_weather_task',
         'schedule': crontab(hour=6, minute=30),  # Daily 6:30 AM KST
     },
+    'update-registration-status-daily': {
+        'task': 'races.tasks.update_registration_status_task',
+        'schedule': crontab(hour=12, minute=0),  # Daily noon KST
+    },
+    # 이름으로만 발행 — 태스크 구현은 crawler-worker 컨테이너(crawler/celery_app.py)에 있다
+    'crawler-enrich-daily': {
+        'task': 'crawler.enrich',
+        'schedule': crontab(hour=8, minute=0),  # Daily 8AM KST
+        'options': {'queue': 'crawler'},
+    },
 }
 
 # Logging

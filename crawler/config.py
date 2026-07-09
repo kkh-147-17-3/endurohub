@@ -20,3 +20,7 @@ MODEL: str = os.environ.get("CRAWLER_MODEL", "gpt-5.4-nano")
 EFFORT_FAST: str = "low"               # vision(비도구 호출)용 reasoning_effort
 TARGET_FIELDS: list[str] = ["name", "date", "location", "reg_open", "reg_close", "register_url", "fee"]
 STORE_DIR: Path = Path(os.environ.get("CRAWLER_STORE", Path(__file__).resolve().parent / "store"))
+
+# 보강(enrich) 잡 — Django admin API 연동 (크롤러는 ORM 대신 HTTP로만 통신)
+API_BASE: str = os.environ.get("CRAWLER_API_BASE", "http://localhost:8000")
+ADMIN_SECRET: str = os.environ.get("ADMIN_SECRET", "")

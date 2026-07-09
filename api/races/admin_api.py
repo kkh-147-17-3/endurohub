@@ -3,8 +3,11 @@
 Auth: `Authorization: Bearer <ADMIN_SECRET>`. The SvelteKit `/admin` UI
 proxies browser requests through its own server endpoints, validates the
 `admin_token` cookie, then forwards here with the bearer header.
+크롤러(crawler-worker)도 같은 bearer 인증으로 이 API를 사용한다.
 """
 from django.conf import settings
+from django.db.models import Q
+from django.utils import timezone
 from rest_framework import serializers as drf_serializers
 from rest_framework import status
 from rest_framework.permissions import BasePermission
@@ -93,6 +96,70 @@ class RaceAdminListView(APIView):
             'page': page,
             'per_page': per_page,
         })
+
+
+def _missing_enrich_fields(race):
+    """보강(enrich) 크롤러가 채울 수 있는 누락 필드 목록. locked_fields 는 제외."""
+    locked = set(race.locked_fields or [])
+    missing = []
+    if 'distances' not in locked:
+        if not Race.distance_names(race.distances):
+            missing.append('distances')
+        elif not any(isinstance(d, dict) and d.get('fee') is not None
+                     for d in race.distances):
+            missing.append('fee')
+    if not race.giveaways and 'giveaways' not in locked:
+        missing.append('giveaways')
+    if (not race.course_images and not race.course_image_uploads
+            and 'course_images' not in locked):
+        missing.append('course_images')
+    return missing
+
+
+class RaceAdminEnrichTargetsView(APIView):
+    """보강 크롤러용 — 아직 안 끝났고 URL이 있으며 누락 필드가 있는 대회 목록."""
+
+    authentication_classes = []
+    permission_classes = [IsAdminBearer]
+
+    def get(self, request):
+        limit = max(1, min(int(request.query_params.get('limit') or 500), 1000))
+        today = timezone.now().date()
+        not_finished = (
+            Q(race_end_date__gte=today) |
+            Q(race_end_date__isnull=True, race_date__gte=today)
+        )
+        has_url = (
+            (Q(official_url__isnull=False) & ~Q(official_url='')) |
+            (Q(source_url__isnull=False) & ~Q(source_url=''))
+        )
+        qs = (
+            Race.objects.filter(not_finished)
+            .filter(has_url)
+            .filter(auto_update_enabled=True)
+            .order_by('race_date')
+        )
+        targets = []
+        for race in qs.iterator():
+            missing = _missing_enrich_fields(race)
+            if not missing:
+                continue
+            targets.append({
+                'id': race.id,
+                'slug': race.slug,
+                'title': race.title,
+                'sport': race.sport,
+                'sport_label': race.sport_label,
+                'race_date': race.race_date.isoformat() if race.race_date else None,
+                'official_url': race.official_url,
+                'source_url': race.source_url,
+                'distances': race.distances,
+                'locked_fields': list(race.locked_fields or []),
+                'missing': missing,
+            })
+            if len(targets) >= limit:
+                break
+        return Response({'targets': targets})
 
 
 def _admin_payload(race):
