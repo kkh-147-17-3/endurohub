@@ -3,6 +3,7 @@
 	import type { PageData } from './$types';
 	import type { Race } from '$lib/types';
 	import { track } from '$lib/analytics';
+	import { kstTodayStr } from '$lib/date';
 	import RegionCartogram from '$lib/components/calendar/RegionCartogram.svelte';
 
 	let { data }: { data: PageData } = $props();
@@ -31,9 +32,7 @@
 		return p.toString();
 	}
 
-	const todayDate = new Date();
-	const currentMonth = todayDate.getMonth() + 1;
-	const currentYear = todayDate.getFullYear();
+	const [currentYear, currentMonth] = kstTodayStr().split('-').map(Number);
 	const mm = $derived(String(month).padStart(2, '0'));
 </script>
 

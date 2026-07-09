@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { kstTodayStr } from '$lib/date';
 	import type { Race, Sport, SportOption } from '$lib/types';
 	import { arenaDistLabel, arenaMinFee, arenaFeeShort } from '$lib/arena';
 	import { dsSport } from '$lib/components/eh/meta';
@@ -40,7 +41,7 @@
 	const firstDayOfMonth = $derived(new Date(startOfMonth).getDay()); // 0 = Sun
 	const daysInMonth = $derived(new Date(year, month, 0).getDate());
 	const prevDaysInMonth = $derived(new Date(year, month - 1, 0).getDate());
-	const todayStr = $derived(new Date().toISOString().split('T')[0]);
+	const todayStr = $derived(kstTodayStr());
 	const todayDay = $derived(
 		((): number | null => {
 			const p = todayStr.split('-');

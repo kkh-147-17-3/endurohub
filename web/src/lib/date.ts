@@ -1,5 +1,14 @@
 const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
 
+/**
+ * Today's date in KST as "YYYY-MM-DD", regardless of the runtime timezone
+ * (SSR containers run UTC). KST is a fixed UTC+9 offset with no DST, so
+ * shifting the epoch by 9h before taking the ISO date is exact.
+ */
+export function kstTodayStr(): string {
+    return new Date(Date.now() + 9 * 3600_000).toISOString().split('T')[0];
+}
+
 function parse(date: string): Date {
     return new Date(date + 'T00:00:00');
 }

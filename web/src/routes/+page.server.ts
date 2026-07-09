@@ -1,11 +1,12 @@
 import type { PageServerLoad } from './$types';
 import { apiFetch } from '$lib/api';
+import { kstTodayStr } from '$lib/date';
 import type { CalendarResponse } from '$lib/types';
 
 export const load: PageServerLoad = async ({ url, locals }) => {
-	const now = new Date();
-	const year = url.searchParams.get('year') || String(now.getFullYear());
-	const month = url.searchParams.get('month') || String(now.getMonth() + 1);
+	const [todayYear, todayMonth] = kstTodayStr().split('-').map(Number);
+	const year = url.searchParams.get('year') || String(todayYear);
+	const month = url.searchParams.get('month') || String(todayMonth);
 	const sport = url.searchParams.getAll('sport');
 	const region = url.searchParams.getAll('region');
 
