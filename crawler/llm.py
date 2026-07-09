@@ -17,13 +17,8 @@ from . import config
 logger = logging.getLogger("marathon_crawler")
 
 
-def _get_llm(effort: str | None, max_tokens: int) -> ChatOpenAI:
-    # 주의: 이 모델군은 function tool + reasoning_effort 조합을 거부한다.
-    # → 도구/구조화(function calling) 호출은 effort=None 으로, vision 등 비도구 호출만 effort 지정.
-    kwargs: dict = {"model": config.MODEL, "max_tokens": max_tokens, "timeout": 60}
-    if effort:
-        kwargs["reasoning_effort"] = effort
-    return ChatOpenAI(**kwargs)
+def _get_llm(effort: str, max_tokens: int) -> ChatOpenAI:
+    return ChatOpenAI(model=config.MODEL, reasoning_effort=effort, max_tokens=max_tokens, timeout=60)
 
 
 def _text_of(msg: BaseMessage) -> str:
@@ -45,23 +40,24 @@ def _log_usage(label: str, msg: BaseMessage) -> None:
                 f" reasoning={reasoning}" if reasoning else "")
 
 
-def run_agent(system: str, user: str, tools: list[BaseTool], tool_impls: dict[str, BaseTool], *,
-              terminal_tool: str | None = None, max_steps: int = 8) -> dict:
+def run_agent(system_prmpt: str, user_prmpt: str, tools: list[BaseTool], tool_impls: dict[str, BaseTool], *,
+              terminal_tool: str | None = None, effort: str = config.EFFORT_FAST,
+              max_steps: int = 8) -> dict:
     """모델은 도구 호출만, 실행은 코드. 정지조건 2개(모델 최종답 / max_steps)."""
-    llm = _get_llm(None, 4096).bind_tools(tools)       # 도구 바인딩 → reasoning_effort 미지원
-    messages: list[BaseMessage] = [SystemMessage(content=system), HumanMessage(content=user)]
+    llm = _get_llm(effort, 4096).bind_tools(tools)
+    messages: list[BaseMessage] = [SystemMessage(content=system_prmpt), HumanMessage(content=user_prmpt)]
     for step in range(max_steps):                      # 정지조건②: 코드 안전장치
         logger.info("agent step %d/%d", step + 1, max_steps)
-        ai = llm.invoke(messages)
-        _log_usage(f"agent#{step + 1}", ai)
-        messages.append(ai)                            # assistant 메시지(도구호출 포함) 회신
+        ai_msg = llm.invoke(messages)
+        _log_usage(f"agent#{step + 1}", ai_msg)
+        messages.append(ai_msg)                            # assistant 메시지(도구호출 포함) 회신
 
-        if not ai.tool_calls:                          # 정지조건①: 모델이 최종 답
+        if not ai_msg.tool_calls:                          # 정지조건①: 모델이 최종 답
             logger.info("agent done (%d steps, no more tool calls)", step + 1)
-            return {"text": _text_of(ai), "messages": messages}
+            return {"text": _text_of(ai_msg), "messages": messages}
 
-        for tc in ai.tool_calls:
-            name, args, tid = tc["name"], tc["args"], tc["id"]
+        for tool_call in ai_msg.tool_calls:
+            name, args, tid = tool_call["name"], tool_call["args"], tool_call["id"]
             logger.info("  tool call: %s(%s)", name, json.dumps(args, ensure_ascii=False)[:120])
             if name == terminal_tool:                  # 구조화된 최종 결과 제출
                 logger.info("  → terminal tool '%s' → 탐색 종료", terminal_tool)
@@ -79,13 +75,9 @@ def run_agent(system: str, user: str, tools: list[BaseTool], tool_impls: dict[st
 
 T = TypeVar("T", bound=BaseModel)
 
-def structured_call(system: str, user: str, model_cls: type[T]) -> T:
-    """단발 구조화 출력 (LangChain with_structured_output).
-
-    method='function_calling': OpenAI strict json_schema 는 동적 키(dict[str, ...] 등
-    additionalProperties) 스키마를 거부하므로, 더 관용적인 function calling 방식을 쓴다.
-    """
-    llm = _get_llm(None, 2048).with_structured_output(model_cls, method="function_calling")  # function tool → effort 미지원
+def structured_call(system: str, user: str, model_cls: type[T], *, effort: str = config.EFFORT_FAST) -> T:
+    """단발 구조화 출력 (LangChain with_structured_output)."""
+    llm = _get_llm(effort, 2048).with_structured_output(model_cls)
     parsed = llm.invoke([SystemMessage(content=system), HumanMessage(content=user)])
     if parsed is None:
         raise RuntimeError("structured output 실패 (parsed=None)")
