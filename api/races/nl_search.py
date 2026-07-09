@@ -185,10 +185,11 @@ def _call_anthropic(system_prompt: str, user_message: str) -> str | None:
 def _call_llm(system_prompt: str, user_message: str) -> str | None:
     """OpenAI 호환 /chat/completions 호출. 응답 본문 text 반환, 실패 시 None."""
     url = f'{settings.LLM_BASE_URL}/chat/completions'
+    # gpt-5 계열은 max_tokens/temperature 를 거부한다 — max_completion_tokens 사용,
+    # temperature 미전송. reasoning 토큰이 완성 한도를 잠식하므로 여유 있게 잡는다.
     payload = {
         'model': settings.LLM_MODEL or 'gpt-4o-mini',
-        'temperature': 0,
-        'max_tokens': 400,
+        'max_completion_tokens': 2048,
         'messages': [
             {'role': 'system', 'content': system_prompt},
             {'role': 'user', 'content': user_message},

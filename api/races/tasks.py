@@ -36,3 +36,11 @@ def crawl_marathon_task(year=None, month=None, with_details=True):
 def fetch_weather_task(days=16):
     call_command('fetch_weather', days=days)
     logger.info('Fetch weather task completed', extra={'days': days})
+
+
+@shared_task(ignore_result=True)
+def update_registration_status_task():
+    from races.services.reg_status import update_registration_status
+
+    summary = update_registration_status()
+    logger.info('Update registration status task completed', extra=summary)
