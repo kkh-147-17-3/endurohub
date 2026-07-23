@@ -11,8 +11,10 @@ except ImportError:
     from bs4 import BeautifulSoup
 
 STATE_FILE = os.path.join(os.path.dirname(__file__), "data", "runninggal_seen.json")
-BOT_TOKEN = "***REMOVED***"
-CHAT_ID = "8581246573"
+BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+if not BOT_TOKEN or not CHAT_ID:
+    sys.exit("TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID 환경변수가 필요합니다.")
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8",

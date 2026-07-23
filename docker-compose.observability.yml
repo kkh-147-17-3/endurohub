@@ -54,8 +54,8 @@ services:
     # distroless 이미지라 /etc/passwd 가 없어 이름("root") 해석 불가 → 숫자 UID:GID 로 지정.
     user: "0:0"
     environment:
-      # redis receiver 인증용 — 앱 compose 와 동일한 기본값/주입 방식.
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-***REMOVED***}
+      # redis receiver 인증용 — 앱 compose 와 동일한 주입 방식.
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
       # postgresql receiver 인증용 — 앱 compose 와 동일한 주입 방식.
       DATABASE_USER: ${DATABASE_USER:-postgres}
       DATABASE_PASSWORD: ${DATABASE_PASSWORD:?DATABASE_PASSWORD is required}

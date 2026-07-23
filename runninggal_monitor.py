@@ -9,8 +9,10 @@ import requests
 from bs4 import BeautifulSoup
 
 STATE_FILE = "data/runninggal_seen.json"
-BOT_TOKEN = "***REMOVED***"
-CHAT_ID = "8581246573"
+BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
+if not BOT_TOKEN or not CHAT_ID:
+    sys.exit("TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID 환경변수가 필요합니다.")
 MAX_SENDS = 10
 MAX_BODY_FETCHES = 10
 MAX_PER_RUN = 30
