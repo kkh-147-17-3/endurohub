@@ -91,13 +91,13 @@ flowchart TD
 - **Pillow** (이미지 처리·WebP 변환), **nh3** (HTML 새니타이즈), **PyJWT** (인증)
 - **Sentry** + 구조화 JSON 로깅 + Telegram 에러 알림
 
-> 백엔드 구현 상세(앱 구조·모델·API·인증·Celery·크롤러)는 [docs/backend-django.md](docs/backend-django.md) 참고.
+> 백엔드 구현 상세(앱 구조·모델·API·인증·Celery·크롤러)는 [backend-django.md](backend-django.md) 참고.
 
 ### 프론트엔드 (`web/`)
 - **Svelte 5.49** (runes: `$state`/`$derived`/`$effect`) + **SvelteKit 2.21** (SSR, adapter-node)
 - **Tailwind CSS 4** + **daisyUI 5** — "Arena" 디자인 시스템 (Oklch 색공간)
 - **TipTap 3** — 리치 텍스트 에디터 (게시글·후기 작성)
-- **d3-geo** — 한국 지도 시각화, **Satori + resvg** — 동적 OG 이미지 생성
+- **SVG 타일 카토그램** — 시·도별 대회 밀도 지도, **Satori + resvg** — 동적 OG 이미지 생성
 - **PostHog** + **Google Analytics** + **Sentry** — 제품 분석·에러 추적
 
 ### 인프라
@@ -134,7 +134,7 @@ flowchart TD
 - **VO2max 계산기** (Daniels VDOT 공식 → 훈련 존 페이스)
 - **기록 예측기** (Riegel 모델, 5K~50K 환산)
 - **트레이닝 플랜** (8/12/16주, Base→Build→Peak→Taper 주기)
-- **러닝 용어 사전** (120여 개 용어, 초성 그룹핑·검색·FAQ 구조화 데이터)
+- **러닝 용어 사전** (초성 그룹핑·카테고리 필터·검색·FAQ 구조화 데이터)
 
 ### 👤 사용자 · 자동화 · 운영
 - **OAuth 로그인** (카카오·네이버·구글) + 온보딩(선호 종목·지역) + 내 기록 + 즐겨찾기 + 이메일 알림 옵트인
@@ -146,48 +146,49 @@ flowchart TD
 
 ## 주요 화면
 
-### 홈
-다음 레이스를 강조하는 히어로, 마감 임박·인기 대회, 종목별 대회 수, 방금 추가된 대회,
-다가오는 대회 테이블, 커뮤니티 최신글을 한 화면에 모았다.
+### 홈 (월간 캘린더)
+월간 캘린더를 중심으로 한 홈. 이달의 대회 수·접수 중·오늘 개최 요약, 종목 필터 칩,
+캘린더/리스트/지도 뷰 전환을 제공하고 오늘 날짜를 마킹한다.
 
-![홈 화면](docs/portfolio/screenshots/home.png)
+![홈 화면](portfolio/screenshots/home.png)
 
-### 대회 목록
-종목·지역·거리·기간·상태를 조합하는 다중 필터와 반응형 테이블. 종목별 페이지(`/running` 등)는
-깔끔한 URL로 같은 목록을 필터링해 보여준다.
+### 대회 검색
+종목·지역·상태·거리·개최월을 조합하는 다중 필터와 키워드 검색. 각 행에 날짜·종목·참가비·접수
+상태를 함께 보여준다. 종목별 페이지(`/running` 등)는 깔끔한 URL로 같은 목록을 필터링해 보여준다.
 
-![대회 목록](docs/portfolio/screenshots/races.png)
+![대회 목록](portfolio/screenshots/races.png)
 
 ### 대회 상세
-D-day 카운트다운, 종목·거리·참가비, 일정 타임라인, 지난 대회 후기, 관련 대회 추천을 담은 상세 페이지.
-즐겨찾기·공유·코스/기념품 이미지 갤러리를 제공한다.
+D-day 카운트다운, 접수 상태, 종목·거리·참가비, 개요·타임라인·시즌 기록·후기·연관 대회로 이어지는
+목차형 상세 페이지. 접수하기·관심 대회 저장·공유 액션을 제공한다.
 
-![대회 상세](docs/portfolio/screenshots/race-detail.png)
+![대회 상세](portfolio/screenshots/race-detail.png)
 
 ### 캘린더 & 지도
-월별 캘린더 그리드와, **d3-geo로 그린 한국 지도** 위에 지역별 대회 수를 버블로 시각화한 지도 뷰.
+월별 캘린더 그리드와, 한국 지형을 근사한 **시·도 타일 카토그램**에 지역별 대회 수를 밀도로
+표시하는 지도 뷰. 지역을 선택하면 해당 월의 대회 목록이 나타난다.
 
-| 월별 캘린더 | 지역 지도 |
+| 월별 캘린더 | 지역 밀도 지도 |
 |---|---|
-| ![캘린더](docs/portfolio/screenshots/calendar.png) | ![캘린더 지도](docs/portfolio/screenshots/calendar-map.png) |
+| ![캘린더](portfolio/screenshots/calendar.png) | ![캘린더 지도](portfolio/screenshots/calendar-map.png) |
 
 ### 커뮤니티
-카테고리·검색·정렬을 갖춘 게시판. 로그인 없이도 익명으로 참여할 수 있다.
+카테고리·검색·정렬을 갖춘 게시판. 로그인 없이도 익명으로 참여할 수 있고,
+사이드바에 다가오는 대회를 함께 보여준다.
 
-![커뮤니티](docs/portfolio/screenshots/posts.png)
+![커뮤니티](portfolio/screenshots/posts.png)
 
 ### 러닝 도구 & 용어 사전
-페이스 계산기를 비롯한 4종 러닝 계산기와 120여 개 용어를 정리한 사전.
+페이스 계산기를 비롯한 4종 러닝 계산기와 러닝 용어 사전.
 
 | 페이스 계산기 | 러닝 용어 사전 |
 |---|---|
-| ![페이스 계산기](docs/portfolio/screenshots/tools-pace.png) | ![러닝 용어 사전](docs/portfolio/screenshots/running-terms.png) |
+| ![페이스 계산기](portfolio/screenshots/tools-pace.png) | ![러닝 용어 사전](portfolio/screenshots/running-terms.png) |
 
 ### 반응형
-모바일까지 대응하는 반응형 레이아웃. 데스크톱의 다열 테이블은 모바일에서 가로 스크롤 없이
-2줄 자기설명형 레이아웃으로 재배치된다.
+모바일까지 대응하는 반응형 레이아웃. 하단 탭바 내비게이션과 모바일에 맞춘 캘린더 그리드를 제공한다.
 
-<img src="docs/portfolio/screenshots/home-mobile.png" width="320" alt="모바일 홈 화면">
+<img src="portfolio/screenshots/home-mobile.png" width="320" alt="모바일 홈 화면">
 
 > 디자인 시스템 **"Arena"** — Oklch 색공간 기반 라이트/다크 테마, Space Grotesk(디스플레이) ·
 > Pretendard(본문) · IBM Plex Mono(라벨) 타이포그래피, 샤프한 미니멀 스타일.
@@ -200,9 +201,11 @@ D-day 카운트다운, 종목·거리·참가비, 일정 타임라인, 지난 �
   자동 수집과 사람 검수를 분리, 운영자가 다듬은 데이터가 크롤링에 덮이지 않도록 설계.
 - **SSR + 이중 네트워킹** — SvelteKit이 서버에서는 내부망으로, 브라우저에서는 nginx 프록시로
   같은 API를 호출하도록 `api.ts` / `api.client.ts`를 분리.
-- **시각화** — d3-geo 한국 지도, Satori 기반 대회별 동적 OG 이미지 자동 생성.
+- **시각화** — 시·도 타일 카토그램 지도 뷰, Satori 기반 대회별 동적 OG 이미지 자동 생성.
 - **종목별 거리 자동 분류** — `range` / `keyword` / `range_m` 3가지 규칙 타입으로
   종목마다 다른 거리 체계(마라톤 km, 수영 m, 자전거 키워드)를 하나의 필터 UI로 통합.
+
+> 주요 결정의 배경과 트레이드오프는 [기술-의사결정.md](기술-의사결정.md) 참고.
 
 ---
 

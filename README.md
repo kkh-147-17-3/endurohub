@@ -3,7 +3,10 @@
 대한민국 endurance sports 커뮤니티 플랫폼. 마라톤, 수영, 사이클, 트라이애슬론, 트레일러닝 대회 정보를 제공하고 커뮤니티 기능을 지원합니다.
 
 🔗 **라이브 서비스 → [www.endurohub.kr](https://www.endurohub.kr)**  
-📄 **상세 포트폴리오 문서 → [PORTFOLIO.md](PORTFOLIO.md)**
+📄 **상세 포트폴리오 문서 → [docs/portfolio.md](docs/portfolio.md)**
+
+> 백엔드 구현 상세는 [docs/backend-django.md](docs/backend-django.md),
+> 주요 기술 결정은 [docs/기술-의사결정.md](docs/기술-의사결정.md) 참고.
 
 ## Tech Stack
 
