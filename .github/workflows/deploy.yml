@@ -62,7 +62,10 @@ jobs:
             fi
 
             # 6) 검증
+            # nginx 안티크롤러가 `curl/` UA 를 403 차단하므로(default.conf) 헬스체크는
+            # 블랙리스트에 없는 UA 로 요청해야 실제 200 을 확인할 수 있다.
             sleep 5
             docker compose ps
-            curl -sf http://localhost/api/v1/races/ > /dev/null && echo "API OK" || echo "API FAIL"
-            curl -sf http://localhost/ > /dev/null && echo "Web OK" || echo "Web FAIL"
+            UA="Mozilla/5.0 (deploy-healthcheck)"
+            curl -sf -A "$UA" http://localhost/api/v1/races/ > /dev/null && echo "API OK" || echo "API FAIL"
+            curl -sf -A "$UA" http://localhost/ > /dev/null && echo "Web OK" || echo "Web FAIL"
