@@ -4,89 +4,65 @@ on:
   push:
     branches: [master]
 
+# 동시에 여러 배포가 겹치지 않도록(연속 push 시 최신 것만 실행)
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 jobs:
   deploy:
-    runs-on: self-hosted
-    defaults:
-      run:
-        shell: bash
+    runs-on: ubuntu-latest
     steps:
-      - name: Pull latest code
-        working-directory: ${{ vars.DEPLOY_PATH }}
-        # 배포는 커밋 상태 그대로 반영한다. stash/pop 은 파일 재구성 시 충돌 마커를 남겨
-        # docker compose 를 깨뜨릴 수 있어 fetch + reset --hard 로 대체.
-        # (reset --hard 는 추적 파일만 되돌리고 .env 등 untracked 파일은 보존)
-        run: |
-          git fetch origin master
-          git reset --hard origin/master
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          # 원격 서버에서 실행되는 배포 스크립트. self-hosted 시절 각 step 을
+          # 하나의 bash 스크립트로 합친 것(로직은 동일).
+          script: |
+            set -euo pipefail
+            cd "${{ vars.DEPLOY_PATH }}"
 
-      # 앱↔관측성 공유 네트워크/볼륨을 보장한다(이미 있으면 무시). 앱 compose 가
-      # 이 둘을 external 로 참조하므로 어느 compose 든 up 전에 존재해야 한다.
-      - name: Bootstrap shared network/volume
-        working-directory: ${{ vars.DEPLOY_PATH }}
-        run: |
-          docker network create endurohub_obs 2>/dev/null || true
-          docker volume create endurohub_nginx_logs 2>/dev/null || true
+            # 1) 커밋 상태 그대로 반영 (untracked .env 등은 보존)
+            git fetch origin master
+            git reset --hard origin/master
 
-      - name: Detect changes
-        id: changes
-        working-directory: ${{ vars.DEPLOY_PATH }}
-        run: |
-          CHANGED=$(git diff --name-only HEAD~1 HEAD)
-          echo "$CHANGED"
+            # 2) 앱↔관측성 공유 네트워크/볼륨 보장
+            docker network create endurohub_obs 2>/dev/null || true
+            docker volume create endurohub_nginx_logs 2>/dev/null || true
 
-          echo "api=false" >> $GITHUB_OUTPUT
-          echo "web=false" >> $GITHUB_OUTPUT
-          echo "infra=false" >> $GITHUB_OUTPUT
-          echo "obs=false" >> $GITHUB_OUTPUT
+            # 3) 변경 감지
+            CHANGED=$(git diff --name-only HEAD~1 HEAD)
+            echo "$CHANGED"
+            API=false; WEB=false; INFRA=false; OBS=false
+            echo "$CHANGED" | grep -q "^api/" && API=true || true
+            echo "$CHANGED" | grep -q "^web/" && WEB=true || true
+            echo "$CHANGED" | grep -qE "^(nginx/|docker-compose\.yml)" && INFRA=true || true
+            echo "$CHANGED" | grep -qE "^(monitoring/|docker-compose\.observability\.yml)" && OBS=true || true
 
-          if echo "$CHANGED" | grep -q "^api/"; then
-            echo "api=true" >> $GITHUB_OUTPUT
-          fi
-          if echo "$CHANGED" | grep -q "^web/"; then
-            echo "web=true" >> $GITHUB_OUTPUT
-          fi
-          if echo "$CHANGED" | grep -qE "^(nginx/|docker-compose\.yml)"; then
-            echo "infra=true" >> $GITHUB_OUTPUT
-          fi
-          # 관측성 스택은 앱과 독립 배포(앱 재빌드 없이 관측성만 갱신).
-          if echo "$CHANGED" | grep -qE "^(monitoring/|docker-compose\.observability\.yml)"; then
-            echo "obs=true" >> $GITHUB_OUTPUT
-          fi
+            # 4) 재빌드 (infra 변경 시 전체 / 아니면 변경된 서비스만)
+            if [ "$INFRA" = true ]; then
+              docker compose up -d --build --remove-orphans
+            else
+              [ "$API" = true ] && docker compose up -d --build api || true
+              [ "$WEB" = true ] && docker compose up -d --build web || true
+            fi
 
-      - name: Rebuild all (infra changed)
-        if: steps.changes.outputs.infra == 'true'
-        working-directory: ${{ vars.DEPLOY_PATH }}
-        # --remove-orphans: 분리 이전 app 프로젝트에 남아있던 관측성 컨테이너(lgtm 등)를 정리
-        # → 새 endurohub-obs 프로젝트의 lgtm 과 3001 포트 충돌 방지.
-        run: docker compose up -d --build --remove-orphans
+            # 관측성 스택은 앱과 독립 배포 (mounted config 반영 위해 force-recreate)
+            if [ "$OBS" = true ]; then
+              docker compose -f docker-compose.observability.yml up -d --force-recreate
+            fi
 
-      - name: Rebuild api only
-        if: steps.changes.outputs.infra == 'false' && steps.changes.outputs.api == 'true'
-        working-directory: ${{ vars.DEPLOY_PATH }}
-        run: docker compose up -d --build api
+            # 5) 마이그레이션
+            if [ "$API" = true ] || [ "$INFRA" = true ]; then
+              docker compose exec -T api python manage.py migrate --noinput --fake-initial
+            fi
 
-      - name: Rebuild web only
-        if: steps.changes.outputs.infra == 'false' && steps.changes.outputs.web == 'true'
-        working-directory: ${{ vars.DEPLOY_PATH }}
-        run: docker compose up -d --build web
-
-      # 관측성 스택은 앱과 별도로 배포한다. mounted config(알림 규칙/otelcol/promtail)
-      # 변경은 컨테이너 재생성으로만 반영되므로 --force-recreate 로 강제 갱신한다.
-      - name: Deploy observability (obs changed)
-        if: steps.changes.outputs.obs == 'true'
-        working-directory: ${{ vars.DEPLOY_PATH }}
-        run: docker compose -f docker-compose.observability.yml up -d --force-recreate
-
-      - name: Run migrations
-        if: steps.changes.outputs.api == 'true' || steps.changes.outputs.infra == 'true'
-        working-directory: ${{ vars.DEPLOY_PATH }}
-        run: docker compose exec -T api python manage.py migrate --noinput --fake-initial
-
-      - name: Verify services
-        working-directory: ${{ vars.DEPLOY_PATH }}
-        run: |
-          sleep 5
-          docker compose ps
-          curl -sf http://localhost/api/v1/races/ > /dev/null && echo "API OK" || echo "API FAIL"
-          curl -sf http://localhost/ > /dev/null && echo "Web OK" || echo "Web FAIL"
+            # 6) 검증
+            sleep 5
+            docker compose ps
+            curl -sf http://localhost/api/v1/races/ > /dev/null && echo "API OK" || echo "API FAIL"
+            curl -sf http://localhost/ > /dev/null && echo "Web OK" || echo "Web FAIL"
