@@ -173,7 +173,7 @@ def _evidence_in_page(evidence, page_text):
 def _judge(race, page_text):
     """페이지 텍스트를 근거로 접수마감 여부를 LLM 판정. 실패 시 None."""
     user = (
-        f'오늘 날짜: {timezone.now().date().isoformat()}\n'
+        f'오늘 날짜: {timezone.localdate().isoformat()}\n'
         f'대회명: {race.title}\n'
         f'대회일: {race.race_date}\n'
         f'DB상 접수 마감일: {race.registration_end or "미상"}\n\n'
@@ -188,7 +188,7 @@ def _judge(race, page_text):
 
 def _target_races():
     """마감 전 + 아직 안 끝난 + 확인할 URL이 있는 대회들."""
-    today = timezone.now().date()
+    today = timezone.localdate()
     not_finished = Q(race_end_date__gte=today) | Q(race_end_date__isnull=True, race_date__gte=today)
     has_url = (
         (Q(official_url__isnull=False) & ~Q(official_url='')) |

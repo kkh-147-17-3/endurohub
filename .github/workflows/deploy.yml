@@ -37,9 +37,10 @@ jobs:
             # 3) 변경 감지
             CHANGED=$(git diff --name-only HEAD~1 HEAD)
             echo "$CHANGED"
-            API=false; WEB=false; INFRA=false; OBS=false
+            API=false; WEB=false; CRAWLER=false; INFRA=false; OBS=false
             echo "$CHANGED" | grep -q "^api/" && API=true || true
             echo "$CHANGED" | grep -q "^web/" && WEB=true || true
+            echo "$CHANGED" | grep -q "^crawler/" && CRAWLER=true || true
             echo "$CHANGED" | grep -qE "^(nginx/|docker-compose\.yml)" && INFRA=true || true
             echo "$CHANGED" | grep -qE "^(monitoring/|docker-compose\.observability\.yml)" && OBS=true || true
 
@@ -47,8 +48,12 @@ jobs:
             if [ "$INFRA" = true ]; then
               docker compose up -d --build --remove-orphans
             else
-              [ "$API" = true ] && docker compose up -d --build api || true
+              # celery-worker/celery-beat 는 api 와 같은 이미지(build: ./api)를 쓴다.
+              # api 만 올리면 워커/비트는 옛 코드로 계속 돌아 배치 잡(날씨·접수상태·
+              # 주간다이제스트)에 수정이 반영되지 않는다.
+              [ "$API" = true ] && docker compose up -d --build api celery-worker celery-beat || true
               [ "$WEB" = true ] && docker compose up -d --build web || true
+              [ "$CRAWLER" = true ] && docker compose up -d --build crawler-worker || true
             fi
 
             # 관측성 스택은 앱과 독립 배포 (mounted config 반영 위해 force-recreate)

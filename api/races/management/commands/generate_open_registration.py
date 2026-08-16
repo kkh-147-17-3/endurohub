@@ -20,7 +20,7 @@ class Command(BaseCommand):
         parser.add_argument('--output', type=str, default=None)
 
     def handle(self, *args, **options):
-        now = timezone.now().date()
+        now = timezone.localdate()
         year = options.get('year')
         month = options.get('month')
 

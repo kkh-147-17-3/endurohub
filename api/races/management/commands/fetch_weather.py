@@ -163,7 +163,7 @@ class Command(BaseCommand):
         slug = options['slug']
         dry_run = options['dry_run']
 
-        today = timezone.now().date()
+        today = timezone.localdate()
         end_date = today + timedelta(days=days)
 
         qs = Race.objects.filter(

@@ -139,7 +139,7 @@ def send_weekly_digest_email(profile):
         new_races = list(new_races_qs[:5])
     new_races = _prepare_races_for_email(new_races)
 
-    today = timezone.now().date()
+    today = timezone.localdate()
     week_label = f'{today.month}.{today.day}'
 
     context = {

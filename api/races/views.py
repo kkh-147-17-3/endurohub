@@ -85,7 +85,7 @@ class HomeView(APIView):
                 _inject_is_favorited(request, data.get(key) or [])
             return Response(data)
 
-        today = timezone.now().date()
+        today = timezone.localdate()
 
         closing_soon = Race.objects.closing_soon(7).exclude(
             title__contains='(취소)'
@@ -428,7 +428,7 @@ class RaceNlSearchView(APIView):
 
         raw_query = (request.query_params.get('q') or '').strip()
 
-        today = timezone.now().date()
+        today = timezone.localdate()
         parsed = interpret_query(raw_query, today) if raw_query else None
 
         if parsed is None:
@@ -647,7 +647,7 @@ class RaceDetailView(APIView):
 
         slots = []
         exclude_ids = {race.id}
-        now = timezone.now().date()
+        now = timezone.localdate()
 
         # Slot 1: 지금 접수 가능한 대회 (same sport, registration open by date)
         slot1_qs = Race.objects.filter(

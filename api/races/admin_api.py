@@ -124,7 +124,7 @@ class RaceAdminEnrichTargetsView(APIView):
 
     def get(self, request):
         limit = max(1, min(int(request.query_params.get('limit') or 500), 1000))
-        today = timezone.now().date()
+        today = timezone.localdate()
         not_finished = (
             Q(race_end_date__gte=today) |
             Q(race_end_date__isnull=True, race_date__gte=today)

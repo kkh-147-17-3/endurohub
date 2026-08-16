@@ -17,11 +17,11 @@ from .image_utils import get_thumb_path, get_webp_path
 class RaceQuerySet(models.QuerySet):
 
     def upcoming(self):
-        today = timezone.now().date()
+        today = timezone.localdate()
         return self.filter(race_date__gte=today).order_by('race_date')
 
     def closing_soon(self, days=7):
-        today = timezone.now().date()
+        today = timezone.localdate()
         end_date = today + timezone.timedelta(days=days)
         return self.exclude(
             status='registration_closed'
@@ -61,7 +61,7 @@ class RaceQuerySet(models.QuerySet):
         from django.db.models import Q
         if isinstance(statuses, str):
             statuses = [statuses]
-        today = timezone.now().date()
+        today = timezone.localdate()
         q = Q()
         for s in statuses:
             # Manual status override
@@ -216,7 +216,7 @@ class RaceQuerySet(models.QuerySet):
 
     def registration_open(self):
         from django.db.models import Q
-        today = timezone.now().date()
+        today = timezone.localdate()
         return self.filter(
             Q(status='registration_open') |
             Q(
@@ -325,7 +325,7 @@ class Race(models.Model):
         """Return status from DB if set, otherwise calculate from dates."""
         if self.status:
             return self.status
-        today = timezone.now().date()
+        today = timezone.localdate()
         end_date = self.race_end_date or self.race_date
         if end_date and end_date < today:
             return 'finished'
@@ -390,13 +390,13 @@ class Race(models.Model):
     def days_until_race(self):
         if not self.race_date:
             return 0
-        return (self.race_date - timezone.now().date()).days
+        return (self.race_date - timezone.localdate()).days
 
     @property
     def days_until_registration_end(self):
         if not self.registration_end:
             return None
-        return (self.registration_end - timezone.now().date()).days
+        return (self.registration_end - timezone.localdate()).days
 
     @property
     def is_registration_open(self):
