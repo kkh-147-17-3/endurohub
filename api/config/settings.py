@@ -210,19 +210,28 @@ UNFOLD = {
 # File upload settings (match nginx client_max_body_size 20M)
 DATA_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024  # 20MB
 
-# Cache (file-based for cross-worker sharing without Redis)
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
-        'LOCATION': os.path.join(BASE_DIR, '.cache'),
-    }
-}
-
 REDIS_HOST = os.environ.get('REDIS_HOST', 'host.docker.internal')
 REDIS_PORT = os.environ.get('REDIS_PORT', '6379')
 REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD', '')
 _REDIS_AUTH = f':{REDIS_PASSWORD}@' if REDIS_PASSWORD else ''
 _DEFAULT_REDIS_URL = f'redis://{_REDIS_AUTH}{REDIS_HOST}:{REDIS_PORT}/0'
+
+# Cache — 브로커와 같은 Redis 인스턴스의 다른 DB(1번)를 쓴다. celery 가 0번을
+# 쓰므로 키가 섞이지 않는다.
+#
+# 파일 기반(BASE_DIR/.cache)에서 옮겨왔다. 파일 캐시는 컨테이너 쓰기 레이어에
+# 있어서 (a) 배포로 컨테이너가 새로 뜰 때마다 통째로 사라지고 (b) api 와
+# celery-worker 가 서로 다른 캐시를 보게 된다 — 지금은 교차 무효화가 없어
+# 문제가 안 됐지만 워커에서 캐시를 지우는 코드가 생기면 조용히 깨진다.
+CACHE_URL = os.environ.get(
+    'CACHE_URL', f'redis://{_REDIS_AUTH}{REDIS_HOST}:{REDIS_PORT}/1',
+)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': CACHE_URL,
+    }
+}
 
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', _DEFAULT_REDIS_URL)
 CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', CELERY_BROKER_URL)
