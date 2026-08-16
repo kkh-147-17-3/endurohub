@@ -752,6 +752,31 @@ class RaceYearlyView(APIView):
 class RaceCalendarView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [AllowAny]
+    CACHE_TTL = 300  # 5 minutes
+    REGIONS_CACHE_KEY = 'races_calendar_regions'
+    REGIONS_CACHE_TTL = 3600  # 지역 목록은 거의 안 바뀐다 — 달력 캐시보다 길게 잡는다
+
+    @staticmethod
+    def _cache_key(year, month, sport, region):
+        # 필터 조합마다 별도 키. 쿼리 파라미터 순서가 달라도 같은 키가 되도록 정렬.
+        return 'races_calendar_{}_{}_{}_{}'.format(
+            year, month, ','.join(sorted(sport)), ','.join(sorted(region)),
+        )
+
+    @classmethod
+    def _regions(cls):
+        """전체 지역 목록 — 매 요청 DISTINCT 전체 스캔하던 것을 캐시한다."""
+        regions = cache.get(cls.REGIONS_CACHE_KEY)
+        if regions is None:
+            regions = list(
+                Race.objects.exclude(region__isnull=True)
+                .exclude(region__exact='')
+                .values_list('region', flat=True)
+                .distinct()
+                .order_by('region')
+            )
+            cache.set(cls.REGIONS_CACHE_KEY, regions, cls.REGIONS_CACHE_TTL)
+        return regions
 
     def get(self, request):
         now = timezone.now()
@@ -759,6 +784,16 @@ class RaceCalendarView(APIView):
         month = int(request.query_params.get('month', now.month))
         sport = request.query_params.getlist('sport')
         region = request.query_params.getlist('region')
+
+        # 캐시 페이로드는 사용자 무관하게 만들고 즐겨찾기만 요청마다 덮어쓴다
+        # (RaceYearlyView 와 같은 방식).
+        cache_key = self._cache_key(year, month, sport, region)
+        cached = cache.get(cache_key)
+        if cached:
+            data = copy.deepcopy(cached)
+            for races_on_day in (data.get('racesGrouped') or {}).values():
+                _inject_is_favorited(request, races_on_day)
+            return Response(data)
 
         import calendar
         _, last_day = calendar.monthrange(year, month)
@@ -776,21 +811,16 @@ class RaceCalendarView(APIView):
             qs = qs.by_region(region)
 
         races = list(qs)
-        favorite_ids = _favorite_race_ids(request, [r.id for r in races])
-        ctx = {'favorite_race_ids': favorite_ids}
+        # 대회마다 시리얼라이저를 새로 만들지 않고 한 번에 직렬화한다 (즐겨찾기는
+        # 캐시 이후 _inject_is_favorited 가 채우므로 context 를 넘기지 않는다).
+        serialized = RaceSerializer(races, many=True).data
 
         grouped = defaultdict(list)
-        for race in races:
+        for race, race_data in zip(races, serialized):
             date_key = race.race_date.strftime('%Y-%m-%d')
-            grouped[date_key].append(RaceSerializer(race, context=ctx).data)
+            grouped[date_key].append(race_data)
 
-        regions = list(
-            Race.objects.exclude(region__isnull=True)
-            .exclude(region__exact='')
-            .values_list('region', flat=True)
-            .distinct()
-            .order_by('region')
-        )
+        regions = self._regions()
 
         # Previous / next month
         if month == 1:
@@ -803,7 +833,7 @@ class RaceCalendarView(APIView):
         else:
             next_month = {'year': year, 'month': month + 1}
 
-        return Response({
+        data = {
             'year': year,
             'month': month,
             'startOfMonth': start_date,
@@ -814,7 +844,13 @@ class RaceCalendarView(APIView):
             'region': region,
             'sports': SPORTS,
             'regions': regions,
-        })
+        }
+        cache.set(cache_key, data, self.CACHE_TTL)
+
+        response_data = copy.deepcopy(data)
+        for races_on_day in response_data['racesGrouped'].values():
+            _inject_is_favorited(request, races_on_day)
+        return Response(response_data)
 
 
 class RaceSportsView(APIView):
