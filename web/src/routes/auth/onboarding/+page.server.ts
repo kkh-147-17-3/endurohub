@@ -66,7 +66,10 @@ export const load: PageServerLoad = async ({ locals, cookies }) => {
 		else startStep = 2;
 	}
 
-	return { user, hasPendingSocialLogin, records, startStep };
+	// Prefill only — the pending signup is not an account until the code checks out.
+	const pendingEmail = cookies.get('pending_social_email') || '';
+
+	return { user, hasPendingSocialLogin, pendingEmail, records, startStep };
 };
 
 export const actions: Actions = {
@@ -144,6 +147,7 @@ export const actions: Actions = {
 				maxAge: 60 * 60 * 24 * 7,
 			});
 			cookies.delete('pending_social_token', { path: '/' });
+			cookies.delete('pending_social_email', { path: '/' });
 		}
 
 		return { action: 'verifyEmail', user: result.user };

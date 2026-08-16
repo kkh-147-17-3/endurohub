@@ -285,66 +285,40 @@ class OAuthCallbackView(APIView):
             if email and user.email != email:
                 user.email = email
                 user.save(update_fields=['email'])
-            PendingSocialLogin.objects.filter(provider=provider, provider_uid=provider_uid).delete()
-            return build_auth_response(
-                request, user, user_info, provider, is_new_user=False,
-            )
 
-        if not email:
-            pending_token = secrets.token_urlsafe(32)
-            pending_social, _ = PendingSocialLogin.objects.update_or_create(
-                provider=provider,
-                provider_uid=provider_uid,
-                defaults={
-                    'token': pending_token,
-                    'email': '',
-                    'access_token': access_token,
-                    'refresh_token': refresh_token,
-                    'extra_data': user_info,
-                    'verification_code': '',
-                    'verification_expires_at': None,
-                },
-            )
-            return Response({
-                'pendingToken': pending_social.token,
-            })
+            # A token only goes out to an account whose address this site verified
+            # itself. Accounts predating that rule fall through to the flow below.
+            profile = getattr(user, 'profile', None)
+            if profile is not None and profile.email_verified:
+                PendingSocialLogin.objects.filter(provider=provider, provider_uid=provider_uid).delete()
+                return build_auth_response(
+                    request, user, user_info, provider, is_new_user=False,
+                )
 
-        existing_social = SocialAccount.objects.filter(
-            email__iexact=email,
-        ).select_related('user').first()
-        existing_user = User.objects.filter(email__iexact=email).first()
-
-        is_new_user = False
-        if existing_social:
-            user = existing_social.user
-        elif existing_user:
-            user = existing_user
-        else:
-            username = f'{provider}_{provider_uid}'
-            user = User.objects.create_user(
-                username=username,
-                email=email,
-            )
-            is_new_user = True
-
-        if user.email != email:
-            user.email = email
-            user.save(update_fields=['email'])
-
-        SocialAccount.objects.create(
-            user=user,
+        # Either a new social identity or one whose email we have never verified.
+        # An email the provider hands us is not trusted — not even when the provider
+        # says it verified it — so no account and no token comes out of here. The
+        # login parks as a PendingSocialLogin and only our own code verification
+        # (POST /auth/pending/email/{send,verify}/) turns it into a session. The
+        # provider email travels along as a prefill hint.
+        pending_token = secrets.token_urlsafe(32)
+        pending_social, _ = PendingSocialLogin.objects.update_or_create(
             provider=provider,
             provider_uid=provider_uid,
-            email=email,
-            access_token=access_token,
-            refresh_token=refresh_token,
-            extra_data=user_info,
+            defaults={
+                'token': pending_token,
+                'email': email.lower(),
+                'access_token': access_token,
+                'refresh_token': refresh_token,
+                'extra_data': user_info,
+                'verification_code': '',
+                'verification_expires_at': None,
+            },
         )
-        PendingSocialLogin.objects.filter(provider=provider, provider_uid=provider_uid).delete()
-
-        return build_auth_response(
-            request, user, user_info, provider, is_new_user=is_new_user,
-        )
+        return Response({
+            'pendingToken': pending_social.token,
+            'email': pending_social.email,
+        })
 
 
 class NicknameSetupView(APIView):
@@ -446,7 +420,7 @@ class PendingSocialEmailSendView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        serializer = EmailSendSerializer(data=request.data)
+        serializer = EmailSendSerializer(data=request.data, context={'allow_existing': True})
         if not serializer.is_valid():
             return Response(
                 {'errors': serializer.errors},

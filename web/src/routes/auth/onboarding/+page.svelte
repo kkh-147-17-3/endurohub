@@ -44,7 +44,7 @@
     let step = $state<number>(data.startStep ?? 0);
 
     // Email step
-    let email = $state(data.user?.email ?? '');
+    let email = $state(data.user?.email || data.pendingEmail || '');
     let code = $state('');
     let emailUpdatesOptIn = $state(!!data.user?.emailUpdatesOptIn);
     let resendIn = $state(0);

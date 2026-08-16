@@ -190,6 +190,8 @@ export interface OAuthCallbackResponse {
 
 export interface OAuthPendingResponse {
 	pendingToken: string;
+	/** Address the provider reported, offered as a prefill. Still needs verification. */
+	email?: string;
 }
 
 export interface NicknameSetupResponse {

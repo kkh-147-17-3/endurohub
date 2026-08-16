@@ -37,6 +37,9 @@ export const load: PageServerLoad = async ({ params, url, cookies }) => {
 		}
 
 		if ('pendingToken' in result) {
+			// Parked login — no session until the code checks out, including any
+			// session this browser was still carrying.
+			cookies.delete('auth_token', { path: '/' });
 			cookies.set('pending_social_token', result.pendingToken, {
 				path: '/',
 				httpOnly: true,
@@ -44,6 +47,18 @@ export const load: PageServerLoad = async ({ params, url, cookies }) => {
 				sameSite: 'lax',
 				maxAge: 60 * 30, // 30 minutes
 			});
+			// Only a prefill for the verification step — the code decides, not the provider.
+			if (result.email) {
+				cookies.set('pending_social_email', result.email, {
+					path: '/',
+					httpOnly: true,
+					secure: url.protocol === 'https:',
+					sameSite: 'lax',
+					maxAge: 60 * 30,
+				});
+			} else {
+				cookies.delete('pending_social_email', { path: '/' });
+			}
 			redirect(303, '/auth/onboarding');
 		}
 
@@ -58,6 +73,7 @@ export const load: PageServerLoad = async ({ params, url, cookies }) => {
 			maxAge: 60 * 60 * 24 * 7, // 7 days
 		});
 		cookies.delete('pending_social_token', { path: '/' });
+		cookies.delete('pending_social_email', { path: '/' });
 
 		// Bridge a one-shot login event to the client (redirects happen server-side,
 		// so the browser can't fire it directly). The layout reads + clears this.

@@ -57,6 +57,13 @@ class EmailSendSerializer(serializers.Serializer):
         if not email:
             raise serializers.ValidationError({'email': ['이메일을 입력해주세요.']})
 
+        # Pending social signup: an address already on file is not a conflict — the
+        # code we send to that inbox is what decides whether the social identity may
+        # attach to that account.
+        if self.context.get('allow_existing'):
+            attrs['email'] = email
+            return attrs
+
         if user:
             duplicate_user_exists = User.objects.filter(email__iexact=email).exclude(pk=user.pk).exists()
             duplicate_social_exists = SocialAccount.objects.filter(email__iexact=email).exclude(user=user).exists()
