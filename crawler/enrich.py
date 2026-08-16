@@ -26,7 +26,9 @@ import re
 from urllib.parse import urljoin, urlparse
 
 import requests
-from playwright.sync_api import sync_playwright, Page, TimeoutError as PlaywrightTimeout
+from playwright.sync_api import (
+    sync_playwright, Page, Error as PlaywrightError, TimeoutError as PlaywrightTimeout,
+)
 
 from . import config
 from .models import EnrichExtraction
@@ -169,19 +171,38 @@ def _page_text(page: Page) -> str:
         return ""
 
 
+_COLLECT_IMGS_JS = """els => els.map(e => {
+    const r = e.getBoundingClientRect();
+    return {
+        meta: [e.getAttribute('alt'), e.getAttribute('src'), e.getAttribute('class')]
+            .filter(Boolean).join(' ').toLowerCase(),
+        src: e.getAttribute('src') || e.getAttribute('data-src') || '',
+        w: r.width, h: r.height,
+    };
+})"""
+
+
 def _course_image_urls(page: Page) -> list[str]:
-    """alt/src/class에 코스 키워드가 있는 이미지의 절대 URL (아이콘 크기 배제)."""
+    """alt/src/class에 코스 키워드가 있는 이미지의 절대 URL (아이콘 크기 배제).
+
+    이미지마다 왕복하면(query_selector_all + get_attribute + bounding_box) meta
+    refresh/JS 리다이렉트가 걸린 페이지에서 순회 도중 페이지가 넘어가
+    'Execution context was destroyed' 로 터진다. _candidate_links 와 같이 JS
+    한 번으로 모아서 그 창을 없앤다 (왕복이 3N→1 로 줄어 속도도 붙는다).
+    """
+    try:
+        found = page.eval_on_selector_all("img", _COLLECT_IMGS_JS)
+    except Exception as exc:
+        logger.info("  코스 이미지 스캔 실패 — 건너뜀 (%s)", exc)
+        return []
     urls: list[str] = []
-    for el in page.query_selector_all("img"):
-        meta = " ".join(filter(None, [
-            el.get_attribute("alt"), el.get_attribute("src"), el.get_attribute("class"),
-        ])).lower()
-        if not any(k in meta for k in COURSE_IMG_KEYWORDS):
+    for img in found:
+        if not any(k in img["meta"] for k in COURSE_IMG_KEYWORDS):
             continue
-        box = el.bounding_box()
-        if box and min(box["width"], box["height"]) < ICON_MIN_SIDE:
+        # 렌더 크기 0 은 비표시(display:none 등) — 기존 bounding_box() None 과 같이 통과시킨다
+        if img["w"] and img["h"] and min(img["w"], img["h"]) < ICON_MIN_SIDE:
             continue
-        src = el.get_attribute("src") or el.get_attribute("data-src")
+        src = img["src"]
         if not src or src.startswith("data:"):
             continue
         absolute = urljoin(page.url, src)
@@ -234,10 +255,10 @@ _VISION_FIELDS = {
 
 def _vision_fallback(page: Page, field: str, cache: dict) -> str | None:
     """페이지에서 가장 '대회 안내/포스터'다운 이미지를 골라 vision으로 필드를 읽는다."""
-    el = _pick_image_el(page, "img")
-    if el is None:
-        return None
     try:
+        el = _pick_image_el(page, "img")          # 이미지별 DOM 왕복 — 네비게이션 중이면 터진다
+        if el is None:
+            return None
         img = el.screenshot()
     except Exception:
         return None
@@ -323,13 +344,23 @@ def _candidate_links(page: Page, remaining: set[str], base_url: str) -> list[str
 
 def _goto(page: Page, url: str, slug: str) -> None:
     """robust 페이지 로드 — networkidle 은 분석 스크립트/롱폴링 사이트에서 무한 대기하므로
-    domcontentloaded 후 짧게 정착 대기, 타임아웃돼도 로드된 만큼으로 진행."""
+    domcontentloaded 후 짧게 정착 대기, 타임아웃돼도 로드된 만큼으로 진행.
+
+    meta refresh/JS 리다이렉트가 걸린 사이트는 goto 자체가 'interrupted by
+    another navigation' 으로 터진다 — 이것도 로드된 만큼으로 진행한다
+    (정말 아무것도 못 읽으면 자연히 unfilled 로 집계된다).
+    """
     try:
         page.goto(url, wait_until="domcontentloaded", timeout=20_000)
         page.wait_for_load_state("load", timeout=10_000)
     except PlaywrightTimeout:
         logger.info("  [%s] 페이지 로드 타임아웃 — 부분 로드로 진행 (%s)", slug, url)
-    page.wait_for_timeout(1_500)                          # lazy-load 이미지 정착 대기
+    except PlaywrightError as exc:
+        logger.info("  [%s] 페이지 로드 중단 — 부분 로드로 진행 (%s: %s)", slug, url, exc)
+    try:
+        page.wait_for_timeout(1_500)                      # lazy-load 이미지 정착 대기
+    except PlaywrightError:
+        pass
 
 
 def _harvest(page: Page, race: dict, remaining: set[str], state: dict, cache: dict) -> None:
@@ -411,6 +442,9 @@ def enrich_race(page: Page, race: dict, cache: dict) -> tuple[dict, list]:
     랜딩 페이지에서 먼저 추출하고, 못 채운 필드가 남으면 요강/코스 안내류
     하위 페이지(키워드 스코어 상위, 같은 도메인, 최대 MAX_SUBPAGES개)를
     순회하며 남은 필드만 재추출한다. 다 채워지면 조기 종료.
+
+    어느 페이지에서 터지든 그때까지 모은 결과는 그대로 반환한다 — 한 페이지
+    실패로 이미 뽑아둔 다른 필드까지 버리지 않는다.
     """
     url = race.get("officialUrl") or race.get("sourceUrl")
     remaining = set(race["missing"])
@@ -421,7 +455,10 @@ def enrich_race(page: Page, race: dict, cache: dict) -> tuple[dict, list]:
     }
 
     _goto(page, url, race["slug"])
-    _harvest(page, race, remaining, state, cache)
+    try:
+        _harvest(page, race, remaining, state, cache)
+    except Exception as exc:
+        logger.warning("  [%s] 랜딩 페이지 추출 실패 — 하위 페이지로 계속 (%s)", race["slug"], exc)
 
     if remaining:
         # 리다이렉트 후 실제 도메인(page.url) 기준으로 같은 사이트 여부를 판정한다
@@ -457,9 +494,14 @@ def run(limit: int | None = None, dry_run: bool = False) -> dict:
     cache: dict = {}                     # 이미지 해시 -> vision 결과 (이번 실행 동안)
     with sync_playwright() as p:
         browser = p.chromium.launch()
-        page = browser.new_page()
         for race in targets:
             summary["total"] += 1
+            # 대회마다 새 컨텍스트를 쓴다. page 하나를 재사용하면 앞 대회의 지연
+            # 리다이렉트(meta refresh 등)가 뒤늦게 발동해 다음 대회의 goto 를
+            # "interrupted by another navigation" 으로 가로챈다 — 한 사이트가
+            # 다음 대회를 연쇄로 망가뜨리던 실패의 주원인이었다.
+            context = browser.new_context()
+            page = context.new_page()
             try:
                 payload, course_downloads = enrich_race(page, race, cache)
                 if not payload and not course_downloads:
@@ -481,6 +523,11 @@ def run(limit: int | None = None, dry_run: bool = False) -> dict:
             except Exception:
                 logger.exception("  [%s] 보강 실패", race.get("slug"))
                 summary["errors"] += 1
+            finally:
+                try:
+                    context.close()
+                except Exception:
+                    pass
         browser.close()
 
     logger.info("=== enrich 완료: %s ===", summary)
