@@ -310,7 +310,10 @@
         <div class="eh-footer-cols">
             <div class="eh-footer-col">
                 <div class="eh-micro">RACES</div>
-                <a href="/races?reset=1">전체 대회</a>
+                <!-- ?reset=1 은 서버에서도 필터바에서도 읽지 않는 잉여 파라미터였다.
+                     facet 으로 분류돼 noindex 가 붙는데, 전 페이지 푸터에 걸린 링크라
+                     대회 목록으로 가야 할 내부 링크가 통째로 noindex 로 새고 있었다. -->
+                <a href="/races">전체 대회</a>
                 <a href={`/races/year/${currentYear}`}>{currentYear}년 대회</a>
                 <a href="/calendar">캘린더</a>
                 <a href="/timeline">시즌 타임라인</a>

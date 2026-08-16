@@ -951,8 +951,11 @@ class SitemapView(APIView):
         races = Race.objects.order_by('-updated_at').values('slug', 'updated_at')
         posts = Post.objects.order_by('-updated_at').values('id', 'updated_at')
 
+        # 사이트맵에 실을 캘린더 월: 현재 기준 ±12개월 중 "대회가 실제로 있는" 달만.
+        # 예전엔 25개월을 무조건 넣었는데, 대회가 0건인 달(예: 2027-01)은 본문이
+        # 530자 남짓한 빈 페이지라 색인되지 않으면서 크롤 예산만 소모했다.
         now = timezone.now()
-        calendar_months = []
+        window = []
         for delta in range(-12, 13):
             month = now.month + delta
             year = now.year
@@ -962,7 +965,18 @@ class SitemapView(APIView):
             while month > 12:
                 month -= 12
                 year += 1
-            calendar_months.append({'year': year, 'month': month})
+            window.append((year, month))
+
+        populated = {
+            (row['race_date__year'], row['race_date__month'])
+            for row in Race.objects.filter(race_date__isnull=False)
+            .values('race_date__year', 'race_date__month')
+            .annotate(n=Count('id'))
+            .filter(n__gt=0)
+        }
+        calendar_months = [
+            {'year': y, 'month': m} for (y, m) in window if (y, m) in populated
+        ]
 
         return Response({
             'races': [

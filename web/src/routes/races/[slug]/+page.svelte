@@ -101,7 +101,9 @@
         return desc.substring(0, 160);
     });
 
-    const ogImage = $derived(`${appUrl}/og/races/${race.slug}`);
+    // 슬러그가 한글이면 인코딩하지 않은 URL 은 400 이 난다(대회 603건 중 582건이 한글).
+    // og:image 가 통째로 깨져 있던 원인.
+    const ogImage = $derived(`${appUrl}/og/races/${encodeURIComponent(race.slug)}`);
 
     // ── hero ──────────────────────────────────────────────
     const sportMeta = $derived(SPORT_META[dsSport(race.sport)]);
@@ -313,6 +315,7 @@
     }
 
     const defaultImage = $derived(`${appUrl}/images/og-${race.sport.replace('_', '-')}.png`);
+    const minFee = $derived(arenaMinFee(race));
     const eventSchema = $derived({
         '@context': 'https://schema.org',
         '@type': 'SportsEvent',
@@ -322,10 +325,10 @@
             : `${race.title} - ${race.location}에서 개최되는 ${race.sportLabel} 대회`,
         startDate: race.raceDate,
         endDate: race.raceEndDate || race.raceDate,
-        eventStatus:
-            race.status === 'finished'
-                ? 'https://schema.org/EventCancelled'
-                : 'https://schema.org/EventScheduled',
+        // 종료된 대회는 '취소된' 대회가 아니다. schema.org 에 '종료' 상태값은 없고,
+        // 이미 지난 대회라는 사실은 startDate 가 표현한다. finished 를 EventCancelled
+        // 로 내보내면 "열리지 않은 대회"라는 틀린 정보를 구글에 알리게 된다.
+        eventStatus: 'https://schema.org/EventScheduled',
         eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
         url: pageUrl,
         sport: race.sportLabel,
@@ -347,19 +350,27 @@
                       }
                     : undefined,
         },
-        image: race.imageSrc || defaultImage,
+        // imageSrc 는 보통 /storage/… 형태의 상대 경로다. schema.org 의 image 는 절대
+        // URL 이어야 해서 그대로 내보내면 무효가 된다. 외부 절대 URL 이 들어와도
+        // new URL(input, base) 이 그대로 돌려주므로 양쪽 다 안전하다.
+        image: race.imageSrc ? new URL(race.imageSrc, appUrl).href : defaultImage,
         sameAs: validOfficialUrl || undefined,
-        offers: {
-            '@type': 'Offer',
-            url: validOfficialUrl || pageUrl,
-            availability:
-                race.status === 'registration_open'
-                    ? 'https://schema.org/InStock'
-                    : 'https://schema.org/SoldOut',
-            price: String(arenaMinFee(race) ?? 0),
-            priceCurrency: 'KRW',
-            validFrom: race.registrationStart || race.raceDate,
-        },
+        // 참가비를 모르는 대회가 많은데, 그때 price:"0" 을 내보내면 무료 대회라고
+        // 잘못 선언하는 셈이 된다. 값을 아는 경우에만 offers 를 싣는다.
+        offers:
+            minFee != null
+                ? {
+                      '@type': 'Offer',
+                      url: validOfficialUrl || pageUrl,
+                      availability:
+                          race.status === 'registration_open'
+                              ? 'https://schema.org/InStock'
+                              : 'https://schema.org/SoldOut',
+                      price: String(minFee),
+                      priceCurrency: 'KRW',
+                      validFrom: race.registrationStart || race.raceDate,
+                  }
+                : undefined,
         performer: { '@type': 'SportsTeam', name: race.organizer || '대회 주최측' },
         organizer: {
             '@type': 'Organization',
