@@ -27,15 +27,24 @@ jobs:
             cd "${{ vars.DEPLOY_PATH }}"
 
             # 1) 커밋 상태 그대로 반영 (untracked .env 등은 보존)
+            BEFORE=$(git rev-parse HEAD)
             git fetch origin master
             git reset --hard origin/master
+            AFTER=$(git rev-parse HEAD)
 
             # 2) 앱↔관측성 공유 네트워크/볼륨 보장
             docker network create endurohub_obs 2>/dev/null || true
             docker volume create endurohub_nginx_logs 2>/dev/null || true
 
-            # 3) 변경 감지
-            CHANGED=$(git diff --name-only HEAD~1 HEAD)
+            # 3) 변경 감지 — 직전 배포 커밋(BEFORE)부터 지금까지 전부 본다.
+            #    HEAD~1..HEAD 로 보면 한 번에 여러 커밋이 push 될 때 마지막 커밋의
+            #    경로만 잡혀 나머지 커밋이 건드린 서비스가 조용히 누락된다
+            #    (실제로 crawler/ 수정이 배포된 척하고 옛 이미지로 계속 돌았다).
+            if [ "$BEFORE" = "$AFTER" ]; then
+              CHANGED=$(git diff --name-only HEAD~1 HEAD)   # 재실행: 마지막 커밋 기준
+            else
+              CHANGED=$(git diff --name-only "$BEFORE" "$AFTER")
+            fi
             echo "$CHANGED"
             API=false; WEB=false; CRAWLER=false; INFRA=false; OBS=false
             echo "$CHANGED" | grep -q "^api/" && API=true || true
