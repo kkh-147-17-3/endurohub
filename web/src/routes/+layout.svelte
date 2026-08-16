@@ -39,6 +39,17 @@
     const PAGE_PARAM = 'page';
     let canonicalPath = $derived(buildCanonicalPath($page.url));
 
+    // Facet URLs (/races?sport=…, ?region=…, ?reset=1) get `noindex, follow`.
+    // They used to canonicalize to the bare path instead, but Search Console shows
+    // that consolidation never happened — none landed in "alternate page with proper
+    // canonical"; they sat in "crawled – currently not indexed" and kept a fix
+    // validation failing. noindex states the intent outright, and `follow` keeps the
+    // race detail links on those pages working as a discovery path. The canonical tag
+    // is dropped alongside it: pairing noindex with a canonical pointing at a
+    // *different* URL is a contradiction (remove this page vs. merge it into that one).
+    // Sport keywords are served by the real landing pages (/running, /swimming, …).
+    let facetFiltered = $derived(hasFacetParam($page.url));
+
     function hasFacetParam(url: URL): boolean {
         for (const key of url.searchParams.keys()) {
             if (key === PAGE_PARAM || INDEXABLE_PARAMS.includes(key)) continue;
@@ -201,7 +212,11 @@
     <meta property="og:url" content="{data.appUrl}{canonicalPath}" />
     <meta property="og:locale" content="ko_KR" />
     <meta name="twitter:card" content="summary_large_image" />
-    <link rel="canonical" href="{data.appUrl}{canonicalPath}" />
+    {#if facetFiltered}
+        <meta name="robots" content="noindex, follow" />
+    {:else}
+        <link rel="canonical" href="{data.appUrl}{canonicalPath}" />
+    {/if}
     {#if googleAnalyticsId}
         <script async src="https://www.googletagmanager.com/gtag/js?id={googleAnalyticsId}"></script>
         {@html `<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${googleAnalyticsId}');</script>`}

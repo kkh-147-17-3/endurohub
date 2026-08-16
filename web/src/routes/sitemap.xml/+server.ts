@@ -1,6 +1,7 @@
 import type { RequestHandler } from './$types';
 import { apiFetch } from '$lib/api';
 import { APP_URL } from '$lib/env';
+import { SPORT_LANDINGS } from '$lib/seo/sport-landing';
 import type { SitemapResponse } from '$lib/types';
 
 export const GET: RequestHandler = async () => {
@@ -19,9 +20,14 @@ export const GET: RequestHandler = async () => {
 		urls.push(entry(baseUrl, `/calendar?month=${cm.month}&year=${cm.year}`, 'weekly', '0.6'));
 	}
 
-	// NOTE: /running, /swimming, /cycling, /triathlon, /trail-running are intentionally
-	// excluded — they 301-redirect to /races?sport=X, and sitemaps must list final
-	// (200) canonical URLs, not redirects.
+	// Sport landing pages — these used to 301 to /races?sport=X and were excluded here
+	// for that reason. They now answer 200 with their own content and self-canonical,
+	// so they belong in the sitemap. Priority sits just under /races: they are the
+	// entry point for sport keywords ("마라톤 대회 일정") and the second internal-link
+	// path into race detail pages.
+	for (const s of SPORT_LANDINGS) {
+		urls.push(entry(baseUrl, s.path, 'daily', '0.9'));
+	}
 
 	// Tool pages
 	urls.push(entry(baseUrl, '/tools', 'monthly', '0.8'));

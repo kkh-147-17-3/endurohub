@@ -21,6 +21,7 @@
         arenaMinFee,
         arenaShortDate,
     } from '$lib/arena';
+    import { sportLandingPath } from '$lib/seo/sport-landing';
     import { track, trackOutboundClick } from '$lib/analytics';
     import { clientApiFetch } from '$lib/api.client';
 
@@ -665,7 +666,7 @@
         <div class="rd-hero__top">
             <nav class="rd-crumb" aria-label="breadcrumb">
                 <a href="/races">대회</a><span class="rd-crumb__sep">/</span>
-                <a href={`/races?sport=${race.sport}`}>{race.sportLabel}</a>
+                <a href={sportLandingPath(race.sport)}>{race.sportLabel}</a>
                 {#if race.region}
                     <span class="rd-crumb__sep">/</span>
                     <span class="rd-crumb__cur">{race.region}</span>
