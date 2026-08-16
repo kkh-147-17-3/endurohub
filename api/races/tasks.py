@@ -44,3 +44,11 @@ def update_registration_status_task():
 
     summary = update_registration_status()
     logger.info('Update registration status task completed', extra=summary)
+
+
+@shared_task(ignore_result=True)
+def generate_ai_recap_task(limit=20):
+    from races.services.ai_recap import generate_race_recaps
+
+    summary = generate_race_recaps(limit=limit, sleep=1.0)
+    logger.info('Generate AI recap task completed', extra=summary)

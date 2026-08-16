@@ -54,6 +54,7 @@ services:
       LLM_MODEL: ${LLM_MODEL:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-https://api.openai.com/v1}
       LLM_JSON_MODE: ${LLM_JSON_MODE:-}
+      AI_RECAP_MODEL: ${AI_RECAP_MODEL:-}
     volumes:
       - api_static:/app/staticfiles
       - api_media:/app/storage
@@ -93,6 +94,14 @@ services:
       DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-contact@endurohub.kr}
       CRAWL_REPORT_EMAIL: ${CRAWL_REPORT_EMAIL:-kkh147.17.3@gmail.com}
       CRAWL_SEND_EMPTY_REPORT: ${CRAWL_SEND_EMPTY_REPORT:-false}
+      # LLM 을 쓰는 태스크(update_registration_status, generate_ai_recap)가 여기서 돈다.
+      # 이게 없으면 서비스단에서 'LLM_API_KEY 미설정' 경고만 남기고 조용히 아무것도 안 한다.
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.openai.com/v1}
+      LLM_JSON_MODE: ${LLM_JSON_MODE:-}
+      AI_RECAP_MODEL: ${AI_RECAP_MODEL:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:

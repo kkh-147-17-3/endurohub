@@ -199,6 +199,11 @@ LLM_BASE_URL = os.environ.get('LLM_BASE_URL', 'https://api.openai.com/v1').rstri
 # JSON 강제 모드: '' (프롬프트만, 모든 서버 호환·기본) | 'json_schema' (LM Studio·최신 OpenAI) | 'json_object' (OpenAI)
 LLM_JSON_MODE = os.environ.get('LLM_JSON_MODE', '').strip()
 
+# 끝난 대회 후기 요약 잡 전용 모델. 이 잡만 Responses API 의 web_search 툴을 쓰기 때문에
+# 검색 품질이 다른 경로보다 결과를 크게 좌우한다 — nano 로 부실하면 여기만 올릴 수 있게
+# 분리해 둔다(nl_search/reg_status 는 LLM_MODEL 을 그대로 쓴다).
+AI_RECAP_MODEL = os.environ.get('AI_RECAP_MODEL', '').strip() or LLM_MODEL or 'gpt-5.4-nano'
+
 # Storage URL for generating absolute image URLs
 STORAGE_URL = os.environ.get('STORAGE_URL', '/storage/')
 
@@ -270,6 +275,12 @@ CELERY_BEAT_SCHEDULE = {
     'update-registration-status-daily': {
         'task': 'races.tasks.update_registration_status_task',
         'schedule': crontab(hour=12, minute=0),  # Daily noon KST
+    },
+    # 화 4AM — 매시 크롤(:00), 6:30 날씨, 8:00 enrich, 9:00 월요일 다이제스트,
+    # 12:00 접수판정과 겹치지 않는 시간대.
+    'generate-ai-recap-weekly': {
+        'task': 'races.tasks.generate_ai_recap_task',
+        'schedule': crontab(hour=4, minute=0, day_of_week=2),
     },
     # 이름으로만 발행 — 태스크 구현은 crawler-worker 컨테이너(crawler/celery_app.py)에 있다
     'crawler-enrich-daily': {
