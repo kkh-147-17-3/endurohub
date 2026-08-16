@@ -69,7 +69,12 @@ function entry(
 	priority: string,
 	lastmod?: string
 ): string {
-	const loc = `${baseUrl}${path}`;
+	// Race slugs are Hangul, so the raw path is not a valid <loc> — sitemaps must
+	// carry RFC 3986 URLs. Resolving through WHATWG URL percent-encodes the path
+	// with exactly the same rules SvelteKit's `url.pathname` uses to build the
+	// page's <link rel="canonical">, so sitemap and canonical stay byte-identical;
+	// emitting the raw form made Google treat them as two different URLs.
+	const loc = new URL(path, `${baseUrl}/`).href;
 	let xml = `  <url>\n    <loc>${escapeXml(loc)}</loc>`;
 	const lastmodValue = formatLastmod(lastmod);
 	if (lastmodValue) {

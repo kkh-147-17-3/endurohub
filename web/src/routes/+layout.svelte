@@ -27,7 +27,26 @@
     // Tracking params (utm_*, fbclid, …) are intentionally excluded. Keys are emitted
     // in a fixed (alphabetical) order so the canonical matches the sitemap exactly.
     const INDEXABLE_PARAMS = ['month', 'year'];
+    const TRACKING_PARAM = /^(utm_|fbclid$|gclid$|msclkid$|igshid$|ref$)/;
+
+    // `page` is deliberately NOT a facet: /races?page=2 lists *different* races than
+    // /races, so folding it into the bare path would deindex pages 2..N — and those
+    // pages are the only internal-link path to most race detail pages. It therefore
+    // self-canonicalizes, but only on an otherwise-unfiltered URL: once a facet
+    // (sport/region/status/…) is active the facet policy wins and the whole thing
+    // folds to the bare path, so filtered views can't explode into crawlable
+    // filter×page combinations.
+    const PAGE_PARAM = 'page';
     let canonicalPath = $derived(buildCanonicalPath($page.url));
+
+    function hasFacetParam(url: URL): boolean {
+        for (const key of url.searchParams.keys()) {
+            if (key === PAGE_PARAM || INDEXABLE_PARAMS.includes(key)) continue;
+            if (TRACKING_PARAM.test(key)) continue;
+            return true;
+        }
+        return false;
+    }
 
     function buildCanonicalPath(url: URL): string {
         const params = new URLSearchParams();
@@ -35,6 +54,13 @@
             const value = url.searchParams.get(key);
             if (value) params.set(key, value);
         }
+        // page=1 is never emitted as a link (see pageHref in /races), so canonicalize
+        // it away to keep /races and /races?page=1 from splitting into two URLs.
+        const pageValue = url.searchParams.get(PAGE_PARAM);
+        if (pageValue && pageValue !== '1' && !hasFacetParam(url)) {
+            params.set(PAGE_PARAM, pageValue);
+        }
+        params.sort();
         const qs = params.toString();
         return qs ? `${url.pathname}?${qs}` : url.pathname;
     }
