@@ -142,6 +142,10 @@ services:
     build: ./crawler
     mem_limit: 1536m
     environment:
+      # Django 를 안 띄우는 유일한 파이썬 서비스라 프로세스 TZ 가 UTC 로 남는다.
+      # (api/celery 는 Django 가 settings.TIME_ZONE 으로 tzset 을 해준다.)
+      # 그대로 두면 이 컨테이너 로그만 9시간 어긋나 Loki 에서 상관분석이 어긋난다.
+      TZ: Asia/Seoul
       REDIS_HOST: ${REDIS_HOST:-host.docker.internal}
       REDIS_PORT: ${REDIS_PORT:-6379}
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
@@ -161,6 +165,9 @@ services:
     environment:
       <<: *otel-env
       OTEL_SERVICE_NAME: endurohub-web
+      # SSR 의 new Date() 가 컨테이너 TZ 를 따른다. UTC 로 두면 1/1 00:00~09:00 KST
+      # 사이에 푸터 연도(+layout.server.ts)·타임라인 기본 연도가 작년으로 나온다.
+      TZ: Asia/Seoul
       API_URL_INTERNAL: http://api:8000
       PUBLIC_API_URL: /api
       PUBLIC_KAKAO_JAVASCRIPT_KEY: ${KAKAO_JAVASCRIPT_KEY:-}
