@@ -62,8 +62,13 @@
     const hasDistanceStart = $derived(distanceList.some((d) => d.startTime));
     const feeDistances = $derived(distanceList.filter((d) => d.fee));
 
-    /** AI summary — used as the 개요 lead/description fallback. */
-    const tagline = $derived(race.aiSummary?.trim() || '');
+    /**
+     * 엔듀로허브가 생성한 대회 요약. 대회 603건 중 541건이 원본 사이트에서 긁어온
+     * 정보라, 원본에 없는 콘텐츠는 사실상 이것뿐이다. 예전엔 description 이 없을
+     * 때의 fallback 으로만 썼는데 description 보유가 572건이라 거의 전부 사장됐다.
+     * 이제 description 과 나란히, 그 위에 싣는다.
+     */
+    const aiSummary = $derived(race.aiSummary?.trim() || '');
 
     function isValidUrl(url: string | null | undefined): url is string {
         if (!url) return false;
@@ -93,13 +98,28 @@
             : '',
     );
 
+    /**
+     * meta description. 아래 템플릿은 대회 603건에서 제목·날짜·장소·종목만 바뀔 뿐
+     * 문장 구조가 전부 같아서, 검색결과에서 서로 구분되지 않고 구글이 자주 다시 쓴다.
+     * 자체 생성한 요약이 있으면 그쪽이 훨씬 나은 스니펫이므로 우선 쓴다.
+     */
     const metaDesc = $derived(() => {
+        const summary = aiSummary.replace(/\s+/g, ' ').trim();
+        if (summary.length >= 40) return clampAtWord(summary, 160);
         let desc = `${race.title} - ${race.raceDate ? formatDateFull(race.raceDate) : ''} ${race.location}에서 개최되는 ${race.sportLabel} 대회입니다.`;
         if (distanceNames) desc += ` 참가 종목: ${distanceNames}.`;
         if (race.status === 'registration_open') desc += ' 지금 접수 중!';
         desc += ' 엔듀로허브에서 대회 정보를 확인하세요.';
         return desc.substring(0, 160);
     });
+
+    /** 단어 중간에서 자르지 않는다 — 잘린 단어는 스니펫에서 그대로 노출된다. */
+    function clampAtWord(text: string, limit: number): string {
+        if (text.length <= limit) return text;
+        const cut = text.slice(0, limit);
+        const lastSpace = cut.lastIndexOf(' ');
+        return `${(lastSpace > limit * 0.6 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
+    }
 
     // 슬러그가 한글이면 인코딩하지 않은 URL 은 400 이 난다(대회 603건 중 582건이 한글).
     // og:image 가 통째로 깨져 있던 원인.
@@ -509,9 +529,9 @@
         return rows;
     });
 
-    const descBody = $derived(race.description?.trim() || tagline || '');
+    const descBody = $derived(race.description?.trim() || '');
     const descNeedsClamp = $derived(descBody.replace(/<[^>]+>/g, '').length > 140);
-    const hasOverview = $derived(!!descBody || overviewRows.length > 0);
+    const hasOverview = $derived(!!aiSummary || !!descBody || overviewRows.length > 0);
 
     // ── 시즌 기록 ─────────────────────────────────────────
     let recCourse = $state('전체');
@@ -787,7 +807,19 @@
                         secN('overview'),
                         '개요',
                     )}
+                    {#if aiSummary}
+                        <!-- 원본 소개문과 시각적으로 구분한다. 아래 descBody 는 주최측
+                             원문이고 이건 엔듀로허브가 정리한 것이라, 출처가 다르다는
+                             사실이 읽는 사람에게 드러나야 한다. -->
+                        <div class="rd-ov-sum">
+                            <div class="eh-micro rd-ov-sum__label">엔듀로허브 요약 · AI 생성</div>
+                            <p class="rd-prose rd-ov-sum__body">{aiSummary}</p>
+                        </div>
+                    {/if}
                     {#if descBody}
+                        {#if aiSummary}
+                            <div class="eh-micro rd-ov-srclabel">주최측 소개</div>
+                        {/if}
                         <div
                             class="rd-prose rd-ov-desc"
                             class:rd-ov-desc--clamp={descNeedsClamp && !descExpanded}
@@ -1581,6 +1613,25 @@
         line-height: var(--leading-body);
         color: var(--text-body);
         max-width: 640px;
+    }
+    /* 엔듀로허브 요약 — 주최측 원문과 출처가 다르므로 좌측 룰로 구분한다. */
+    .rd-ov-sum {
+        border-left: 2px solid var(--accent);
+        padding-left: var(--sp-4);
+        margin-bottom: var(--sp-5);
+    }
+    .rd-ov-sum__label {
+        color: var(--text-accent);
+        margin-bottom: var(--sp-2);
+    }
+    .rd-ov-sum__body {
+        margin: 0;
+        white-space: pre-line;
+        word-break: break-word;
+    }
+    .rd-ov-srclabel {
+        color: var(--text-muted);
+        margin-bottom: var(--sp-2);
     }
     .rd-ov-desc { white-space: normal; word-break: break-word; }
     .rd-ov-desc--clamp {
