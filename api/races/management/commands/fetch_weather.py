@@ -1,3 +1,4 @@
+import time
 from datetime import timedelta
 
 import httpx
@@ -8,7 +9,15 @@ from races.models import Race
 
 
 OPEN_METEO_URL = 'https://api.open-meteo.com/v1/forecast'
-MAX_FORECAST_DAYS = 16  # Open-Meteo free tier limit
+# Open-Meteo 예보 상한은 "오늘 + 15일" (총 16일치). 16으로 두면 경계 대회가
+# 매번 400 'start_date is out of allowed range' 를 맞는다.
+MAX_FORECAST_DAYS = 15
+
+# open-meteo 는 부하 시 간헐적으로 503/429 를 돌려준다. 잡이 하루 1회만 돌기
+# 때문에 여기서 못 받으면 24시간 동안 예보가 비므로 짧게 재시도한다.
+MAX_ATTEMPTS = 3
+RETRY_BASE_DELAY = 1.0                                  # 1초 → 2초
+RETRY_STATUS_CODES = frozenset({408, 425, 429, 500, 502, 503, 504})
 
 
 def _wind_direction_label(degrees):
@@ -164,7 +173,11 @@ class Command(BaseCommand):
         dry_run = options['dry_run']
 
         today = timezone.localdate()
-        end_date = today + timedelta(days=days)
+        # 예보 상한은 open-meteo 가 UTC 기준으로 계산한다. KST 는 UTC 보다 9시간
+        # 빠르므로 00:00~09:00 KST 에는 (KST 오늘 + 15) 가 API 상한을 하루 넘어선다.
+        # 잡이 06:30 KST 에 돌기 때문에 항상 이 구간이다 — UTC 기준으로 잘라낸다.
+        api_horizon = timezone.now().date() + timedelta(days=MAX_FORECAST_DAYS)
+        end_date = min(today + timedelta(days=days), api_horizon)
 
         qs = Race.objects.filter(
             latitude__isnull=False,
@@ -176,7 +189,7 @@ class Command(BaseCommand):
             qs = qs.filter(slug=slug)
 
         total = qs.count()
-        self.stdout.write(f'대상 대회: {total}개 (D-0 ~ D-{days})')
+        self.stdout.write(f'대상 대회: {total}개 ({today} ~ {end_date})')
         if dry_run:
             self.stdout.write(self.style.WARNING('--dry-run 모드'))
 
@@ -226,6 +239,31 @@ class Command(BaseCommand):
             f'완료: 갱신 {updated} / 실패 {failed} / 전체 {total}'
         ))
 
+    def _get_with_retry(self, client, params, slug):
+        """일시적 오류(연결 실패 / 429 / 5xx)만 지수 백오프로 재시도한다.
+
+        400 같은 영구 오류는 재시도해도 소용없으므로 즉시 올린다.
+        마지막 시도까지 실패하면 예외를 그대로 올려 호출자가 실패로 집계한다.
+        """
+        for attempt in range(MAX_ATTEMPTS):
+            try:
+                resp = client.get(OPEN_METEO_URL, params=params)
+                resp.raise_for_status()
+                return resp
+            except (httpx.TransportError, httpx.HTTPStatusError) as exc:
+                retryable = (
+                    isinstance(exc, httpx.TransportError)
+                    or exc.response.status_code in RETRY_STATUS_CODES
+                )
+                if not retryable or attempt == MAX_ATTEMPTS - 1:
+                    raise
+                delay = RETRY_BASE_DELAY * (2 ** attempt)
+                self.stdout.write(self.style.WARNING(
+                    f'  [재시도 {attempt + 1}/{MAX_ATTEMPTS - 1}] {slug}: '
+                    f'{type(exc).__name__} — {delay:g}초 후'
+                ))
+                time.sleep(delay)
+
     def _fetch(self, client, race):
         race_date_str = race.race_date.isoformat()
         params = {
@@ -251,8 +289,7 @@ class Command(BaseCommand):
             'start_date': race_date_str,
             'end_date': race_date_str,
         }
-        resp = client.get(OPEN_METEO_URL, params=params)
-        resp.raise_for_status()
+        resp = self._get_with_retry(client, params, race.slug)
         data = resp.json()
         daily = data.get('daily') or {}
         if not daily.get('time'):
