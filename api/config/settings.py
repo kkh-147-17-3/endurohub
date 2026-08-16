@@ -22,6 +22,16 @@ DEBUG = os.environ.get('DJANGO_DEBUG', 'true').lower() in ('true', '1', 'yes')
 ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,api').split(',')
 print(f"[settings.py] ALLOWED_HOSTS={ALLOWED_HOSTS}  (raw env={os.environ.get('DJANGO_ALLOWED_HOSTS', 'UNSET')!r})")
 
+# cloudflared 는 항상 평문으로 오리진에 붙으므로 Django 는 자기가 http 로 서비스된다고
+# 믿는다. 그 결과 APPEND_SLASH 리다이렉트가 http:// 절대 URL 을 내보내고 있었다
+# (/api → http://www.endurohub.kr/api/ → nginx 301 → https://…, 불필요한 2홉).
+# 실제 클라이언트 스킴은 Cloudflare 가 붙여주는 X-Forwarded-Proto 에만 남아 있다.
+# nginx 쪽도 함께 고쳐야 한다 — 예전엔 $scheme(항상 http)으로 이 헤더를 덮어써서
+# 여기만 켜면 아무 효과가 없다. nginx/conf.d/default.conf 의 $forwarded_proto 참고.
+# 신뢰 경계: 오리진은 cloudflared 터널로만 닿을 수 있고 Cloudflare 엣지가 이 헤더를
+# 클라이언트 값 대신 자기가 판단한 값으로 덮어쓰므로 외부에서 위조할 수 없다.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 INSTALLED_APPS = [
     'unfold',
     'unfold.contrib.filters',
