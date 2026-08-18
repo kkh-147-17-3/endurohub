@@ -149,6 +149,10 @@ services:
   # Playwright chromium 포함이라 이미지가 크다. DB 접근은 admin API(HTTP)로만.
   crawler-worker:
     build: ./crawler
+    # chromium 이 종료할 때 zygote 프로세스 2개를 고아로 남긴다. 컨테이너 PID 1 이
+    # celery 라 재부모화된 고아를 아무도 wait() 해주지 않아 enrich 실행마다 좀비가
+    # 2개씩 누적됐다. docker-init(tini)을 PID 1 로 세워 수확시킨다.
+    init: true
     mem_limit: 1536m
     environment:
       # Django 를 안 띄우는 유일한 파이썬 서비스라 프로세스 TZ 가 UTC 로 남는다.
