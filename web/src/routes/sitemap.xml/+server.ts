@@ -20,6 +20,20 @@ export const GET: RequestHandler = async () => {
 		urls.push(entry(baseUrl, `/calendar?month=${cm.month}&year=${cm.year}`, 'weekly', '0.6'));
 	}
 
+	// Yearly race pages. These were missing entirely, so /races/year/{year} was
+	// reachable only through the navbar and footer links.
+	//
+	// The year list is derived from calendarMonths rather than a raw year range:
+	// that payload already holds only months with at least one race, so a year
+	// appearing there is guaranteed to have races and therefore to answer 200.
+	// /races/year/{year} 404s on an empty year (see the route's +page.server.ts),
+	// and listing URLs that 404 — or thin pages that never get indexed — is the
+	// exact problem the calendarMonths filter above was added to fix.
+	const raceYears = [...new Set(data.calendarMonths.map((cm) => cm.year))].sort((a, b) => a - b);
+	for (const year of raceYears) {
+		urls.push(entry(baseUrl, `/races/year/${year}`, 'daily', '0.8'));
+	}
+
 	// Sport landing pages — these used to 301 to /races?sport=X and were excluded here
 	// for that reason. They now answer 200 with their own content and self-canonical,
 	// so they belong in the sitemap. Priority sits just under /races: they are the
