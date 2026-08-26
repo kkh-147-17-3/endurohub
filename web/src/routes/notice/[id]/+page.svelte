@@ -1,11 +1,15 @@
 <script lang="ts">
 	import type { NoticeDetail, NoticeCategory } from '../notices';
 	import { CAT_LABEL } from '../notices';
+	import EventBanner from '$lib/components/EventBanner.svelte';
 
 	let { data } = $props();
 
 	const notice = $derived<NoticeDetail>(data.notice);
 	const adjacent = $derived(data.adjacent);
+	// 이벤트 공지에 배너가 붙어 있으면 본문 위에 히어로로 펼친다 — 팝업 모달과
+	// 같은 데이터(django admin > 팝업 배너)를 쓴다.
+	const event = $derived(data.event);
 
 	const catLabel = $derived(CAT_LABEL[notice.category as NoticeCategory]);
 </script>
@@ -38,6 +42,13 @@
 				<span>조회 {notice.views.toLocaleString('ko-KR')}</span>
 			</div>
 		</header>
+
+		<!-- Event hero (관리자에서 배너를 연결한 이벤트 공지만) -->
+		{#if event}
+			<div class="event-hero">
+				<EventBanner banner={event} variant="page" />
+			</div>
+		{/if}
 
 		<!-- Article body (sanitized HTML from the backend) -->
 		<article class="md">
@@ -174,6 +185,12 @@
 	.notice-hd .meta b {
 		color: var(--text-muted);
 		font-weight: 600;
+	}
+
+	/* ---- Event hero ---- */
+	.event-hero {
+		margin-top: 28px;
+		border: 1px solid var(--ink-900);
 	}
 
 	/* ---- Markdown body ---- */

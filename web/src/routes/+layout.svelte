@@ -11,6 +11,8 @@
     import { track } from '$lib/analytics';
     import { getTheme, toggleTheme, type Theme } from '$lib/theme';
     import ProgressBar from '$lib/components/ProgressBar.svelte';
+    import EventPopup from '$lib/components/EventPopup.svelte';
+    import { isDismissed } from '$lib/popup';
 
     let { data, children } = $props();
 
@@ -98,6 +100,32 @@
     let mobileMenuOpen = $state(false);
     let userMenuOpen = $state(false);
 
+    // ── 이벤트 팝업 ───────────────────────────────────────────
+    // 내용·게시기간은 django admin 의 "팝업 배너"에서 관리한다. 여기서는
+    // "언제 띄울지"만 정한다: 마운트 이후(=localStorage 를 읽을 수 있을 때),
+    // 노출 위치가 맞고, 다시 보지 않기 기간이 아닐 때.
+    let mounted = $state(false);
+    let popupOpen = $state(false);
+    let popupSettled = $state(false); // 한 번 닫으면 이 세션에선 다시 띄우지 않는다
+    let popupBanner = $derived(data.popup);
+
+    $effect(() => {
+        if (!mounted || popupSettled || popupOpen) return;
+        const banner = popupBanner;
+        if (!banner || bare) return;
+        if (banner.placement === 'home' && currentPath !== '/') return;
+        if (isDismissed(banner)) {
+            popupSettled = true;
+            return;
+        }
+        popupOpen = true;
+    });
+
+    function closePopup() {
+        popupOpen = false;
+        popupSettled = true;
+    }
+
     beforeNavigate((nav) => {
         if ($updated && !nav.willUnload && nav.to?.url) {
             nav.cancel();
@@ -117,6 +145,7 @@
     });
 
     onMount(() => {
+        mounted = true;
         theme = getTheme();
         initPostHog();
         syncPostHogUser(user);
@@ -294,6 +323,10 @@
 {/if}
 
 <ProgressBar active={!!$navigating} />
+
+{#if popupOpen && popupBanner}
+    <EventPopup banner={popupBanner} onClose={closePopup} />
+{/if}
 
 <main class="eh-main">
     {@render children()}

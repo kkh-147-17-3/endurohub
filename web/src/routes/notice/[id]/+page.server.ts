@@ -9,5 +9,5 @@ export const load: PageServerLoad = async ({ params }) => {
 
 	const resp = await apiFetch<NoticeDetailResponse>(`/notices/${id}/`);
 
-	return { notice: resp.notice, adjacent: resp.adjacent };
+	return { notice: resp.notice, adjacent: resp.adjacent, event: resp.event };
 };

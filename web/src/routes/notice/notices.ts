@@ -1,3 +1,5 @@
+import type { EventBanner } from '$lib/popup';
+
 // Types and constants for the notice pages. Data is served by the Django
 // backend at /api/v1/notices/ — see +page.server.ts for the fetches.
 
@@ -54,4 +56,6 @@ export interface NoticeListResponse {
 export interface NoticeDetailResponse {
   notice: NoticeDetail;
   adjacent: { prev: AdjacentNotice | null; next: AdjacentNotice | null };
+  /** 이 공지에 연결된 이벤트 배너 (django admin > 팝업 배너). 없으면 null. */
+  event: EventBanner | null;
 }

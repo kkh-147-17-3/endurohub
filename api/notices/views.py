@@ -1,9 +1,10 @@
+from django.core.cache import cache
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Notice
-from .serializers import NoticeDetailSerializer, NoticeListSerializer
+from .models import POPUP_CACHE_KEY, Notice, Popup
+from .serializers import NoticeDetailSerializer, NoticeListSerializer, PopupSerializer
 
 VALID_TABS = {'notice', 'racenews', 'event', 'urgent'}
 
@@ -74,7 +75,31 @@ class NoticeDetailView(APIView):
                 'date': n.published_at.strftime('%Y·%m·%d') if n.published_at else '',
             }
 
+        # 이벤트 공지는 배너(Popup)를 달 수 있다 — 상세 상단 히어로로 렌더된다.
+        popup = notice.popups.order_by('-priority', '-id').first()
+
         return Response({
             'notice': NoticeDetailSerializer(notice).data,
             'adjacent': {'prev': adjacent(prev_notice), 'next': adjacent(next_notice)},
+            'event': PopupSerializer(popup).data if popup else None,
         })
+
+
+class PopupActiveView(APIView):
+    """GET /api/v1/popups/active/ — 지금 게시기간 안인 팝업 배너 (없으면 null).
+
+    전 페이지의 레이아웃 로드에서 호출되므로 Redis 에 60초 캐시한다.
+    관리자에서 저장하면 Popup.save() 가 키를 지우므로 즉시 반영된다.
+    """
+
+    CACHE_TTL = 60
+
+    def get(self, request):
+        cached = cache.get(POPUP_CACHE_KEY)
+        if cached is not None:
+            return Response(cached)
+
+        popup = Popup.live()
+        payload = {'popup': PopupSerializer(popup).data if popup else None}
+        cache.set(POPUP_CACHE_KEY, payload, self.CACHE_TTL)
+        return Response(payload)

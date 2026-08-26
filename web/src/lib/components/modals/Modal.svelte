@@ -30,6 +30,10 @@
         labelledby?: string;
         /** Accessible label for the × button. */
         closeLabel?: string;
+        /** false 면 본문 패딩을 없앤다 — 배너처럼 가장자리까지 채우는 내용용. */
+        padded?: boolean;
+        /** 본문 상단이 어두울 때(잉크 블록) × 를 밝은 색으로 뒤집는다. */
+        closeTone?: 'default' | 'inverse';
     }
 
     let {
@@ -39,6 +43,8 @@
         maxWidth = '520px',
         labelledby,
         closeLabel = '닫기',
+        padded = true,
+        closeTone = 'default',
     }: Props = $props();
 
     let dialogEl = $state<HTMLDivElement | null>(null);
@@ -80,8 +86,13 @@
         tabindex="-1"
         bind:this={dialogEl}
     >
-        <button class="m-close" onclick={onClose} aria-label={closeLabel}>×</button>
-        <div class="m-body">
+        <button
+            class="m-close"
+            class:inverse={closeTone === 'inverse'}
+            onclick={onClose}
+            aria-label={closeLabel}
+        >×</button>
+        <div class="m-body" class:bare={!padded}>
             {@render children()}
         </div>
         {#if foot}
@@ -112,6 +123,12 @@
     .m-close:hover {
         color: var(--text-strong);
     }
+    .m-close.inverse {
+        color: var(--ink-300);
+    }
+    .m-close.inverse:hover {
+        color: var(--text-inverse);
+    }
 
     /* ── Body / foot regions ── */
     .m-body {
@@ -120,11 +137,18 @@
         overscroll-behavior: contain;
         max-height: calc(100vh - 160px);
     }
+    .m-body.bare {
+        padding: 0;
+    }
     .m-foot {
         padding: 22px 30px 26px;
         display: flex;
         gap: 8px;
         align-items: center;
+    }
+    /* 본문이 가장자리까지 채워지면 푸터와의 경계가 사라진다 — 헤어라인을 준다. */
+    .m-body.bare + .m-foot {
+        border-top: var(--border-hair);
     }
 
     /* ─────────── Shared content vocabulary ───────────
