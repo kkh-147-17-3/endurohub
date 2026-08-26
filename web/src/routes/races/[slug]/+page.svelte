@@ -9,7 +9,7 @@
     import ReviewForm from '$lib/components/ReviewForm.svelte';
     import { Badge, Button, FilterChip } from '$lib/components/eh';
     import { dsBadgeStatus, SPORT_META, dsSport } from '$lib/components/eh/meta';
-    import type { Race, Review, ReviewStats, Distance, FavoriteToggleResponse, SeasonRecord } from '$lib/types';
+    import type { Race, Review, ReviewStats, Distance, FavoriteToggleResponse, LikeToggleResponse, SeasonRecord } from '$lib/types';
     import { formatDateFull, formatDateDay, formatDateShort, formatDistanceToNow } from '$lib/date';
     import {
         arenaDday,
@@ -225,6 +225,7 @@
         shareModalOpen = false;
         reviewModalOpen = false;
         favoriteOverride = null;
+        likeOverrides = {};
         descExpanded = false;
     });
 
@@ -249,6 +250,54 @@
             favoriteOverride = prevOverride;
         } finally {
             isTogglingFavorite = false;
+        }
+    }
+
+    // ── 후기 공감 ────────────────────────────────────────────────────
+    // 서버가 준 값 위에 낙관적 override 를 얹고, 응답/실패로 정정한다.
+    let likeOverrides = $state<Record<number, { liked: boolean; count: number }>>({});
+    let likingId = $state<number | null>(null);
+
+    function reviewLike(review: Review): { liked: boolean; count: number } {
+        return likeOverrides[review.id] ?? { liked: review.hasLiked, count: review.likeCount };
+    }
+
+    async function toggleReviewLike(review: Review) {
+        if (likingId !== null) return;
+        const prev = likeOverrides[review.id];
+        const current = reviewLike(review);
+        const restore = () => {
+            const next = { ...likeOverrides };
+            if (prev === undefined) delete next[review.id];
+            else next[review.id] = prev;
+            likeOverrides = next;
+        };
+
+        likeOverrides = {
+            ...likeOverrides,
+            [review.id]: {
+                liked: !current.liked,
+                count: Math.max(0, current.count + (current.liked ? -1 : 1)),
+            },
+        };
+        likingId = review.id;
+        try {
+            const res = await clientApiFetch<LikeToggleResponse>(
+                `/races/${race.slug}/reviews/${review.id}/like/`,
+                { method: 'POST' },
+            );
+            if (res.success) {
+                likeOverrides = {
+                    ...likeOverrides,
+                    [review.id]: { liked: res.liked, count: res.likeCount },
+                };
+            } else {
+                restore();
+            }
+        } catch {
+            restore();
+        } finally {
+            likingId = null;
         }
     }
 
@@ -1117,6 +1166,21 @@
                                         {/if}
                                     </div>
                                 {/if}
+                                <div class="rd-review__actions">
+                                    <button
+                                        type="button"
+                                        class="rd-review__like"
+                                        class:rd-review__like--on={reviewLike(review).liked}
+                                        onclick={() => toggleReviewLike(review)}
+                                        disabled={likingId === review.id}
+                                        aria-pressed={reviewLike(review).liked}
+                                        aria-label={`이 후기에 공감 ${reviewLike(review).count}`}
+                                    >
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill={reviewLike(review).liked ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                                        <span>공감</span>
+                                        <b class="eh-data">{reviewLike(review).count}</b>
+                                    </button>
+                                </div>
                             </article>
                         {/each}
                         {#if !hasReviewed}
@@ -1925,6 +1989,24 @@
         flex-wrap: wrap;
         align-items: baseline;
     }
+    .rd-review__actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+    .rd-review__like {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: var(--border-hair);
+        background: var(--paper-0);
+        color: var(--text-faint);
+        padding: 5px 10px;
+        font-size: 11px;
+        letter-spacing: 0.3px;
+        cursor: pointer;
+        transition: color 0.15s, border-color 0.15s;
+    }
+    .rd-review__like:hover:not(:disabled) { color: var(--text-strong); }
+    .rd-review__like:disabled { cursor: default; opacity: 0.6; }
+    .rd-review__like--on { color: var(--text-accent); border-color: currentColor; }
+    .rd-review__like b { font-weight: 700; }
     .rd-review__meta { color: var(--text-faint); }
     .rd-review__meta b { color: var(--text-strong); font-weight: 700; }
     .rd-review__tags { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }

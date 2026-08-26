@@ -306,6 +306,8 @@ export interface Review {
 	recommendationTags?: string[] | null;
 	createdAt: string;
 	createdAtFormatted: string;
+	likeCount: number;
+	hasLiked: boolean;
 }
 
 export interface ReviewStats {

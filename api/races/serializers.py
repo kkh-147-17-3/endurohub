@@ -189,6 +189,8 @@ class UpcomingRaceSerializer(serializers.ModelSerializer):
 class ReviewSerializer(serializers.ModelSerializer):
     nickname = serializers.SerializerMethodField()
     created_at_formatted = serializers.SerializerMethodField()
+    like_count = serializers.SerializerMethodField()
+    has_liked = serializers.SerializerMethodField()
 
     class Meta:
         model = Review
@@ -197,10 +199,26 @@ class ReviewSerializer(serializers.ModelSerializer):
             'completion_time', 'course_difficulty',
             'operation_satisfaction', 'recommendation_tags',
             'created_at', 'created_at_formatted',
+            'like_count', 'has_liked',
         ]
 
     def get_nickname(self, obj):
         return obj.display_nickname
+
+    def get_like_count(self, obj):
+        if hasattr(obj, '_like_count'):
+            return obj._like_count
+        return obj.like_count
+
+    def get_has_liked(self, obj):
+        # 목록에서는 뷰가 미리 구한 id 집합을 넘긴다 (리뷰당 쿼리 방지).
+        liked_ids = self.context.get('liked_review_ids')
+        if liked_ids is not None:
+            return obj.id in liked_ids
+        ip_hash = self.context.get('ip_hash')
+        if not ip_hash:
+            return False
+        return obj.likes.filter(ip_hash=ip_hash).exists()
 
     def get_created_at_formatted(self, obj):
         if obj.created_at:

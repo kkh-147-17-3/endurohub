@@ -645,6 +645,10 @@ class Review(models.Model):
     def display_nickname(self):
         return self.nickname or '익명'
 
+    @property
+    def like_count(self):
+        return self.likes.count()
+
 
 class RacePendingChange(models.Model):
     FIELD_LABELS = {
@@ -809,3 +813,19 @@ class RaceParticipation(models.Model):
 
     def __str__(self):
         return f'{self.user_id} -> Race#{self.race_id} ({self.status})'
+
+
+class ReviewLike(models.Model):
+    """리뷰 공감 — 게시글 추천(PostLike)과 같이 IP 해시 기준으로 1인 1회."""
+
+    review = models.ForeignKey(Review, on_delete=models.CASCADE, related_name='likes')
+    ip_hash = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'race_review_likes'
+        # (review, ip_hash) 유니크 인덱스의 선행 컬럼이 review 라 개수 집계도 이걸 탄다.
+        unique_together = [('review', 'ip_hash')]
+
+    def __str__(self):
+        return f'Like on Review#{self.review_id} by {self.ip_hash[:8]}...'

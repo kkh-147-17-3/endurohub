@@ -20,6 +20,7 @@ from .models import (
     RaceParticipation,
     RacePendingChange,
     Review,
+    ReviewLike,
 )
 
 
@@ -729,7 +730,7 @@ class RacePendingChangeAdmin(ModelAdmin):
 
 @admin.register(Review)
 class ReviewAdmin(ModelAdmin):
-    list_display = ['race_link', 'display_nickname_col', 'rating_stars', 'comment_short', 'created_at']
+    list_display = ['race_link', 'display_nickname_col', 'rating_stars', 'comment_short', 'like_count_col', 'created_at']
     list_filter = ['rating']
     search_fields = ['race__title', 'nickname', 'comment']
     ordering = ['-created_at']
@@ -757,6 +758,10 @@ class ReviewAdmin(ModelAdmin):
     @admin.display(description='닉네임')
     def display_nickname_col(self, obj):
         return obj.display_nickname
+
+    @admin.display(description='공감')
+    def like_count_col(self, obj):
+        return obj.like_count
 
     @admin.display(description='평점')
     def rating_stars(self, obj):
@@ -848,3 +853,18 @@ class RaceParticipationAdmin(ModelAdmin):
             'border-radius:4px; font-size:12px;">{}</span>',
             color, obj.get_status_display(),
         )
+
+
+# ---------------------------------------------------------------------------
+# ReviewLikeAdmin
+# ---------------------------------------------------------------------------
+
+@admin.register(ReviewLike)
+class ReviewLikeAdmin(ModelAdmin):
+    list_display = ['id', 'review', 'ip_hash_short', 'created_at']
+    ordering = ['-created_at']
+    readonly_fields = ['review', 'ip_hash', 'created_at']
+
+    @admin.display(description='IP Hash')
+    def ip_hash_short(self, obj):
+        return obj.ip_hash[:16] + '...'

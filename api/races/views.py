@@ -27,7 +27,7 @@ from posts.serializers import PostListSerializer
 from rest_framework.permissions import IsAuthenticated
 
 from .constants import DISTANCE_CATEGORIES, REGIONS, SPORTS
-from .models import DeviceToken, Race, RaceFavorite, RacePendingChange, Review
+from .models import DeviceToken, Race, RaceFavorite, RacePendingChange, Review, ReviewLike
 
 
 def _favorite_race_ids(request, race_ids=None):
@@ -560,6 +560,16 @@ class RaceDetailView(APIView):
         ip_hash = hash_ip(request)
         has_reviewed = Review.objects.filter(race=race, ip_hash=ip_hash).exists()
 
+        # 공감 수는 별도 쿼리셋에 붙인다 — 위 aggregate/분포 집계에 조인이 끼면 값이 틀어진다.
+        review_list = reviews.annotate(_like_count=Count('likes'))
+
+        # 이 IP 가 공감한 리뷰 (리뷰당 쿼리 대신 한 번에)
+        liked_review_ids = set(
+            ReviewLike.objects
+            .filter(review__race=race, ip_hash=ip_hash)
+            .values_list('review_id', flat=True)
+        )
+
         # Season records (공개 완주 기록 + 내 기록)
         season_records = self._season_records(race, request)
 
@@ -582,7 +592,10 @@ class RaceDetailView(APIView):
                 related_posts, many=True,
                 context={'include_tagged_races': True},
             ).data,
-            'reviews': ReviewSerializer(reviews, many=True).data,
+            'reviews': ReviewSerializer(
+                review_list, many=True,
+                context={'liked_review_ids': liked_review_ids},
+            ).data,
             'reviewStats': {
                 'count': review_stats['count'] or 0,
                 'average': round(review_stats['average'] or 0, 1),
@@ -918,8 +931,52 @@ class ReviewCreateView(APIView):
         return Response({
             'success': True,
             'message': '리뷰가 등록되었습니다.',
-            'review': ReviewSerializer(review).data,
+            'review': ReviewSerializer(review, context={'liked_review_ids': set()}).data,
         }, status=status.HTTP_201_CREATED)
+
+
+class ReviewLikeToggleView(APIView):
+    """POST /api/v1/races/<slug>/reviews/<review_id>/like/ — 리뷰 공감 토글.
+
+    게시글 추천(PostLikeToggleView)과 동일하게 로그인 없이 IP 해시로 1인 1회.
+    """
+
+    def post(self, request, slug, review_id):
+        if slug.isdigit():
+            race_filter = Q(race_id=int(slug))
+        else:
+            race_filter = Q(race__slug=slug)
+
+        review = Review.objects.filter(race_filter, pk=review_id).first()
+        if review is None:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        ip_hash = hash_ip(request)
+
+        existing = ReviewLike.objects.filter(review=review, ip_hash=ip_hash).first()
+        if existing:
+            # 공감 취소 — 제한 없음
+            existing.delete()
+            return Response({
+                'success': True,
+                'liked': False,
+                'likeCount': ReviewLike.objects.filter(review=review).count(),
+            })
+
+        # 공감 — 시간당 30회
+        allowed, _ = check_rate_limit(ip_hash, 'review_like', 30, 3600)
+        if not allowed:
+            return Response({
+                'success': False,
+                'message': '공감 횟수 제한에 도달했습니다. 잠시 후 다시 시도해주세요.',
+            }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
+        ReviewLike.objects.get_or_create(review=review, ip_hash=ip_hash)
+        return Response({
+            'success': True,
+            'liked': True,
+            'likeCount': ReviewLike.objects.filter(review=review).count(),
+        })
 
 
 class RaceFavoriteToggleView(APIView):
