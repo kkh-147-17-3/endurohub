@@ -1,11 +1,6 @@
 // 팝업 배너(이벤트 배너) — 관리자(django admin)의 "팝업 배너"에서 관리한다.
-// 같은 페이로드를 팝업 모달과 공지 상세 상단 히어로가 함께 쓴다.
-
-export interface EventStep {
-	order: number;
-	title: string;
-	description: string;
-}
+// 내용은 이미지 한 장이고, 같은 페이로드를 팝업 모달과 공지 상세 상단
+// 히어로가 함께 쓴다.
 
 export interface EventBanner {
 	id: number;
@@ -14,33 +9,19 @@ export interface EventBanner {
 	placement: 'home' | 'all';
 	dismissDays: number;
 	noticeId: number | null;
-	/** CTA 링크. 비어 있으면 버튼을 렌더하지 않는다. */
-	targetUrl: string;
-
-	tag: string;
-	headline: string;
-	headlineAccent: string;
-	subtitle: string;
-
-	metaPeriod: string;
-	metaWinners: string;
-	showDday: boolean;
-	/** 마감까지 남은 일수. 종료일이 없으면 null. */
-	dday: number | null;
 	isLive: boolean;
 
-	prizeImage: string;
-	prizeNote: string;
-	prizeName: string;
-	prizeCount: string;
+	/** 배너 이미지 URL. 비어 있으면 띄울 내용이 없다. */
+	image: string;
+	imageAlt: string;
+	/** 원본 크기 — <img width height> 로 자리를 미리 잡는다. */
+	imageWidth: number | null;
+	imageHeight: number | null;
 
+	/** 이동 링크. 비어 있으면 이미지·버튼 모두 링크가 되지 않는다. */
+	targetUrl: string;
+	/** 버튼 문구. 비어 있으면 버튼 없이 이미지만 눌러 이동한다. */
 	ctaLabel: string;
-
-	finePeriod: string;
-	fineAnnounce: string;
-	fineNote: string;
-
-	steps: EventStep[];
 }
 
 export interface PopupActiveResponse {
@@ -73,25 +54,4 @@ export function dismissFor(banner: EventBanner, days: number): void {
 	} catch {
 		// 시크릿 모드 등에서 localStorage 가 막혀 있으면 그냥 매번 뜬다.
 	}
-}
-
-/** 헤드라인을 강조 단어 기준으로 쪼갠다 — {@html} 없이 <em> 을 넣기 위해. */
-export function splitAccent(
-	headline: string,
-	accent: string
-): { text: string; accent: boolean }[] {
-	if (!accent || !headline.includes(accent)) return [{ text: headline, accent: false }];
-	const out: { text: string; accent: boolean }[] = [];
-	for (const chunk of headline.split(accent)) {
-		out.push({ text: chunk, accent: false });
-		out.push({ text: accent, accent: true });
-	}
-	out.pop(); // split 은 항상 조각이 하나 더 많다
-	return out.filter((p) => p.text.length > 0);
-}
-
-/** "D-15" / "D-DAY" — 표시할 게 없으면 빈 문자열. */
-export function ddayLabel(banner: EventBanner): string {
-	if (!banner.showDday || banner.dday === null || banner.dday < 0) return '';
-	return banner.dday === 0 ? 'D-DAY' : `D-${banner.dday}`;
 }

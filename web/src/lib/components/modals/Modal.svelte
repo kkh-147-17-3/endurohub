@@ -28,12 +28,19 @@
         maxWidth?: string;
         /** id of the title element, wired to aria-labelledby. */
         labelledby?: string;
+        /** 제목 요소가 없을 때(예: 내용이 이미지뿐인 배너) 쓰는 aria-label. */
+        label?: string;
         /** Accessible label for the × button. */
         closeLabel?: string;
         /** false 면 본문 패딩을 없앤다 — 배너처럼 가장자리까지 채우는 내용용. */
         padded?: boolean;
-        /** 본문 상단이 어두울 때(잉크 블록) × 를 밝은 색으로 뒤집는다. */
-        closeTone?: 'default' | 'inverse';
+        /**
+         * default — 밝은 본문 위의 기본 ×.
+         * inverse — 본문 상단이 어두울 때(잉크 블록) 밝은 색으로 뒤집는다.
+         * overlay — 본문이 이미지라 밝기를 알 수 없을 때. 어두운 칩을 깔아
+         *           어떤 이미지 위에서도 보이게 한다.
+         */
+        closeTone?: 'default' | 'inverse' | 'overlay';
     }
 
     let {
@@ -42,6 +49,7 @@
         foot,
         maxWidth = '520px',
         labelledby,
+        label,
         closeLabel = '닫기',
         padded = true,
         closeTone = 'default',
@@ -83,12 +91,14 @@
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledby}
+        aria-label={labelledby ? undefined : label}
         tabindex="-1"
         bind:this={dialogEl}
     >
         <button
             class="m-close"
             class:inverse={closeTone === 'inverse'}
+            class:overlay={closeTone === 'overlay'}
             onclick={onClose}
             aria-label={closeLabel}
         >×</button>
@@ -128,6 +138,16 @@
     }
     .m-close.inverse:hover {
         color: var(--text-inverse);
+    }
+    .m-close.overlay {
+        color: #fff;
+        background: rgba(0, 0, 0, 0.45);
+        border-radius: 999px;
+        font-size: 16px;
+    }
+    .m-close.overlay:hover {
+        color: #fff;
+        background: rgba(0, 0, 0, 0.72);
     }
 
     /* ── Body / foot regions ── */

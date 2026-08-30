@@ -1,10 +1,11 @@
 from django.contrib import admin
 from django.db import models
-from unfold.admin import ModelAdmin, TabularInline
+from django.utils.html import format_html
+from unfold.admin import ModelAdmin
 from unfold.contrib.forms.widgets import WysiwygWidget
 
 from core.sanitize import sanitize_notice_html
-from .models import Notice, Popup, PopupStep, invalidate_popup_cache
+from .models import Notice, Popup, invalidate_popup_cache
 
 
 @admin.register(Notice)
@@ -44,22 +45,14 @@ class NoticeAdmin(ModelAdmin):
         return obj.title[:40] + ('...' if len(obj.title) > 40 else '')
 
 
-class PopupStepInline(TabularInline):
-    model = PopupStep
-    extra = 3
-    fields = ('order', 'title', 'description')
-    ordering = ('order', 'id')
-
-
 @admin.register(Popup)
 class PopupAdmin(ModelAdmin):
-    list_display = ['name', 'live_badge', 'placement', 'starts_at', 'ends_at', 'notice', 'priority']
+    list_display = ['name', 'live_badge', 'thumb', 'placement', 'starts_at', 'ends_at', 'notice', 'priority']
     list_filter = ['active', 'placement']
-    search_fields = ['name', 'headline', 'subtitle']
+    search_fields = ['name', 'image_alt']
     ordering = ['-priority', '-starts_at']
-    readonly_fields = ['created_at', 'updated_at']
+    readonly_fields = ['preview', 'created_at', 'updated_at']
     autocomplete_fields = ['notice']
-    inlines = [PopupStepInline]
 
     fieldsets = (
         ('게시', {
@@ -69,29 +62,20 @@ class PopupAdmin(ModelAdmin):
                 '"다시 보지 않기(일)"은 방문자가 팝업을 닫고 다시 보지 않기를 선택했을 때 숨겨지는 기간입니다.'
             ),
         }),
-        ('상세 페이지 연결', {
-            'fields': ('notice', 'cta_label', 'cta_url'),
+        ('내용 (이미지)', {
+            'fields': ('image', 'image_alt', 'preview'),
             'description': (
-                '상세 페이지는 공지사항으로 만듭니다. 이벤트 카테고리로 공지사항을 하나 등록한 뒤 '
-                '여기에 연결하면, 팝업의 버튼이 그 공지 상세로 이어지고 상세 상단에도 같은 배너가 붙습니다.'
+                '팝업 내용은 이미지 한 장입니다. 모달 폭이 640px 이므로 가로 1280px 안팎(2배수)에 '
+                '세로로 긴 비율을 권합니다. 모바일에서는 화면 폭에 맞춰 줄어드니 이미지 안 글씨가 '
+                '너무 작지 않은지 확인해 주세요.'
             ),
         }),
-        ('배너 상단', {
-            'fields': ('tag', 'headline', 'headline_accent', 'subtitle'),
+        ('이동 링크', {
+            'fields': ('cta_label', 'cta_url', 'notice'),
             'description': (
-                '헤드라인은 줄바꿈이 그대로 반영됩니다. "헤드라인 강조 단어"에 적은 낱말은 '
-                '헤드라인 안에서 초록색으로 표시됩니다.'
+                '이미지를 누르거나 아래 버튼을 누르면 이 링크로 이동합니다. 링크를 비우면 연결된 '
+                '공지사항 상세로 갑니다. 공지사항을 연결하면 그 상세 페이지 상단에도 같은 이미지가 붙습니다.'
             ),
-        }),
-        ('배너 메타 (3칸)', {
-            'fields': ('meta_period', 'meta_winners', 'show_dday'),
-            'description': '예) 기간 "08·01 — 08·31", 당첨 "30". D-day 는 게시 종료일에서 자동 계산됩니다.',
-        }),
-        ('경품', {
-            'fields': ('prize_image', 'prize_name', 'prize_count', 'prize_note'),
-        }),
-        ('하단 세부 안내', {
-            'fields': ('fine_period', 'fine_announce', 'fine_note'),
         }),
         ('메타 정보', {
             'fields': ('created_at', 'updated_at'),
@@ -102,8 +86,29 @@ class PopupAdmin(ModelAdmin):
     def live_badge(self, obj):
         return obj.is_live
 
+    @admin.display(description='이미지')
+    def thumb(self, obj):
+        if not obj.image:
+            return '—'
+        return format_html(
+            '<img src="{}" style="height:44px; width:auto; border-radius:4px;" alt="" />',
+            obj.image.url,
+        )
+
+    @admin.display(description='미리보기 (모달 폭 640px 기준)')
+    def preview(self, obj):
+        if not obj.image:
+            return '이미지를 올리고 저장하면 여기에 표시됩니다.'
+        return format_html(
+            '<div style="max-width:640px; border:1px solid rgba(128,128,128,.35); border-radius:6px; overflow:hidden;">'
+            '<img src="{}" style="display:block; width:100%; height:auto;" alt="" />'
+            '<div style="height:66px; display:flex; align-items:center; justify-content:center; '
+            'background:#1f9d55; color:#fff; font-weight:700; font-size:20px;">{}</div>'
+            '</div>',
+            obj.image.url,
+            obj.cta_label or '(버튼 없음 — 이미지 클릭만)',
+        )
+
     def save_related(self, request, form, formsets, change):
-        # 인라인(참여 단계)까지 저장된 뒤 한 번 더 비운다 — 단계만 고쳤을 때도
-        # 캐시된 페이로드가 남지 않도록.
         super().save_related(request, form, formsets, change)
         invalidate_popup_cache()

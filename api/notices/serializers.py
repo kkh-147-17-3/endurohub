@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Notice, Popup, PopupStep
+from .models import Notice, Popup
 
 CATEGORY_LABELS = dict(Notice.CATEGORY_CHOICES)
 
@@ -36,18 +36,10 @@ class NoticeDetailSerializer(NoticeListSerializer):
         ]
 
 
-class PopupStepSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PopupStep
-        fields = ['order', 'title', 'description']
-
-
 class PopupSerializer(serializers.ModelSerializer):
-    """팝업 배너 — 모달과 공지 상세 히어로가 같은 페이로드를 쓴다."""
-    steps = PopupStepSerializer(many=True, read_only=True)
-    prize_image = serializers.SerializerMethodField()
+    """팝업 배너 — 모달과 공지 상세 히어로가 같은 이미지를 쓴다."""
+    image = serializers.CharField(source='image_url', read_only=True)
     target_url = serializers.CharField(read_only=True)
-    dday = serializers.IntegerField(read_only=True)
     is_live = serializers.BooleanField(read_only=True)
     notice_id = serializers.IntegerField(read_only=True)
     version = serializers.SerializerMethodField()
@@ -55,17 +47,10 @@ class PopupSerializer(serializers.ModelSerializer):
     class Meta:
         model = Popup
         fields = [
-            'id', 'version', 'placement', 'dismiss_days', 'notice_id', 'target_url',
-            'tag', 'headline', 'headline_accent', 'subtitle',
-            'meta_period', 'meta_winners', 'show_dday', 'dday', 'is_live',
-            'prize_image', 'prize_note', 'prize_name', 'prize_count',
-            'cta_label',
-            'fine_period', 'fine_announce', 'fine_note',
-            'steps',
+            'id', 'version', 'placement', 'dismiss_days', 'notice_id',
+            'is_live', 'image', 'image_alt', 'image_width', 'image_height',
+            'cta_label', 'target_url',
         ]
-
-    def get_prize_image(self, obj):
-        return obj.prize_image.url if obj.prize_image else ''
 
     def get_version(self, obj):
         """내용이 바뀌면 값이 바뀐다 — 프론트의 '다시 보지 않기' 키에 쓰인다."""
