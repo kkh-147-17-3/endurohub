@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'races',
     'posts',
     'accounts',
+    'rewards',
     'notices',
 ]
 

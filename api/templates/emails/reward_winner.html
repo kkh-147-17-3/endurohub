@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <title>{{ campaign.name }} 당첨 안내</title>
+    <style>
+        @media only screen and (max-width: 600px) {
+            .container { width: 100% !important; }
+            .pad { padding-left: 20px !important; padding-right: 20px !important; }
+            .hero-title { font-size: 32px !important; }
+        }
+    </style>
+</head>
+<body style="margin:0; padding:0; background:#f7f7f4; color:#2c322f; font-family:Pretendard,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse; background:#f7f7f4;">
+        <tr>
+            <td align="center" style="padding:40px 16px;">
+                <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="width:600px; max-width:600px; border:1px solid #101312; border-collapse:collapse; background:#ffffff;">
+                    <tr>
+                        <td class="pad" style="padding:18px 32px; border-bottom:2px solid #101312;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td style="font-weight:900; font-size:19px; color:#101312;">ENDURO<span style="color:#43a564;">/</span>HUB</td>
+                                    <td align="right" style="font-size:11px; font-weight:700; color:#2f7d49;">REVIEW REWARD</td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="pad" style="padding:44px 32px 36px; border-bottom:1px solid #e2e2dc;">
+                            <div style="font-size:11px; font-weight:700; letter-spacing:.08em; color:#2f7d49;">WINNER · 당첨 안내</div>
+                            <h1 class="hero-title" style="margin:14px 0 0; font-size:40px; line-height:1.08; letter-spacing:-.04em; color:#101312;">{{ nickname }}님,<br>축하드립니다.</h1>
+                            <p style="margin:20px 0 0; font-size:15px; line-height:1.7; color:#565e5a;"><strong style="color:#101312;">{{ campaign.name }}</strong> 리뷰 이벤트에 당첨되셨습니다.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="pad" style="padding:32px; border-bottom:1px solid #e2e2dc;">
+                            <div style="font-size:11px; font-weight:700; letter-spacing:.08em; color:#565e5a;">PRIZE · 경품</div>
+                            <div style="margin-top:10px; font-size:24px; font-weight:800; letter-spacing:-.03em; color:#101312;">{{ campaign.prize_name }}</div>
+
+                            {% if coupon.code %}
+                            <div style="margin-top:24px; padding:20px; border:2px solid #101312; background:#f7f7f4; text-align:center;">
+                                <div style="font-size:11px; font-weight:700; letter-spacing:.08em; color:#565e5a;">COUPON CODE</div>
+                                <div style="margin-top:9px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:24px; font-weight:800; letter-spacing:.08em; color:#101312; word-break:break-all;">{{ coupon.code }}</div>
+                            </div>
+                            {% endif %}
+
+                            {% if coupon.redemption_url %}
+                            <div style="margin-top:22px; text-align:center;">
+                                <a href="{{ coupon.redemption_url }}" style="display:inline-block; padding:14px 24px; border:1px solid #101312; background:#101312; color:#ffffff; font-size:14px; font-weight:700; text-decoration:none;">기프티콘 확인하기&nbsp;&nbsp;→</a>
+                            </div>
+                            {% endif %}
+
+                            {% if coupon.image %}
+                            <p style="margin:22px 0 0; font-size:13px; line-height:1.7; color:#565e5a;">기프티콘 이미지를 이 메일에 첨부했습니다. 첨부파일을 저장해 사용해주세요.</p>
+                            {% endif %}
+
+                            {% if coupon.expires_on %}
+                            <p style="margin:18px 0 0; font-size:13px; color:#c93a2a;"><strong>사용 기한 {{ coupon.expires_on|date:"Y.m.d" }}</strong></p>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="pad" style="padding:26px 32px; background:#ffffff; font-size:12px; line-height:1.7; color:#565e5a;">
+                            <div style="font-weight:900; font-size:15px; color:#101312; margin-bottom:8px;">ENDURO<span style="color:#43a564;">/</span>HUB</div>
+                            <p style="margin:4px 0;">이 메일은 리뷰 이벤트 당첨 및 경품 전달을 위해 발송되었습니다.</p>
+                            <p style="margin:4px 0;">문의 <a href="{{ app_url }}/help" style="color:#101312;">고객센터</a> · <a href="{{ app_url }}/privacy" style="color:#101312;">개인정보처리방침</a></p>
+                            <p style="margin:12px 0 0; font-size:11px; letter-spacing:.08em; color:#79817c;">© {% now "Y" %} ENDUROHUB</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

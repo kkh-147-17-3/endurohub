@@ -1,4 +1,5 @@
 import copy
+import logging
 import os
 import random
 import uuid
@@ -28,6 +29,9 @@ from rest_framework.permissions import IsAuthenticated
 
 from .constants import DISTANCE_CATEGORIES, REGIONS, SPORTS
 from .models import DeviceToken, Race, RaceFavorite, RacePendingChange, Review, ReviewLike
+
+
+logger = logging.getLogger(__name__)
 
 
 def _favorite_race_ids(request, race_ids=None):
@@ -544,7 +548,9 @@ class RaceDetailView(APIView):
         ).order_by('-created_at')[:5]
 
         # Reviews
-        reviews = Review.objects.filter(race=race).order_by('-created_at')
+        reviews = Review.objects.filter(race=race).select_related(
+            'user__profile',
+        ).order_by('-created_at')
         review_stats = reviews.aggregate(
             count=Count('id'),
             average=Avg('rating'),
@@ -556,9 +562,14 @@ class RaceDetailView(APIView):
         for entry in reviews.exclude(course_difficulty__isnull=True).values('course_difficulty').annotate(cnt=Count('id')):
             difficulty_dist[entry['course_difficulty']] = entry['cnt']
 
-        # Check if current IP has reviewed
+        # New reviews are member-owned. Anonymous visitors have not reviewed;
+        # legacy IP-only rows cannot be safely attributed to an account.
         ip_hash = hash_ip(request)
-        has_reviewed = Review.objects.filter(race=race, ip_hash=ip_hash).exists()
+        has_reviewed = bool(
+            request.user
+            and request.user.is_authenticated
+            and Review.objects.filter(race=race, user=request.user).exists()
+        )
 
         # 공감 수는 별도 쿼리셋에 붙인다 — 위 aggregate/분포 집계에 조인이 끼면 값이 틀어진다.
         review_list = reviews.annotate(_like_count=Count('likes'))
@@ -877,6 +888,9 @@ class RaceRegionsView(APIView):
 
 
 class ReviewCreateView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
     def post(self, request, slug):
         try:
             if slug.isdigit():
@@ -885,6 +899,20 @@ class ReviewCreateView(APIView):
                 race = Race.objects.get(slug=slug)
         except Race.DoesNotExist:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        race_end_date = race.race_end_date or race.race_date
+        if race_end_date > timezone.localdate():
+            return Response(
+                {'errors': {'review': ['대회가 끝난 뒤에 리뷰를 작성할 수 있습니다.']}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        profile = getattr(request.user, 'profile', None)
+        if not profile or not profile.email_verified or not request.user.email:
+            return Response(
+                {'errors': {'review': ['이메일 인증을 완료한 회원만 리뷰를 작성할 수 있습니다.']}},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         ip_hash = hash_ip(request)
 
@@ -897,7 +925,7 @@ class ReviewCreateView(APIView):
             )
 
         # Check duplicate
-        if Review.objects.filter(race=race, ip_hash=ip_hash).exists():
+        if Review.objects.filter(race=race, user=request.user).exists():
             return Response(
                 {'errors': {'review': ['이미 이 대회에 리뷰를 작성하셨습니다.']}},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -913,7 +941,8 @@ class ReviewCreateView(APIView):
         data = serializer.validated_data
         review = Review.objects.create(
             race=race,
-            nickname=data.get('nickname') or None,
+            user=request.user,
+            nickname=profile.nickname or None,
             rating=data['rating'],
             comment=data['comment'],
             completion_time=data.get('completion_time') or None,
@@ -922,6 +951,14 @@ class ReviewCreateView(APIView):
             recommendation_tags=data.get('recommendation_tags') or None,
             ip_hash=ip_hash,
         )
+
+        # Entries are also rebuilt from source reviews immediately before a
+        # draw, so a temporary enrollment failure can never exclude a member.
+        try:
+            from rewards.services import enroll_review_in_active_campaigns
+            enroll_review_in_active_campaigns(review)
+        except Exception:
+            logger.exception('Failed to enroll review %s in reward campaigns', review.pk)
 
         track('review_submit', request, {
             'sport': race.sport,

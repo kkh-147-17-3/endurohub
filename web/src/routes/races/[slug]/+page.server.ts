@@ -20,9 +20,11 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 };
 
 export const actions: Actions = {
-	review: async ({ params, request }) => {
+	review: async ({ params, request, locals }) => {
+		if (!locals.authToken) {
+			return fail(401, { errors: { review: ['로그인 후 리뷰를 작성해주세요.'] } });
+		}
 		const formData = await request.formData();
-		const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '';
 
 		const recommendationTags = formData.getAll('recommendation_tags') as string[];
 		const operationSat = formData.get('operation_satisfaction');
@@ -30,7 +32,6 @@ export const actions: Actions = {
 		const body: Record<string, unknown> = {
 			rating: Number(formData.get('rating')),
 			comment: formData.get('comment') as string,
-			nickname: (formData.get('nickname') as string) || '익명',
 			completion_time: (formData.get('completion_time') as string) || null,
 			course_difficulty: (formData.get('course_difficulty') as string) || null,
 			operation_satisfaction: operationSat ? Number(operationSat) : null,
@@ -39,11 +40,21 @@ export const actions: Actions = {
 
 		const result = await apiFetch<ReviewCreateResponse | ApiErrors>(
 			`/races/${params.slug}/reviews/`,
-			{ method: 'POST', body, clientIp }
+			{
+				method: 'POST',
+				body,
+				clientIp: locals.clientIp,
+				authToken: locals.authToken,
+				sessionId: locals.sessionId,
+				userAgent: locals.userAgent,
+			}
 		);
 
 		if (isApiError(result)) {
 			return fail(400, { errors: result.errors });
+		}
+		if (!('success' in result) || !result.success) {
+			return fail(400, { errors: { review: ['리뷰를 등록하지 못했습니다. 다시 시도해주세요.'] } });
 		}
 
 		return { success: true, message: result.message };

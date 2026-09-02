@@ -730,15 +730,15 @@ class RacePendingChangeAdmin(ModelAdmin):
 
 @admin.register(Review)
 class ReviewAdmin(ModelAdmin):
-    list_display = ['race_link', 'display_nickname_col', 'rating_stars', 'comment_short', 'like_count_col', 'created_at']
+    list_display = ['race_link', 'display_nickname_col', 'member_email', 'rating_stars', 'comment_short', 'like_count_col', 'created_at']
     list_filter = ['rating']
-    search_fields = ['race__title', 'nickname', 'comment']
+    search_fields = ['race__title', 'nickname', 'user__email', 'comment']
     ordering = ['-created_at']
-    readonly_fields = ['race', 'nickname', 'rating', 'ip_hash', 'created_at']
+    readonly_fields = ['race', 'user', 'nickname', 'rating', 'ip_hash', 'created_at']
 
     fieldsets = (
         ('리뷰 정보', {
-            'fields': ('race', 'nickname', 'rating', 'comment'),
+            'fields': ('race', 'user', 'nickname', 'rating', 'comment'),
         }),
         ('상세 정보', {
             'fields': ('completion_time', 'course_difficulty', 'operation_satisfaction', 'recommendation_tags'),
@@ -758,6 +758,10 @@ class ReviewAdmin(ModelAdmin):
     @admin.display(description='닉네임')
     def display_nickname_col(self, obj):
         return obj.display_nickname
+
+    @admin.display(description='회원 이메일')
+    def member_email(self, obj):
+        return obj.user.email if obj.user_id else '(기존 익명 리뷰)'
 
     @admin.display(description='공감')
     def like_count_col(self, obj):

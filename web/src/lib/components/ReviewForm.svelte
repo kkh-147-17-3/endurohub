@@ -9,6 +9,7 @@
         hasReviewed: boolean;
         raceDate: string | null;
         raceEndDate?: string | null;
+        reviewerNickname: string;
         open: boolean;
         onclose: () => void;
         onsubmitted?: (detail: { rating: number }) => void;
@@ -22,6 +23,7 @@
         hasReviewed,
         raceDate,
         raceEndDate,
+        reviewerNickname,
         open = $bindable(false),
         onclose,
         onsubmitted,
@@ -201,19 +203,14 @@
                             {#if errors.comment}<p class="rvm-err" role="alert">{errors.comment[0]}</p>{/if}
                         </div>
 
-                        <!-- 닉네임 -->
+                        <!-- 작성 회원 -->
                         <div class="rvm-sec">
                             <div class="rvm-flabel">
-                                <span class="l">닉네임</span>
-                                <span class="r">미입력 시 익명</span>
+                                <span class="l">작성 회원</span>
+                                <span class="r">이메일 인증 완료</span>
                             </div>
-                            <input
-                                class="rvm-text"
-                                type="text"
-                                name="nickname"
-                                placeholder="닉네임을 입력하세요"
-                                maxlength="20"
-                            />
+                            <div class="rvm-member">@{reviewerNickname}</div>
+                            <p class="rvm-member-note">작성한 리뷰는 진행 중인 리뷰 이벤트에 회원당 1회 자동 응모되며, 당첨 시 인증된 이메일로 기프티콘을 보내드립니다.</p>
                         </div>
 
                         <!-- 추가 정보 (선택) -->
@@ -360,6 +357,21 @@
         color: var(--text-muted);
         margin: 8px 0 0;
         letter-spacing: 0.01em;
+    }
+
+    .rvm-member {
+        padding: 12px 14px;
+        border: var(--border-rule);
+        border-radius: var(--r-2);
+        background: var(--paper-50);
+        color: var(--text-strong);
+        font-weight: 700;
+    }
+    .rvm-member-note {
+        margin: 9px 0 0;
+        color: var(--text-muted);
+        font-size: 12px;
+        line-height: 1.55;
     }
 
     /* form fills remaining height; scroll body + sticky foot */

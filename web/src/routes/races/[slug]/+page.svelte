@@ -42,6 +42,9 @@
     const appUrl = $derived(data.appUrl || 'https://www.endurohub.kr');
     const kakaoJsKey = $derived(data.kakaoJsKey as string);
     const isAdmin: boolean = $derived(data.isAdmin ?? false);
+    const reviewNickname = $derived(
+        page.data.user?.nickname || page.data.user?.email?.split('@')[0] || '',
+    );
     const pageUrl = $derived(`${appUrl}${page.url.pathname}`);
 
     const badgeStatus = $derived(dsBadgeStatus(race.status, race.daysUntilRegistrationEnd));
@@ -315,6 +318,18 @@
     }
     function closeShareModal() {
         shareModalOpen = false;
+    }
+
+    function openReviewForm() {
+        if (!page.data.user) {
+            goto(`/auth/login?next=${encodeURIComponent(page.url.pathname + '#reviews')}`);
+            return;
+        }
+        if (!page.data.user.emailVerified) {
+            goto('/auth/onboarding');
+            return;
+        }
+        reviewModalOpen = true;
     }
 
     function handleKeydown(e: KeyboardEvent) {
@@ -1035,7 +1050,7 @@
                         </p>
                         <div class="rd-rec-empty__btns">
                             {#if !hasReviewed}
-                                <Button variant="primary" size="md" onclick={() => (reviewModalOpen = true)}>
+                                <Button variant="primary" size="md" onclick={openReviewForm}>
                                     리뷰 작성하기 →
                                 </Button>
                             {/if}
@@ -1115,7 +1130,7 @@
                         기록은 참가자가 직접 등록한 값이며 공식 기록과 다를 수 있습니다. 기록 입력은
                         <a href="/timeline">시즌 탭 →</a>
                         {#if !hasReviewed}
-                            또는 <button class="rd-rec-note__btn" onclick={() => (reviewModalOpen = true)}>리뷰 작성 →</button>
+                            또는 <button class="rd-rec-note__btn" onclick={openReviewForm}>리뷰 작성 →</button>
                         {/if}
                     </p>
                 {/if}
@@ -1132,7 +1147,7 @@
                     <div class="rd-rv-empty">
                         <p class="rd-rv-empty__msg">아직 작성된 후기가 없습니다.</p>
                         {#if !hasReviewed}
-                            <button class="rd-rv-empty__btn" onclick={() => (reviewModalOpen = true)}>
+                            <button class="rd-rv-empty__btn" onclick={openReviewForm}>
                                 리뷰 작성하기 →
                             </button>
                         {/if}
@@ -1184,7 +1199,7 @@
                             </article>
                         {/each}
                         {#if !hasReviewed}
-                            <button class="rd-rv-write-btn" onclick={() => (reviewModalOpen = true)}>
+                            <button class="rd-rv-write-btn" onclick={openReviewForm}>
                                 후기 작성하기 →
                             </button>
                         {/if}
@@ -1305,6 +1320,7 @@
     {hasReviewed}
     raceDate={race.raceDate}
     raceEndDate={race.raceEndDate}
+    reviewerNickname={reviewNickname}
     bind:open={reviewModalOpen}
     onclose={() => (reviewModalOpen = false)}
     onsubmitted={({ rating }) =>

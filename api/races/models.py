@@ -2,6 +2,7 @@ import re
 from datetime import date
 
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.utils import timezone
 
@@ -623,6 +624,16 @@ class Review(models.Model):
     ]
 
     race = models.ForeignKey(Race, on_delete=models.CASCADE, related_name='reviews')
+    # Legacy reviews were anonymous. Keep this nullable so those rows remain
+    # visible, while every newly-created review is tied to an authenticated
+    # member by ReviewCreateView.
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='race_reviews',
+    )
     nickname = models.CharField(max_length=50, null=True, blank=True)
     rating = models.SmallIntegerField()
     comment = models.CharField(max_length=200)
@@ -637,12 +648,25 @@ class Review(models.Model):
     class Meta:
         db_table = 'race_reviews'
         ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'race'],
+                condition=models.Q(user__isnull=False),
+                name='uniq_member_review_per_race',
+            ),
+        ]
 
     def __str__(self):
         return f'{self.display_nickname}: {self.rating}star - {self.race}'
 
     @property
     def display_nickname(self):
+        if self.user_id:
+            try:
+                if self.user.profile.nickname:
+                    return self.user.profile.nickname
+            except (AttributeError, ObjectDoesNotExist):
+                pass
         return self.nickname or '익명'
 
     @property
