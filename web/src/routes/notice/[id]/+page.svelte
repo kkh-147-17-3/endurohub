@@ -78,14 +78,14 @@
 		{#if adjacent.prev || adjacent.next}
 			<nav class="pn" aria-label="이전·다음 공지">
 				{#if adjacent.prev}
-					<a href="/notice/{adjacent.prev.id}">
+					<a href={adjacent.prev.href ?? `/notice/${adjacent.prev.id}`}>
 						<span class="dir">이전 글</span>
 						<span class="t">{adjacent.prev.title}</span>
 						<span class="d eh-data">{adjacent.prev.date.slice(5)}</span>
 					</a>
 				{/if}
 				{#if adjacent.next}
-					<a href="/notice/{adjacent.next.id}">
+					<a href={adjacent.next.href ?? `/notice/${adjacent.next.id}`}>
 						<span class="dir">다음 글</span>
 						<span class="t">{adjacent.next.title}</span>
 						<span class="d eh-data">{adjacent.next.date.slice(5)}</span>

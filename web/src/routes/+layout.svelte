@@ -106,24 +106,25 @@
     // 노출 위치가 맞고, 다시 보지 않기 기간이 아닐 때.
     let mounted = $state(false);
     let popupOpen = $state(false);
-    let popupSettled = $state(false); // 한 번 닫으면 이 세션에선 다시 띄우지 않는다
+    // 일반 닫기는 현재 경로에서만 유지한다. 다른 페이지로 이동하면 다시
+    // 노출하며, 기간 숨김은 EventPopup에서 명시적으로 선택했을 때만 저장된다.
+    let popupClosedContext = $state('');
     let popupBanner = $derived(data.popup);
 
     $effect(() => {
-        if (!mounted || popupSettled || popupOpen) return;
+        if (!mounted || popupOpen) return;
         const banner = popupBanner;
         if (!banner || bare) return;
         if (banner.placement === 'home' && currentPath !== '/') return;
-        if (isDismissed(banner)) {
-            popupSettled = true;
-            return;
-        }
+        const context = `${banner.id}:${banner.version}:${currentPath}`;
+        if (popupClosedContext === context || isDismissed(banner)) return;
         popupOpen = true;
     });
 
     function closePopup() {
+        const banner = popupBanner;
+        if (banner) popupClosedContext = `${banner.id}:${banner.version}:${currentPath}`;
         popupOpen = false;
-        popupSettled = true;
     }
 
 

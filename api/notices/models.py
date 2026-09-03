@@ -12,6 +12,7 @@ class Notice(models.Model):
     ]
 
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='notice')
+    slug = models.SlugField(max_length=100, unique=True, null=True, blank=True, default=None)
     title = models.CharField(max_length=200)
     content = models.TextField(blank=True, default='')
     author = models.CharField(max_length=50, default='ENDUROHUB 운영팀')

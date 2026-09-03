@@ -35,10 +35,9 @@
 		onClose();
 	}
 
-	// 이미지·버튼으로 나가는 경우엔 다시 뜨지 않도록 항상 기간만큼 숨긴다 —
-	// 상세를 이미 본 사람에게 같은 팝업을 다시 띄울 이유가 없다.
+	// CTA 이동 자체는 숨김 동의가 아니다. 숨김 기한은 사용자가 위 옵션을
+	// 직접 선택한 뒤 닫았을 때만 저장한다.
 	function onCta() {
-		dismissFor(banner, banner.dismissDays);
 		onClose();
 	}
 </script>

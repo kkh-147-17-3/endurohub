@@ -58,31 +58,50 @@ class NoticeDetailView(APIView):
         except Notice.DoesNotExist:
             return Response({'detail': '공지사항을 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
 
-        notice.increment_view_count()
-        notice.view_count += 1  # reflect the increment in this response
+        return _notice_detail_response(notice)
 
-        ordered = _sorted_notices()
-        idx = next((i for i, n in enumerate(ordered) if n.pk == notice.pk), None)
-        prev_notice = ordered[idx - 1] if idx is not None and idx > 0 else None
-        next_notice = ordered[idx + 1] if idx is not None and idx < len(ordered) - 1 else None
 
-        def adjacent(n):
-            if n is None:
-                return None
-            return {
-                'id': n.id,
-                'title': n.title,
-                'date': n.published_at.strftime('%Y·%m·%d') if n.published_at else '',
-            }
+class NoticeSlugDetailView(APIView):
+    """GET /api/v1/notices/by-slug/<slug>/ — custom notice page view tracking."""
 
-        # 이벤트 공지는 배너(Popup)를 달 수 있다 — 상세 상단 히어로로 렌더된다.
-        popup = notice.popups.order_by('-priority', '-id').first()
+    def get(self, request, slug):
+        try:
+            notice = Notice.objects.get(slug=slug)
+        except Notice.DoesNotExist:
+            return Response({'detail': '공지사항을 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
 
-        return Response({
-            'notice': NoticeDetailSerializer(notice).data,
-            'adjacent': {'prev': adjacent(prev_notice), 'next': adjacent(next_notice)},
-            'event': PopupSerializer(popup).data if popup else None,
-        })
+        return _notice_detail_response(notice)
+
+
+def _notice_detail_response(notice):
+    """Increment and serialize a notice shared by numeric and custom routes."""
+
+    notice.increment_view_count()
+    notice.view_count += 1  # reflect the increment in this response
+
+    ordered = _sorted_notices()
+    idx = next((i for i, n in enumerate(ordered) if n.pk == notice.pk), None)
+    prev_notice = ordered[idx - 1] if idx is not None and idx > 0 else None
+    next_notice = ordered[idx + 1] if idx is not None and idx < len(ordered) - 1 else None
+
+    def adjacent(n):
+        if n is None:
+            return None
+        return {
+            'id': n.id,
+            'href': f'/notice/{n.slug}' if n.slug else None,
+            'title': n.title,
+            'date': n.published_at.strftime('%Y·%m·%d') if n.published_at else '',
+        }
+
+    # 이벤트 공지는 배너(Popup)를 달 수 있다 — 상세 상단 히어로로 렌더된다.
+    popup = notice.popups.order_by('-priority', '-id').first()
+
+    return Response({
+        'notice': NoticeDetailSerializer(notice).data,
+        'adjacent': {'prev': adjacent(prev_notice), 'next': adjacent(next_notice)},
+        'event': PopupSerializer(popup).data if popup else None,
+    })
 
 
 class PopupActiveView(APIView):

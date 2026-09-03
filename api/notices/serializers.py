@@ -11,11 +11,12 @@ class NoticeListSerializer(serializers.ModelSerializer):
     date = serializers.SerializerMethodField()
     views = serializers.IntegerField(source='view_count')
     urgent = serializers.BooleanField(source='is_urgent')
+    href = serializers.SerializerMethodField()
 
     class Meta:
         model = Notice
         fields = [
-            'id', 'category', 'category_label', 'title',
+            'id', 'href', 'category', 'category_label', 'title',
             'date', 'views', 'pinned', 'urgent',
         ]
 
@@ -24,6 +25,9 @@ class NoticeListSerializer(serializers.ModelSerializer):
 
     def get_date(self, obj):
         return obj.published_at.strftime('%Y·%m·%d') if obj.published_at else ''
+
+    def get_href(self, obj):
+        return f'/notice/{obj.slug}' if obj.slug else None
 
 
 class NoticeDetailSerializer(NoticeListSerializer):
@@ -38,7 +42,7 @@ class NoticeDetailSerializer(NoticeListSerializer):
 
 class PopupSerializer(serializers.ModelSerializer):
     """팝업 배너 — 모달과 공지 상세 히어로가 같은 이미지를 쓴다."""
-    image = serializers.CharField(source='image_url', read_only=True)
+    image = serializers.SerializerMethodField()
     target_url = serializers.CharField(read_only=True)
     is_live = serializers.BooleanField(read_only=True)
     notice_id = serializers.IntegerField(read_only=True)
@@ -55,3 +59,10 @@ class PopupSerializer(serializers.ModelSerializer):
     def get_version(self, obj):
         """내용이 바뀌면 값이 바뀐다 — 프론트의 '다시 보지 않기' 키에 쓰인다."""
         return int(obj.updated_at.timestamp())
+
+    def get_image(self, obj):
+        """같은 파일명으로 교체해도 브라우저·CDN 캐시를 우회한다."""
+        url = obj.image_url
+        if not url:
+            return ''
+        return f'{url}?v={self.get_version(obj)}'

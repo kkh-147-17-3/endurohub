@@ -12,7 +12,7 @@ from .models import Notice, Popup, invalidate_popup_cache
 class NoticeAdmin(ModelAdmin):
     list_display = ['id', 'title_short', 'category', 'pinned', 'view_count', 'published_at']
     list_filter = ['category', 'pinned', 'published_at']
-    search_fields = ['title', 'content', 'author']
+    search_fields = ['title', 'slug', 'content', 'author']
     ordering = ['-pinned', '-published_at']
     readonly_fields = ['view_count', 'created_at', 'updated_at']
 
@@ -22,7 +22,7 @@ class NoticeAdmin(ModelAdmin):
 
     fieldsets = (
         ('분류 / 고정', {
-            'fields': ('category', 'pinned', 'author', 'published_at'),
+            'fields': ('category', 'slug', 'pinned', 'author', 'published_at'),
         }),
         ('내용', {
             'fields': ('title', 'content'),

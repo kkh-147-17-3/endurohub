@@ -38,6 +38,7 @@ export interface NoticeDetail extends NoticeListItem {
 /** Minimal shape for prev/next navigation. */
 export interface AdjacentNotice {
   id: number;
+  href?: string;
   title: string;
   date: string;
 }
