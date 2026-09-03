@@ -85,6 +85,10 @@
 		width: 100%;
 		height: auto;
 	}
+	.evb--popup .evb-fig img {
+		max-height: calc(100dvh - 230px);
+		object-fit: contain;
+	}
 	a.evb-fig:active {
 		opacity: 0.9;
 	}

@@ -55,7 +55,7 @@
 	{#if pinned.length > 0}
 		<div class="pinned-block" aria-label="고정 공지">
 			{#each pinned as n (n.id)}
-				<a class="pinned-row" href="/notice/{n.id}">
+				<a class="pinned-row" href={n.href ?? `/notice/${n.id}`}>
 					<span class="cat-tag cat-tag--{n.category}">{CAT_LABEL[n.category as NoticeCategory]}</span>
 					<span class="pinned-ttl">{n.title}</span>
 					<span class="pinned-date eh-micro eh-data">{n.date.slice(5)}</span>
@@ -94,7 +94,7 @@
 	{:else}
 		<div class="notice-list">
 			{#each list as n (n.id)}
-				<a class="nrow" href="/notice/{n.id}">
+				<a class="nrow" href={n.href ?? `/notice/${n.id}`}>
 					<span class="cat-tag cat-tag--{n.category}">{CAT_LABEL[n.category as NoticeCategory]}</span>
 					<span class="nrow-ttl">{n.title}</span>
 					<span class="nrow-date eh-data">{n.date}</span>

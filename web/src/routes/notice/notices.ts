@@ -15,6 +15,8 @@ export const CAT_LABEL: Record<NoticeCategory, string> = {
 /** A notice row as returned by the list endpoint. */
 export interface NoticeListItem {
   id: number;
+  /** 정적 이벤트처럼 숫자 상세 페이지가 아닌 경로로 연결할 때 사용한다. */
+  href?: string;
   category: NoticeCategory;
   categoryLabel: string;
   title: string;

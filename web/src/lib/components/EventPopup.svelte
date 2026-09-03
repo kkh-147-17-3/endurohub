@@ -21,6 +21,14 @@
 	const hideLabel = $derived(
 		banner.dismissDays === 1 ? '오늘 하루 보지 않기' : `${banner.dismissDays}일 동안 보지 않기`
 	);
+	// 세로형 포스터 + CTA + 하단 제어 영역이 한 화면 안에 들어오도록
+	// 이미지 비율로 모달의 최대 폭을 역산한다.
+	const imageRatio = $derived(
+		banner.imageWidth && banner.imageHeight ? banner.imageWidth / banner.imageHeight : 0.64
+	);
+	const modalMaxWidth = $derived(
+		`min(640px, calc((100dvh - 230px) * ${imageRatio}))`
+	);
 
 	function close() {
 		if (dontShow) dismissFor(banner, banner.dismissDays);
@@ -37,7 +45,7 @@
 
 <Modal
 	onClose={close}
-	maxWidth="640px"
+	maxWidth={modalMaxWidth}
 	padded={false}
 	closeTone="overlay"
 	label={banner.imageAlt || '이벤트 안내'}

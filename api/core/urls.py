@@ -8,4 +8,5 @@ urlpatterns = [
     path('', include('posts.urls')),
     path('', include('accounts.urls')),
     path('', include('notices.urls')),
+    path('', include('rewards.urls')),
 ]
