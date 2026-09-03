@@ -2,6 +2,7 @@ import copy
 import logging
 import os
 import random
+import re
 import uuid
 from collections import defaultdict
 from datetime import date, datetime, timedelta
@@ -9,12 +10,12 @@ from datetime import date, datetime, timedelta
 from django.conf import settings
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import Avg, Count, F, Q
-from core.utils import post_count_subqueries
+from django.db.models import Avg, Count, F, Max, Min, Q
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view
-from rest_framework.permissions import AllowAny
+from rest_framework.exceptions import NotFound
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -22,10 +23,10 @@ from accounts.authentication import JWTAuthentication
 from core.analytics import track
 from core.models import AnalyticsEvent
 from core.pagination import LaravelStylePagination
-from core.utils import check_rate_limit, hash_ip
+from core.utils import check_rate_limit, hash_ip, post_count_subqueries
+from notices.models import Notice
 from posts.models import Post
 from posts.serializers import PostListSerializer
-from rest_framework.permissions import IsAuthenticated
 
 from .constants import DISTANCE_CATEGORIES, REGIONS, SPORTS
 from .models import DeviceToken, Race, RaceFavorite, RacePendingChange, Review, ReviewLike
@@ -781,11 +782,41 @@ class RaceCalendarView(APIView):
     REGIONS_CACHE_TTL = 3600  # 지역 목록은 거의 안 바뀐다 — 달력 캐시보다 길게 잡는다
 
     @staticmethod
-    def _cache_key(year, month, sport, region):
+    def _cache_key(year, month, sport, region, min_month, max_month):
         # 필터 조합마다 별도 키. 쿼리 파라미터 순서가 달라도 같은 키가 되도록 정렬.
-        return 'races_calendar_{}_{}_{}_{}'.format(
-            year, month, ','.join(sorted(sport)), ','.join(sorted(region)),
+        return 'races_calendar_{}_{}_{}_{}_{}_{}'.format(
+            year,
+            month,
+            ','.join(sorted(sport)),
+            ','.join(sorted(region)),
+            min_month.isoformat(),
+            max_month.isoformat(),
         )
+
+    @staticmethod
+    def _query_month(request):
+        today = timezone.localdate()
+        raw_year = request.query_params.get('year')
+        raw_month = request.query_params.get('month')
+
+        # 링크와 canonical 이 만드는 형태만 허용한다. 이를 벗어난 값(02026, 09,
+        # 2026foo 등)은 같은 달을 가리키는 중복 URL이나 서버 오류를 만들지 않고 404다.
+        if raw_year is not None and not re.fullmatch(r'[1-9]\d{3}', raw_year):
+            raise NotFound('유효하지 않은 연도입니다.')
+        if raw_month is not None and not re.fullmatch(r'(?:[1-9]|1[0-2])', raw_month):
+            raise NotFound('유효하지 않은 월입니다.')
+
+        year = int(raw_year) if raw_year is not None else today.year
+        month = int(raw_month) if raw_month is not None else today.month
+        return year, month, date(year, month, 1), date(today.year, today.month, 1)
+
+    @staticmethod
+    def _adjacent_month(year, month, offset):
+        month_index = year * 12 + month - 1 + offset
+        return {
+            'year': month_index // 12,
+            'month': month_index % 12 + 1,
+        }
 
     @classmethod
     def _regions(cls):
@@ -803,15 +834,37 @@ class RaceCalendarView(APIView):
         return regions
 
     def get(self, request):
-        now = timezone.now()
-        year = int(request.query_params.get('year', now.year))
-        month = int(request.query_params.get('month', now.month))
+        year, month, requested_month, current_month = self._query_month(request)
         sport = request.query_params.getlist('sport')
         region = request.query_params.getlist('region')
 
+        bounds = Race.objects.aggregate(
+            min_date=Min('race_date'),
+            max_date=Max('race_date'),
+        )
+        min_date = bounds['min_date']
+        max_date = bounds['max_date']
+
+        if min_date is None or max_date is None:
+            # 새 서비스/빈 테스트 DB에서도 현재 달 진입점은 유지하되, 탐색 링크를 만들지
+            # 않는다. 현재 달 외의 모든 URL은 실제 콘텐츠가 없으므로 404다.
+            min_month = max_month = current_month
+            if requested_month != current_month:
+                raise NotFound('해당 월에 등록된 대회가 없습니다.')
+        else:
+            # /와 /calendar의 기본 진입점은 언제나 현재 달이다. 데이터가 전부
+            # 과거 또는 미래에만 있어도 기본 화면이 404가 되지 않도록 실제
+            # 데이터 범위에 현재 달을 포함한다. 범위 밖 URL은 계속 404다.
+            min_month = min(date(min_date.year, min_date.month, 1), current_month)
+            max_month = max(date(max_date.year, max_date.month, 1), current_month)
+            if requested_month < min_month or requested_month > max_month:
+                raise NotFound('대회 일정 범위를 벗어난 월입니다.')
+
         # 캐시 페이로드는 사용자 무관하게 만들고 즐겨찾기만 요청마다 덮어쓴다
         # (RaceYearlyView 와 같은 방식).
-        cache_key = self._cache_key(year, month, sport, region)
+        cache_key = self._cache_key(
+            year, month, sport, region, min_month, max_month,
+        )
         cached = cache.get(cache_key)
         if cached:
             data = copy.deepcopy(cached)
@@ -846,16 +899,18 @@ class RaceCalendarView(APIView):
 
         regions = self._regions()
 
-        # Previous / next month
-        if month == 1:
-            prev_month = {'year': year - 1, 'month': 12}
-        else:
-            prev_month = {'year': year, 'month': month - 1}
-
-        if month == 12:
-            next_month = {'year': year + 1, 'month': 1}
-        else:
-            next_month = {'year': year, 'month': month + 1}
+        # DB에 실제로 존재하는 전체 대회 월 범위를 넘어서는 링크는 만들지 않는다.
+        # 범위 내부의 빈 달은 이동 흐름을 유지하기 위해 인접 월 링크를 제공한다.
+        prev_month = (
+            self._adjacent_month(year, month, -1)
+            if requested_month > min_month
+            else None
+        )
+        next_month = (
+            self._adjacent_month(year, month, 1)
+            if requested_month < max_month
+            else None
+        )
 
         data = {
             'year': year,
@@ -1044,11 +1099,12 @@ class SitemapView(APIView):
     def get(self, request):
         races = Race.objects.order_by('-updated_at').values('slug', 'updated_at')
         posts = Post.objects.order_by('-updated_at').values('id', 'updated_at')
+        notices = Notice.objects.order_by('-updated_at').values('id', 'slug', 'updated_at')
 
         # 사이트맵에 실을 캘린더 월: 현재 기준 ±12개월 중 "대회가 실제로 있는" 달만.
         # 예전엔 25개월을 무조건 넣었는데, 대회가 0건인 달(예: 2027-01)은 본문이
         # 530자 남짓한 빈 페이지라 색인되지 않으면서 크롤 예산만 소모했다.
-        now = timezone.now()
+        now = timezone.localdate()
         window = []
         for delta in range(-12, 13):
             month = now.month + delta
@@ -1080,6 +1136,14 @@ class SitemapView(APIView):
             'posts': [
                 {'id': p['id'], 'updatedAt': p['updated_at']}
                 for p in posts
+            ],
+            'notices': [
+                {
+                    'id': n['id'],
+                    'slug': n['slug'],
+                    'updatedAt': n['updated_at'],
+                }
+                for n in notices
             ],
             'calendarMonths': calendar_months,
         })

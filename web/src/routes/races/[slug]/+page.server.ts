@@ -11,8 +11,8 @@ export const load: PageServerLoad = async ({ params, locals }) => {
 		userAgent: locals.userAgent || undefined,
 	});
 
-	// ID로 접근한 경우 slug URL로 301 리다이렉트 (SEO)
-	if (/^\d+$/.test(params.slug) && data.race?.slug) {
+	// 숫자 ID, 이중 인코딩 등 canonical slug가 아닌 별칭 URL을 하나로 통합한다.
+	if (data.race?.slug && params.slug !== data.race.slug) {
 		redirect(301, `/races/${encodeURIComponent(data.race.slug)}`);
 	}
 

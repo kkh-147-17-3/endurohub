@@ -1,13 +1,18 @@
 import type { PageServerLoad } from './$types';
-import { error } from '@sveltejs/kit';
+import { redirect } from '@sveltejs/kit';
 import { apiFetch } from '$lib/api';
 import type { NoticeDetailResponse } from '../notices';
 
 export const load: PageServerLoad = async ({ params }) => {
-	const id = parseInt(params.id, 10);
-	if (isNaN(id)) error(404, { message: '공지사항을 찾을 수 없습니다.' });
+	const numeric = /^\d+$/.test(params.id);
+	const resp = numeric
+		? await apiFetch<NoticeDetailResponse>(`/notices/${Number(params.id)}/`)
+		: await apiFetch<NoticeDetailResponse>(`/notices/by-slug/${encodeURIComponent(params.id)}/`);
 
-	const resp = await apiFetch<NoticeDetailResponse>(`/notices/${id}/`);
+	const canonicalPath = resp.notice.href ?? `/notice/${resp.notice.id}`;
+	if (`/notice/${params.id}` !== canonicalPath) {
+		redirect(301, canonicalPath);
+	}
 
 	return { notice: resp.notice, adjacent: resp.adjacent, event: resp.event };
 };

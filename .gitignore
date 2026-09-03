@@ -42,6 +42,9 @@ endurohub-design/
 # Playwright MCP artifacts
 .playwright-mcp/
 
+# Firecrawl web audit artifacts
+.firecrawl/
+
 # Working artifacts (screenshots, handoff bundles)
 /*.png
 *.zip

@@ -13,6 +13,12 @@ export const load: PageServerLoad = async ({ params, request, locals }) => {
 		clientIp,
 		authToken: locals.authToken,
 	});
+
+	// 01 같은 별칭 URL이 별도 문서로 색인되지 않도록 숫자 ID를 정규화한다.
+	if (params.id !== String(data.post.id)) {
+		redirect(301, `/posts/${data.post.id}`);
+	}
+
 	return data;
 };
 

@@ -8,11 +8,13 @@ import {
 	FEEDBACK_FORM_URL,
 } from '$lib/env';
 import { apiFetch } from '$lib/api';
+import { kstTodayStr } from '$lib/date';
 import type { MeResponse, AuthUser } from '$lib/types';
 import type { PopupActiveResponse, EventBanner } from '$lib/popup';
 
 export const load: LayoutServerLoad = async ({ locals }) => {
 	const { isAdmin } = locals;
+	const [currentYear, currentMonth] = kstTodayStr().split('-').map(Number);
 
 	let user: AuthUser | null = null;
 	if (locals.authToken) {
@@ -40,7 +42,8 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 	return {
 		appName: APP_NAME,
 		appUrl: APP_URL,
-		currentYear: new Date().getFullYear(),
+		currentYear,
+		currentMonth,
 		kakaoJsKey: KAKAO_JAVASCRIPT_KEY,
 		naverMapClientId: NAVER_MAP_CLIENT_ID,
 		googleAnalyticsId: GOOGLE_ANALYTICS_ID,

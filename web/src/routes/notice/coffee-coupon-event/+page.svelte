@@ -39,7 +39,7 @@
 	<title>스타벅스 카페 아메리카노 T 이벤트 · ENDUROHUB</title>
 	<meta
 		name="description"
-		content="리뷰와 참가 기록을 남기고 스타벅스 카페 아메리카노 T를 받아보세요."
+		content="9월 30일까지 참가한 대회의 리뷰와 본인 기록을 남기면 자동 응모됩니다. 조건을 완료한 회원 중 20명을 추첨해 스타벅스 카페 아메리카노 T를 드립니다."
 	/>
 </svelte:head>
 
@@ -52,6 +52,53 @@
 		<span class="current">커피 쿠폰 이벤트</span>
 	</nav>
 
+	<section class="event-overview" aria-labelledby="event-title">
+		<div class="event-overview-copy">
+			<p class="section-label">9월 회원 이벤트</p>
+			<h1 id="event-title">리뷰와 기록을 남기면<br />자동으로 응모됩니다.</h1>
+			<p class="event-lede">
+				종목과 관계없이 실제 참가한 대회의 리뷰 1개와 본인 기록 1개를 등록해 주세요.
+				두 조건을 완료한 회원 중 20명을 추첨해 스타벅스 카페 아메리카노 T 모바일
+				상품권을 드립니다.
+			</p>
+			<dl class="event-facts">
+				<div>
+					<dt>참여 기간</dt>
+					<dd><time datetime="2026-09-03">2026.09.03</time>–<time datetime="2026-09-30">09.30</time></dd>
+				</div>
+				<div>
+					<dt>당첨 혜택</dt>
+					<dd>커피 쿠폰 · 20명</dd>
+				</div>
+				<div>
+					<dt>응모 방식</dt>
+					<dd>조건 완료 시 자동 응모</dd>
+				</div>
+			</dl>
+		</div>
+
+		<div class="event-how">
+			<h2>참여 방법</h2>
+			<ol>
+				<li>
+					<span class="step-number" aria-hidden="true">1</span>
+					<div>
+						<strong>참가한 대회의 리뷰 작성</strong>
+						<p>대회 상세 페이지에서 회원 계정으로 리뷰 1개를 작성합니다.</p>
+					</div>
+				</li>
+				<li>
+					<span class="step-number" aria-hidden="true">2</span>
+					<div>
+						<strong>같은 대회에 본인 기록 등록</strong>
+						<p>마이페이지에서 완주 시간 등 실제 참가 기록 1개를 남깁니다.</p>
+					</div>
+				</li>
+			</ol>
+			<p class="event-note">두 조건을 9월 30일까지 완료하면 회원당 1회 자동 응모됩니다.</p>
+		</div>
+	</section>
+
 	<iframe
 		bind:this={frame}
 		src="/coffee-coupon-event.html"
@@ -63,7 +110,7 @@
 	<section class="participation" aria-labelledby="participation-title">
 		<div class="participation-copy">
 			<p class="section-label">내 참여 현황</p>
-			<h1 id="participation-title">현재 나의 참여 현황을 확인하세요.</h1>
+			<h2 id="participation-title">현재 나의 참여 현황을 확인하세요.</h2>
 			<p>2026년 9월 3일부터 9월 30일까지 등록한 리뷰와 대회 기록을 확인합니다.</p>
 		</div>
 
@@ -132,6 +179,120 @@
 		text-underline-offset: 3px;
 	}
 
+	.event-overview {
+		display: grid;
+		grid-template-columns: minmax(0, 1.25fr) minmax(360px, 0.75fr);
+		gap: clamp(32px, 6vw, 88px);
+		max-width: 1280px;
+		margin: 0 auto var(--sp-6);
+		padding: clamp(28px, 4vw, 48px) 0;
+		border-top: 2px solid var(--ink-900);
+		border-bottom: var(--border-hair);
+	}
+
+	.event-overview h1 {
+		margin: 0;
+		color: var(--text-strong);
+		font-size: clamp(30px, 4vw, 52px);
+		letter-spacing: -0.045em;
+		line-height: 1.08;
+	}
+
+	.event-lede {
+		max-width: 46em;
+		margin: 20px 0 0;
+		color: var(--text-muted);
+		font-size: 15px;
+		line-height: 1.75;
+	}
+
+	.event-facts {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		margin: 28px 0 0;
+		border-top: var(--border-hair);
+	}
+
+	.event-facts > div {
+		padding: 16px 14px 0 0;
+	}
+
+	.event-facts dt {
+		color: var(--text-faint);
+		font-size: 11px;
+		font-weight: 700;
+	}
+
+	.event-facts dd {
+		margin: 5px 0 0;
+		color: var(--text-strong);
+		font-family: var(--font-mono);
+		font-size: 13px;
+		font-weight: 650;
+		line-height: 1.5;
+	}
+
+	.event-how {
+		align-self: end;
+	}
+
+	.event-how h2 {
+		margin: 0;
+		color: var(--text-strong);
+		font-size: 18px;
+		letter-spacing: -0.025em;
+	}
+
+	.event-how ol {
+		margin: 14px 0 0;
+		padding: 0;
+		list-style: none;
+		border-top: 2px solid var(--ink-900);
+	}
+
+	.event-how li {
+		display: grid;
+		grid-template-columns: 30px 1fr;
+		gap: 14px;
+		padding: 16px 0;
+		border-bottom: var(--border-hair);
+	}
+
+	.step-number {
+		display: inline-flex;
+		width: 26px;
+		height: 26px;
+		align-items: center;
+		justify-content: center;
+		border: 1px solid var(--ink-300);
+		border-radius: 50%;
+		color: var(--text-faint);
+		font-family: var(--font-mono);
+		font-size: 11px;
+		font-weight: 800;
+	}
+
+	.event-how strong {
+		display: block;
+		color: var(--text-strong);
+		font-size: 14px;
+	}
+
+	.event-how li p {
+		margin: 4px 0 0;
+		color: var(--text-muted);
+		font-size: 13px;
+		line-height: 1.55;
+	}
+
+	.event-note {
+		margin: 14px 0 0;
+		color: var(--accent-strong);
+		font-size: 12px;
+		font-weight: 700;
+		line-height: 1.55;
+	}
+
 	.participation {
 		display: grid;
 		grid-template-columns: minmax(0, 0.85fr) minmax(420px, 1.15fr);
@@ -150,7 +311,7 @@
 		font-weight: 700;
 	}
 
-	.participation h1 {
+	.participation h2 {
 		margin: 0;
 		color: var(--text-strong);
 		font-size: clamp(26px, 3vw, 40px);
@@ -215,9 +376,6 @@
 
 	.condition strong {
 		display: block;
-	}
-
-	.condition strong {
 		color: var(--text-strong);
 		font-size: 15px;
 	}
@@ -286,6 +444,29 @@
 			padding: 0 var(--sp-4);
 		}
 
+		.event-overview {
+			grid-template-columns: 1fr;
+			gap: var(--sp-8);
+			margin: 0 var(--sp-4) var(--sp-5);
+			padding: 28px 0;
+		}
+
+		.event-facts {
+			grid-template-columns: 1fr;
+		}
+
+		.event-facts > div {
+			display: grid;
+			grid-template-columns: 90px 1fr;
+			gap: 12px;
+			padding: 12px 0;
+			border-bottom: var(--border-hair);
+		}
+
+		.event-facts dd {
+			margin: 0;
+		}
+
 		.participation {
 			grid-template-columns: 1fr;
 			margin: var(--sp-5) var(--sp-4) 0;
@@ -294,6 +475,7 @@
 	}
 
 	@media (min-width: 641px) and (max-width: 900px) {
+		.event-overview,
 		.participation {
 			grid-template-columns: 1fr;
 		}

@@ -29,8 +29,8 @@
 		month: number;
 		startOfMonth: string;
 		racesGrouped: Record<string, Race[]>;
-		previousMonth: { year: number; month: number };
-		nextMonth: { year: number; month: number };
+		previousMonth: { year: number; month: number } | null;
+		nextMonth: { year: number; month: number } | null;
 		sports: SportOption[];
 		sportFilter?: string[];
 		basePath?: string;
@@ -188,8 +188,12 @@
 		for (const s of sportFilter) p.append('sport', s);
 		return `${basePath}?${p.toString()}`;
 	}
-	const prevHref = $derived(buildMonthUrl(previousMonth.year, previousMonth.month));
-	const nextHref = $derived(buildMonthUrl(nextMonth.year, nextMonth.month));
+	const prevHref = $derived(
+		previousMonth ? buildMonthUrl(previousMonth.year, previousMonth.month) : null
+	);
+	const nextHref = $derived(
+		nextMonth ? buildMonthUrl(nextMonth.year, nextMonth.month) : null
+	);
 
 	// ── List ordering (date, then today → open → other) ────────────
 	const listRaces = $derived(
@@ -275,12 +279,16 @@
 			<h1 class="eh-data">{month}월</h1>
 			<span class="yr eh-data">{year}</span>
 			<div class="hd-nav">
-				<IconButton label="이전 달" variant="outline" href={prevHref}>
-					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6" /></svg>
-				</IconButton>
-				<IconButton label="다음 달" variant="outline" href={nextHref}>
-					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
-				</IconButton>
+				{#if prevHref}
+					<IconButton label="이전 달" variant="outline" href={prevHref}>
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6" /></svg>
+					</IconButton>
+				{/if}
+				{#if nextHref}
+					<IconButton label="다음 달" variant="outline" href={nextHref}>
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+					</IconButton>
+				{/if}
 			</div>
 		</div>
 		<div class="hd-stats">

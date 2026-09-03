@@ -38,6 +38,7 @@
 
 <svelte:head>
 	<title>{year}년 {month}월 대회 지도 - 엔듀로허브</title>
+	<meta name="robots" content="noindex, follow" />
 	<meta
 		name="description"
 		content="{year}년 {month}월 마라톤·수영·자전거·철인3종·트레일러닝 대회를 시·도별 타일 지도에서 확인하세요."
@@ -62,9 +63,13 @@
 				<span class="vt-btn active" aria-current="page">지도</span>
 			</div>
 			<nav class="month-nav" aria-label="월 이동">
-				<a class="nav-btn" href="/calendar/map?{navQuery(previousMonth.year, previousMonth.month)}" aria-label="이전 달">← {previousMonth.month}월</a>
+				{#if previousMonth}
+					<a class="nav-btn" href="/calendar/map?{navQuery(previousMonth.year, previousMonth.month)}" aria-label="이전 달">← {previousMonth.month}월</a>
+				{/if}
 				<a class="nav-btn nav-today" class:active={year === currentYear && month === currentMonth} href="/calendar/map?{navQuery(currentYear, currentMonth)}">{currentMonth}월</a>
-				<a class="nav-btn" href="/calendar/map?{navQuery(nextMonth.year, nextMonth.month)}" aria-label="다음 달">{nextMonth.month}월 →</a>
+				{#if nextMonth}
+					<a class="nav-btn" href="/calendar/map?{navQuery(nextMonth.year, nextMonth.month)}" aria-label="다음 달">{nextMonth.month}월 →</a>
+				{/if}
 			</nav>
 		</div>
 	</header>

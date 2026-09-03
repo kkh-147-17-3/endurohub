@@ -35,3 +35,11 @@ class NoticeSlugDetailTests(TestCase):
         self.assertEqual(item['href'], '/notice/coffee-coupon-event')
         self.assertEqual(item['views'], 7)
         self.assertEqual(response.json()['counts']['event'], 1)
+
+    def test_sitemap_payload_exposes_notice_canonical_identifier(self):
+        response = self.client.get('/api/v1/sitemap/')
+
+        self.assertEqual(response.status_code, 200)
+        item = next(n for n in response.json()['notices'] if n['id'] == self.notice.id)
+        self.assertEqual(item['slug'], 'coffee-coupon-event')
+        self.assertIn('updatedAt', item)

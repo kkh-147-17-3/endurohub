@@ -389,8 +389,8 @@ export interface CalendarResponse {
 	month: number;
 	startOfMonth: string;
 	racesGrouped: Record<string, Race[]>;
-	previousMonth: { year: number; month: number };
-	nextMonth: { year: number; month: number };
+	previousMonth: { year: number; month: number } | null;
+	nextMonth: { year: number; month: number } | null;
 	sport: string[];
 	region: string[];
 	sports: SportOption[];
@@ -444,6 +444,7 @@ export interface PostRacesResponse {
 export interface SitemapResponse {
 	races: Array<{ slug: string; updatedAt: string }>;
 	posts: Array<{ id: number; updatedAt: string }>;
+	notices: Array<{ id: number; slug: string | null; updatedAt: string }>;
 	calendarMonths: Array<{ year: number; month: number }>;
 }
 

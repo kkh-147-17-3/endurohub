@@ -8,6 +8,9 @@
 
     const year = $derived(data.year as number);
     const month = $derived(data.month as number);
+    const hasRaces = $derived(
+        Object.values(data.racesGrouped as Record<string, Race[]>).some((races) => races.length > 0)
+    );
 
     onMount(() => {
         track('calendar_view', { year, month });
@@ -24,6 +27,9 @@
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="twitter:image" content="{data.appUrl}/images/og-image.png" />
+    {#if !hasRaces}
+        <meta name="robots" content="noindex, follow" />
+    {/if}
 </svelte:head>
 
 <CalendarBoard

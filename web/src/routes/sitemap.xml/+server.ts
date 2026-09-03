@@ -1,22 +1,32 @@
 import type { RequestHandler } from './$types';
 import { apiFetch } from '$lib/api';
 import { APP_URL } from '$lib/env';
+import { kstTodayStr } from '$lib/date';
 import { SPORT_LANDINGS } from '$lib/seo/sport-landing';
 import type { SitemapResponse } from '$lib/types';
 
 export const GET: RequestHandler = async () => {
 	const data = await apiFetch<SitemapResponse>('/sitemap/');
 	const baseUrl = APP_URL.replace(/\/$/, '');
+	const [currentYear, currentMonth] = kstTodayStr().split('-').map(Number);
 
 	const urls: string[] = [];
 
 	// Static pages
 	urls.push(entry(baseUrl, '/', 'daily', '1.0'));
 	urls.push(entry(baseUrl, '/races', 'daily', '0.9'));
-	urls.push(entry(baseUrl, '/calendar', 'daily', '0.8'));
+	const currentCalendarPopulated = data.calendarMonths.some(
+		(cm) => cm.year === currentYear && cm.month === currentMonth
+	);
+	if (currentCalendarPopulated) {
+		urls.push(entry(baseUrl, '/calendar', 'daily', '0.8'));
+	}
 
-	// Calendar monthly pages
+	// Calendar monthly pages. The explicit current-month URL canonicalizes to the
+	// stable rolling /calendar landing page, so submitting both would send Google
+	// duplicate and contradictory sitemap signals.
 	for (const cm of data.calendarMonths) {
+		if (cm.year === currentYear && cm.month === currentMonth) continue;
 		urls.push(entry(baseUrl, `/calendar?month=${cm.month}&year=${cm.year}`, 'weekly', '0.6'));
 	}
 
@@ -53,8 +63,16 @@ export const GET: RequestHandler = async () => {
 
 	// Info pages
 	urls.push(entry(baseUrl, '/about', 'monthly', '0.5'));
+	urls.push(entry(baseUrl, '/notice', 'weekly', '0.6'));
 	// /privacy is excluded — the page sets <meta name="robots" content="noindex">,
 	// so listing it in the sitemap would be contradictory.
+
+	// Notices use a readable slug where one exists and their numeric route
+	// otherwise. Numeric aliases for slugged notices redirect to this URL.
+	for (const notice of data.notices ?? []) {
+		const noticePath = notice.slug ? `/notice/${notice.slug}` : `/notice/${notice.id}`;
+		urls.push(entry(baseUrl, noticePath, 'monthly', '0.5', notice.updatedAt));
+	}
 
 	// Race detail pages
 	for (const race of data.races) {

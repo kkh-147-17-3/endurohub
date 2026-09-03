@@ -5,8 +5,8 @@ import type { CalendarResponse } from '$lib/types';
 
 export const load: PageServerLoad = async ({ url, locals }) => {
 	const [todayYear, todayMonth] = kstTodayStr().split('-').map(Number);
-	const year = url.searchParams.get('year') || String(todayYear);
-	const month = url.searchParams.get('month') || String(todayMonth);
+	const year = url.searchParams.get('year') ?? String(todayYear);
+	const month = url.searchParams.get('month') ?? String(todayMonth);
 	const sport = url.searchParams.getAll('sport');
 
 	// The map view shows every region for the month — region selection happens

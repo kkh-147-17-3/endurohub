@@ -271,12 +271,15 @@
     </div>
 {/snippet}
 
-<main class="v-container yr-page">
+<div class="v-container yr-page">
     <!-- HERO -->
     <div class="hero">
         <div class="eh-micro"><span class="acc">{year} INDEX</span> · 전국 <span class="eh-data">{totalCount}</span> RACES</div>
         <h1 class="hero-title">{year} 대회 캘린더</h1>
-        <p class="hero-sub">올해 열리는 모든 대회 — 월을 눌러 바로 이동하세요.</p>
+        <p class="hero-sub">
+            {year}년 전국 마라톤·트레일러닝·자전거·수영·철인3종 대회 {totalCount}개를 월별로 모았습니다.
+            종목, 접수 상태, 지역으로 원하는 대회를 골라보세요.
+        </p>
     </div>
 
     <!-- MONTH INDEX (sticky) -->
@@ -352,12 +355,12 @@
             {@const list = byMonth[m] || []}
             {#if list.length > 0}
                 <section class="yr-month" id={'yr-m-' + m}>
-                    <div class="yr-mhead">
+                    <h2 class="yr-mhead" aria-label={`${year}년 ${m}월 대회 ${list.length}개`}>
                         <span class="yr-mnum eh-data">{pad(m)}</span>
                         <span class="eh-micro">{EN_MONTH[m - 1]}</span>
                         {#if m === nowMonth}<span class="eh-micro yr-thismonth">THIS MONTH</span>{/if}
                         <span class="eh-micro eh-data yr-mcount">{list.length} RACES</span>
-                    </div>
+                    </h2>
                     <div class="v-table">
                         {#each list as { race } (race.slug)}
                             {@const day = dayOf(race)}
@@ -389,7 +392,7 @@
             {/if}
         {/each}
     {/if}
-</main>
+</div>
 
 <style>
     .yr-page {
@@ -417,6 +420,8 @@
     .hero-sub {
         color: var(--text-muted);
         font-size: 15px;
+        line-height: 1.7;
+        max-width: 680px;
         margin: 0;
     }
 
@@ -649,6 +654,9 @@
         gap: 12px;
         border-top: var(--border-rule);
         padding: 12px 0;
+        margin: 0;
+        color: inherit;
+        font: inherit;
     }
     .yr-mnum {
         font-size: 34px;

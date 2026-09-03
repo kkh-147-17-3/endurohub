@@ -17,28 +17,21 @@
     let { data, children } = $props();
 
     let currentYear = $derived(data.currentYear);
+    let currentMonth = $derived(data.currentMonth);
     let feedbackFormUrl = $derived(data.feedbackFormUrl);
     let googleAnalyticsId = $derived(data.googleAnalyticsId);
     let kakaoJsKey = $derived(data.kakaoJsKey);
     let user = $derived(data.user);
     let currentPath = $derived($page.url.pathname);
 
-    // Canonical URL must include indexing-significant query params (e.g. calendar
-    // year/month) — otherwise every /calendar?year=&month= page canonicalizes to
-    // bare /calendar and Google drops them as "alternate page with proper canonical".
-    // Tracking params (utm_*, fbclid, …) are intentionally excluded. Keys are emitted
-    // in a fixed (alphabetical) order so the canonical matches the sitemap exactly.
-    const INDEXABLE_PARAMS = ['month', 'year'];
+    // Query parameters are index-significant only on the route that consumes them.
+    // A global allow-list made ignored URLs such as /about?page=2 and
+    // /posts/36?month=8&year=2026 self-canonical, creating unlimited duplicates.
+    const CALENDAR_PATH = '/calendar';
+    const PAGINATED_PATHS = new Set(['/races', '/community']);
+    const FACET_PATHS = new Set(['/', '/calendar', '/races', '/community', '/notice']);
+    const CANONICAL_SUPPRESSED_PATHS = new Set(['/calendar/map']);
     const TRACKING_PARAM = /^(utm_|fbclid$|gclid$|msclkid$|igshid$|ref$)/;
-
-    // `page` is deliberately NOT a facet: /races?page=2 lists *different* races than
-    // /races, so folding it into the bare path would deindex pages 2..N — and those
-    // pages are the only internal-link path to most race detail pages. It therefore
-    // self-canonicalizes, but only on an otherwise-unfiltered URL: once a facet
-    // (sport/region/status/…) is active the facet policy wins and the whole thing
-    // folds to the bare path, so filtered views can't explode into crawlable
-    // filter×page combinations.
-    const PAGE_PARAM = 'page';
     let canonicalPath = $derived(buildCanonicalPath($page.url));
 
     // Facet URLs (/races?sport=…, ?region=…, ?reset=1) get `noindex, follow`.
@@ -52,27 +45,53 @@
     // Sport keywords are served by the real landing pages (/running, /swimming, …).
     let facetFiltered = $derived(hasFacetParam($page.url));
 
+    function allowedIndexParams(pathname: string): Set<string> {
+        if (pathname === CALENDAR_PATH) return new Set(['month', 'year']);
+        if (PAGINATED_PATHS.has(pathname)) return new Set(['page']);
+        return new Set();
+    }
+
     function hasFacetParam(url: URL): boolean {
+        const allowed = allowedIndexParams(url.pathname);
         for (const key of url.searchParams.keys()) {
-            if (key === PAGE_PARAM || INDEXABLE_PARAMS.includes(key)) continue;
+            if (allowed.has(key)) continue;
             if (TRACKING_PARAM.test(key)) continue;
-            return true;
+            // Filters on list/calendar routes intentionally stay usable but are
+            // noindex. On content pages, ignored query strings consolidate through
+            // the clean canonical URL instead of creating more noindex states.
+            return FACET_PATHS.has(url.pathname);
         }
         return false;
     }
 
+    function normalizedInt(value: string | null, min: number, max: number): number | null {
+        if (!value || !/^\d+$/.test(value)) return null;
+        const parsed = Number(value);
+        return Number.isSafeInteger(parsed) && parsed >= min && parsed <= max ? parsed : null;
+    }
+
     function buildCanonicalPath(url: URL): string {
         const params = new URLSearchParams();
-        for (const key of INDEXABLE_PARAMS) {
-            const value = url.searchParams.get(key);
-            if (value) params.set(key, value);
+
+        if (url.pathname === CALENDAR_PATH) {
+            const year = normalizedInt(url.searchParams.get('year'), 2000, 2100) ?? currentYear;
+            const month = normalizedInt(url.searchParams.get('month'), 1, 12) ?? currentMonth;
+
+            // /calendar is the stable landing URL for the rolling current month.
+            // Older/future populated months keep a normalized, self-canonical URL.
+            if (year !== currentYear || month !== currentMonth) {
+                params.set('month', String(month));
+                params.set('year', String(year));
+            }
         }
-        // page=1 is never emitted as a link (see pageHref in /races), so canonicalize
-        // it away to keep /races and /races?page=1 from splitting into two URLs.
-        const pageValue = url.searchParams.get(PAGE_PARAM);
-        if (pageValue && pageValue !== '1' && !hasFacetParam(url)) {
-            params.set(PAGE_PARAM, pageValue);
+
+        // Pagination is meaningful only on the two collection routes. Normalize
+        // page=02 to page=2 and fold page=1 into the clean collection URL.
+        if (PAGINATED_PATHS.has(url.pathname) && !hasFacetParam(url)) {
+            const pageNumber = normalizedInt(url.searchParams.get('page'), 1, Number.MAX_SAFE_INTEGER);
+            if (pageNumber && pageNumber > 1) params.set('page', String(pageNumber));
         }
+
         params.sort();
         const qs = params.toString();
         return qs ? `${url.pathname}?${qs}` : url.pathname;
@@ -248,7 +267,7 @@
     <meta name="twitter:card" content="summary_large_image" />
     {#if facetFiltered}
         <meta name="robots" content="noindex, follow" />
-    {:else}
+    {:else if !CANONICAL_SUPPRESSED_PATHS.has(currentPath)}
         <link rel="canonical" href="{data.appUrl}{canonicalPath}" />
     {/if}
     {#if googleAnalyticsId}
