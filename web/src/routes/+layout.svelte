@@ -126,6 +126,7 @@
         popupSettled = true;
     }
 
+
     beforeNavigate((nav) => {
         if ($updated && !nav.willUnload && nav.to?.url) {
             nav.cancel();
@@ -366,6 +367,7 @@
             <div class="eh-footer-col">
                 <div class="eh-micro">SUPPORT</div>
                 <a href="/about">서비스 소개</a>
+                <a href="/terms">서비스 이용약관</a>
                 <a href="/privacy">개인정보처리방침</a>
                 {#if feedbackFormUrl}
                     <a href={feedbackFormUrl} target="_blank" rel="noopener">문의하기 ↗</a>

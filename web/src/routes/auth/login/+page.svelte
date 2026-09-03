@@ -115,7 +115,8 @@
             {/if}
 
             <p class="terms-note">
-                계속하면 <a href="/privacy" class="terms-link">서비스 이용약관 및 개인정보 처리방침</a>에 동의하게 됩니다.
+                계속하면 <a href="/terms" class="terms-link">서비스 이용약관</a> 및
+                <a href="/privacy" class="terms-link">개인정보 처리방침</a>을 확인할 수 있습니다. 필수 동의는 이메일 인증 단계에서 받습니다.
             </p>
         </div>
     </div>

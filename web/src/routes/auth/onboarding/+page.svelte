@@ -46,6 +46,8 @@
     // Email step
     let email = $state(data.user?.email || data.pendingEmail || '');
     let code = $state('');
+    let termsAccepted = $state(false);
+    let privacyAccepted = $state(false);
     let emailUpdatesOptIn = $state(!!data.user?.emailUpdatesOptIn);
     let resendIn = $state(0);
     let isSending = $state(false);
@@ -70,6 +72,7 @@
 
     /* ─────────── Derived ─────────── */
     const emailValid = $derived(/.+@.+\..+/.test(email));
+    const requiredConsentsAccepted = $derived(termsAccepted && privacyAccepted);
     const codeFilled = $derived(code.length === 6);
     const nickOk = $derived(nickname.trim().length >= 2 && nickname.trim().length <= 50);
     const draftDistances = $derived(DISTANCES[draft.sport] || []);
@@ -264,19 +267,30 @@
                     {/if}
                 </div>
 
-                <label class="consent">
-                    <input type="checkbox" name="email_updates_opt_in" bind:checked={emailUpdatesOptIn} />
-                    <span class="cb"></span>
-                    <span class="consent-body">
-                        서비스 이용약관 · 개인정보 처리방침에 동의합니다
-                    </span>
-                </label>
+                <div class="consent-list" aria-label="가입 동의 항목">
+                    <label class="consent">
+                        <input type="checkbox" bind:checked={termsAccepted} />
+                        <span class="cb" aria-hidden="true"></span>
+                        <span class="consent-body"><b>[필수]</b> <a href="/terms" target="_blank" rel="noopener" onclick={(event) => event.stopPropagation()}>서비스 이용약관</a>에 동의합니다</span>
+                    </label>
+                    <label class="consent">
+                        <input type="checkbox" bind:checked={privacyAccepted} />
+                        <span class="cb" aria-hidden="true"></span>
+                        <span class="consent-body"><b>[필수]</b> <a href="/privacy" target="_blank" rel="noopener" onclick={(event) => event.stopPropagation()}>개인정보 수집·이용 및 처리방침</a>을 확인했습니다</span>
+                    </label>
+                    <label class="consent">
+                        <input type="checkbox" name="email_updates_opt_in" bind:checked={emailUpdatesOptIn} />
+                        <span class="cb" aria-hidden="true"></span>
+                        <span class="consent-body"><span class="optional">[선택]</span> 대회 일정·마감 및 이벤트 소식 이메일을 받습니다</span>
+                    </label>
+                    <p class="consent-help">선택 항목에 동의하지 않아도 회원가입과 이벤트 참여가 가능합니다.</p>
+                </div>
 
                 <div class="nav-row" style="margin-top: var(--sp-6)">
                     <span class="spacer"></span>
                     <button
-                        class="ob-btn {emailValid && resendIn === 0 ? 'primary' : 'muted'}"
-                        disabled={!emailValid || isSending || resendIn > 0}
+                        class="ob-btn {emailValid && requiredConsentsAccepted && resendIn === 0 ? 'primary' : 'muted'}"
+                        disabled={!emailValid || !requiredConsentsAccepted || isSending || resendIn > 0}
                     >
                         {resendIn > 0 ? `발송 완료 · ${resendLabel} 후 재전송` : '인증 메일 보내기'}
                     </button>
@@ -749,12 +763,18 @@
     }
 
     /* ── Consent checkbox ── */
+    .consent-list {
+        display: flex;
+        flex-direction: column;
+        border: var(--border-hair);
+        background: var(--paper-50);
+    }
     .consent {
         display: flex;
         gap: var(--sp-3);
         align-items: flex-start;
-        background: var(--paper-50);
-        border: var(--border-hair);
+        background: transparent;
+        border-bottom: var(--border-hair);
         padding: 14px 16px;
         cursor: pointer;
         font-size: 13.5px;
@@ -774,6 +794,8 @@
         flex-shrink: 0;
         display: grid;
         place-items: center;
+        position: relative;
+        box-sizing: border-box;
         margin-top: 2px;
     }
     .consent input:checked + .cb {
@@ -782,11 +804,33 @@
     }
     .consent input:checked + .cb::after {
         content: '';
-        width: 8px;
-        height: 6px;
+        position: absolute;
+        left: 5px;
+        top: 2px;
+        width: 4px;
+        height: 8px;
+        box-sizing: border-box;
         border: solid var(--paper-0);
         border-width: 0 2px 2px 0;
-        transform: rotate(45deg) translate(0, -2px);
+        transform: rotate(45deg);
+    }
+    .consent-body a {
+        color: var(--text-strong);
+        font-weight: var(--w-strong);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+    }
+    .consent-body a:hover {
+        color: var(--ink-900);
+    }
+    .consent-body b { color: var(--ink-900); }
+    .consent-body .optional { color: var(--text-faint); font-weight: var(--w-strong); }
+    .consent-help {
+        margin: 0;
+        padding: 10px 16px;
+        color: var(--text-faint);
+        font-size: 12px;
+        line-height: 1.5;
     }
 
     /* ── Buttons ── */
