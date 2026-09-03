@@ -194,6 +194,9 @@
     }
 
     afterNavigate(() => {
+        // 일반 닫기는 해당 방문에서만 유지한다. 다른 경로를 거쳐 홈으로
+        // 돌아오면 팝업을 다시 평가한다.
+        popupClosedContext = '';
         const pathWithSearch = `${$page.url.pathname}${$page.url.search}`;
         if (lastTrackedPath !== pathWithSearch) {
             capturePostHogPageView($page.url.pathname, $page.url.search, document.referrer);
