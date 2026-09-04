@@ -913,11 +913,7 @@
                         '개요',
                     )}
                     {#if aiSummary}
-                        <!-- 원본 소개문과 시각적으로 구분한다. 아래 descBody 는 주최측
-                             원문이고 이건 엔듀로허브가 정리한 것이라, 출처가 다르다는
-                             사실이 읽는 사람에게 드러나야 한다. -->
                         <div class="rd-ov-sum">
-                            <div class="eh-micro rd-ov-sum__label">엔듀로허브 요약 · AI 생성</div>
                             <p class="rd-prose rd-ov-sum__body">{aiSummary}</p>
                         </div>
                     {/if}
