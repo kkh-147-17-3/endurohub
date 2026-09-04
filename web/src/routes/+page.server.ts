@@ -1,28 +1,13 @@
 import type { PageServerLoad } from './$types';
 import { apiFetch } from '$lib/api';
 import { kstTodayStr } from '$lib/date';
-import { redirect } from '@sveltejs/kit';
 import type { CalendarResponse } from '$lib/types';
 
 export const load: PageServerLoad = async ({ url, locals }) => {
 	const [todayYear, todayMonth] = kstTodayStr().split('-').map(Number);
 
-	// Calendar navigation used to live at /?year=&month=, duplicating the dedicated
-	// /calendar route. Permanently move those legacy URLs while preserving filters.
-	if (['year', 'month', 'sport', 'region'].some((key) => url.searchParams.has(key))) {
-		const year = url.searchParams.get('year') ?? String(todayYear);
-		const month = url.searchParams.get('month') ?? String(todayMonth);
-		if (
-			year === String(todayYear) &&
-			month === String(todayMonth) &&
-			!url.searchParams.has('sport') &&
-			!url.searchParams.has('region')
-		) {
-			redirect(301, '/calendar');
-		}
-		redirect(301, `/calendar${url.search}`);
-	}
-
+	// 홈의 월 이동은 같은 라우트에서 처리한다. /calendar로 넘기면 홈 히어로가
+	// 사라지므로 쿼리를 보존한 채 이 페이지의 캘린더 데이터만 다시 불러온다.
 	const year = url.searchParams.get('year') || String(todayYear);
 	const month = url.searchParams.get('month') || String(todayMonth);
 	const sport = url.searchParams.getAll('sport');

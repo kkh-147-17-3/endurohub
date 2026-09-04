@@ -108,6 +108,27 @@ class MemberReviewTests(MemberReviewTestDataMixin, APITestCase):
         self.assertEqual(record.duration_seconds, 1 * 3600 + 2 * 60 + 3)
         self.assertEqual(response.data['race_record']['id'], record.pk)
 
+    def test_race_detail_season_record_date_is_record_created_date(self):
+        user = self.make_user()
+        record = RaceRecord.objects.create(
+            user=user,
+            race=self.race,
+            sport='running',
+            distance='10km',
+            course_code='10K',
+            # This is the actual race day and must not become the table's DATE.
+            record_date='2025-03-16',
+            duration_seconds=42 * 60,
+            is_public=True,
+        )
+
+        response = self.client.get(reverse('race-detail', kwargs={'slug': self.race.slug}))
+
+        self.assertEqual(response.status_code, 200)
+        season_record = response.data['seasonRecords'][0]
+        self.assertEqual(season_record['date'], timezone.localdate(record.created_at).isoformat())
+        self.assertNotEqual(season_record['date'], record.record_date)
+
     def test_race_record_payload_is_required(self):
         user = self.make_user()
         self.client.force_authenticate(user=user)

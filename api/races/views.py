@@ -647,7 +647,9 @@ class RaceDetailView(APIView):
                 'courseLabel': rec.distance,
                 'time': time,
                 'pace': pace,
-                'date': rec.record_date or None,
+                # DATE는 대회일이 아니라 이 화면에 기록을 남긴 날짜다.
+                # record_date는 참가자가 입력한 실제 대회일이므로 여기에는 쓰지 않는다.
+                'date': timezone.localdate(rec.created_at).isoformat(),
                 'durationSeconds': total,
                 'me': is_me,
             })

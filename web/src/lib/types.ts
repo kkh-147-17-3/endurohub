@@ -371,8 +371,8 @@ export interface SeasonRecord {
 	time: string;
 	/** "4'01\"" — 코스 거리를 알 수 없으면 빈 문자열 */
 	pace: string;
-	/** ISO 날짜 문자열 (없으면 null) */
-	date: string | null;
+    /** 기록 등록일의 ISO 날짜 문자열 */
+    date: string | null;
 	durationSeconds: number;
 	/** 현재 로그인 사용자의 기록 여부 */
 	me: boolean;

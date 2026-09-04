@@ -79,7 +79,7 @@
     nextMonth={data.nextMonth}
     sports={data.sports as SportOption[]}
     sportFilter={(Array.isArray(data.sport) ? data.sport : data.sport ? [data.sport] : []) as string[]}
-    basePath="/calendar"
+    basePath="/"
 />
 
 <style>

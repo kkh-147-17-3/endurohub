@@ -669,6 +669,9 @@
     const recOthers = $derived(recRows.filter((r) => !r.me));
     const recDisplay = $derived(recMine ? [recMine, ...recOthers] : recOthers);
     const hasMyRecord = $derived(seasonRecords.some((r) => r.me));
+    const hasSingleSeasonRecord = $derived(seasonRecords.length === 1);
+    const hasCourseFilter = $derived(recCourseOpts.length > 2);
+    const hasRecordControls = $derived(hasCourseFilter || seasonRecords.length > 1);
 
     /** "1:24:37" / "41:56" from seconds. */
     function fmtDur(secs: number): string {
@@ -690,7 +693,7 @@
     const seasonYear = $derived(race.raceDate ? race.raceDate.slice(0, 4) : '');
     const recAux = $derived(
         seasonRecords.length > 0
-            ? `${recRows.length} RECORDS${seasonYear ? ` · ${seasonYear} SEASON` : ''}`
+            ? `${recRows.length} ${recRows.length === 1 ? 'RECORD' : 'RECORDS'}${seasonYear ? ` · ${seasonYear} SEASON` : ''}`
             : '0 RECORDS',
     );
 
@@ -1094,6 +1097,39 @@
                             <Button variant="secondary" size="md" href="/timeline">시즌 탭에서 입력 →</Button>
                         </div>
                     </div>
+                {:else if hasSingleSeasonRecord}
+                    {@const record = recDisplay[0]}
+                    <article class="rd-rec-solo" class:rd-rec-solo--me={record.me}>
+                        <div class="rd-rec-solo__identity">
+                            <span class="rd-rec-solo__eyebrow">{record.me ? 'MY RECORD' : 'SEASON RECORD'}</span>
+                            <span class="rd-rec-solo__runner">{record.nickname}</span>
+                        </div>
+                        <div class="rd-rec-solo__finish">
+                            <span class="rd-rec-solo__eyebrow">FINISH TIME</span>
+                            <strong class="rd-rec-solo__time eh-data">{record.time}</strong>
+                        </div>
+                        <dl class="rd-rec-solo__details">
+                            <div>
+                                <dt>종목</dt>
+                                <dd class="eh-data">{record.courseLabel.toUpperCase()}</dd>
+                            </div>
+                            <div>
+                                <dt>페이스</dt>
+                                <dd class="eh-data">{record.pace ? `${record.pace} /km` : '—'}</dd>
+                            </div>
+                            <div>
+                                <dt>등록일</dt>
+                                <dd class="eh-data">{record.date ? formatDateShort(record.date) : '—'}</dd>
+                            </div>
+                        </dl>
+                    </article>
+                    <p class="rd-rec-note">
+                        기록은 참가자가 직접 등록한 값이며 공식 기록과 다를 수 있습니다. 기록 입력은
+                        <a href="/timeline">시즌 탭 →</a>
+                        {#if !hasReviewed}
+                            또는 <button class="rd-rec-note__btn" onclick={openReviewForm}>리뷰 작성 →</button>
+                        {/if}
+                    </p>
                 {:else}
                     <div class="rd-rec-stats">
                         <div class="rd-rec-stat">
@@ -1109,25 +1145,31 @@
                             <div class="rd-rec-stat__v eh-data">{recAvg}</div>
                         </div>
                     </div>
-                    <div class="rd-rec-filters">
-                        {#each recCourseOpts as c (c)}
-                            <FilterChip selected={recCourse === c} onclick={() => (recCourse = c)}>
-                                {c === '전체' ? c : c.toUpperCase()}
-                            </FilterChip>
-                        {/each}
-                        <span class="rd-rec-sortsep">
-                            {#each recSortOpts as s (s)}
-                                <button
-                                    type="button"
-                                    class="rd-rec-sort"
-                                    class:rd-rec-sort--on={recSort === s}
-                                    onclick={() => (recSort = s)}
-                                >
-                                    {s}
-                                </button>
-                            {/each}
-                        </span>
-                    </div>
+                    {#if hasRecordControls}
+                        <div class="rd-rec-filters">
+                            {#if hasCourseFilter}
+                                {#each recCourseOpts as c (c)}
+                                    <FilterChip selected={recCourse === c} onclick={() => (recCourse = c)}>
+                                        {c === '전체' ? c : c.toUpperCase()}
+                                    </FilterChip>
+                                {/each}
+                            {/if}
+                            {#if seasonRecords.length > 1}
+                                <span class="rd-rec-sortsep">
+                                    {#each recSortOpts as s (s)}
+                                        <button
+                                            type="button"
+                                            class="rd-rec-sort"
+                                            class:rd-rec-sort--on={recSort === s}
+                                            onclick={() => (recSort = s)}
+                                        >
+                                            {s}
+                                        </button>
+                                    {/each}
+                                </span>
+                            {/if}
+                        </div>
+                    {/if}
                     {#if !hasMyRecord}
                         <div class="rd-rec-tblnote" style="margin-top: 12px;">
                             <span class="eh-micro rd-rec-tblnote__k">MY RECORD</span>
@@ -1149,7 +1191,7 @@
                             {#each recDisplay as r (r.nickname + r.courseLabel + r.time)}
                                 <div class="v-trow rd-rec-row" class:rd-rec-row--me={r.me}>
                                     <span class="rd-rec-rank eh-data">
-                                        {r.me ? '—' : String(recOthers.indexOf(r) + 1).padStart(2, '0')}
+                                        {String(recRows.indexOf(r) + 1).padStart(2, '0')}
                                     </span>
                                     <span class="rd-rec-runner">
                                         <span class="rd-rec-runner__nm">{r.nickname}</span>
@@ -1898,6 +1940,85 @@
     .rd-rec-stat__v small { font-size: 13px; font-weight: 600; color: var(--text-muted); }
     .rd-rec-stat--best .rd-rec-stat__v { color: var(--text-accent); }
 
+    .rd-rec-solo {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+            "identity finish"
+            "details details";
+        gap: 22px 32px;
+        margin-top: 16px;
+        padding: 22px 24px 18px;
+        border: var(--border-hair);
+        border-top: var(--border-rule);
+        background: var(--surface-card);
+    }
+    .rd-rec-solo--me {
+        box-shadow: inset 3px 0 0 var(--accent);
+        background: var(--paper-50);
+    }
+    .rd-rec-solo__identity {
+        grid-area: identity;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
+    }
+    .rd-rec-solo__eyebrow {
+        font-size: var(--text-micro);
+        font-weight: 700;
+        letter-spacing: var(--track-micro);
+        color: var(--text-faint);
+    }
+    .rd-rec-solo--me .rd-rec-solo__identity .rd-rec-solo__eyebrow { color: var(--text-accent); }
+    .rd-rec-solo__runner {
+        overflow: hidden;
+        font-size: 18px;
+        font-weight: 750;
+        line-height: 1.2;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .rd-rec-solo__finish {
+        grid-area: finish;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 4px;
+    }
+    .rd-rec-solo__time {
+        font-size: 32px;
+        font-weight: 800;
+        letter-spacing: -0.035em;
+        line-height: 1;
+    }
+    .rd-rec-solo__details {
+        grid-area: details;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin: 0;
+        padding-top: 14px;
+        border-top: var(--border-hair);
+    }
+    .rd-rec-solo__details div { min-width: 0; }
+    .rd-rec-solo__details dt {
+        margin: 0 0 4px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: var(--text-faint);
+    }
+    .rd-rec-solo__details dd {
+        overflow: hidden;
+        margin: 0;
+        font-size: 13px;
+        font-weight: 650;
+        color: var(--text-muted);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
     .rd-rec-filters {
         display: flex;
         align-items: center;
@@ -1994,6 +2115,17 @@
     .rd-rec-empty__btns { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; justify-content: center; }
 
     @media (max-width: 768px) {
+        .rd-rec-solo {
+            grid-template-columns: minmax(0, 1fr);
+            grid-template-areas:
+                "identity"
+                "finish"
+                "details";
+            gap: 18px;
+            padding: 20px 18px 16px;
+        }
+        .rd-rec-solo__finish { align-items: flex-start; }
+        .rd-rec-solo__time { font-size: 29px; }
         .rd-rec-row { grid-template-columns: 24px minmax(0, 1fr) 96px 68px; }
         .rd-rec-time { font-size: 17px; }
         .rd-rec-stat { min-width: 104px; padding: 13px 12px 14px; }
