@@ -136,7 +136,7 @@
         background-color: #101312;
         background-image:
             linear-gradient(180deg, rgba(16, 19, 18, 0.55) 0%, rgba(16, 19, 18, 0.35) 38%, rgba(16, 19, 18, 0.88) 100%),
-            url('/images/login-hero.png');
+            url('/images/login-hero.webp');
         background-size: cover;
         background-position: center 30%;
         background-repeat: no-repeat;

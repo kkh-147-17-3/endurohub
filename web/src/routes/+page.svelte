@@ -49,6 +49,8 @@
 <!-- ── Hero (DS: desaturated-cool photo + ink protection gradient, r-0, no shadow) ── -->
 <section class="home-hero">
     <picture>
+        <source type="image/webp" media="(max-width: 768px)" srcset="/images/home-hero-mobile.webp" />
+        <source type="image/webp" srcset="/images/home-hero.webp" />
         <source media="(max-width: 768px)" srcset="/images/home-hero-mobile.jpg" />
         <img
             class="home-hero__img"

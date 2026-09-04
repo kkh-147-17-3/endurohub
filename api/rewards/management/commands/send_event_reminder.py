@@ -1,5 +1,7 @@
 import time
 from datetime import date
+from email.mime.image import MIMEImage
+from pathlib import Path
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives, get_connection
@@ -12,6 +14,8 @@ from accounts.models import UserProfile
 SUBJECT = '[ENDURO/HUB] 9월 30일 마감 — 완주 기록 남기고 커피 받으세요'
 CONFIRMATION = 'SEND-COFFEE-EVENT-2026'
 EVENT_END = date(2026, 9, 30)
+HERO_IMAGE_PATH = Path(settings.BASE_DIR) / 'rewards' / 'assets' / 'endurohub-multisport-email.png'
+HERO_CONTENT_ID = 'endurohub-multisport-event'
 
 
 def mask_email(email):
@@ -34,6 +38,16 @@ def build_message(*, to, test=False, connection=None):
         connection=connection,
     )
     message.attach_alternative(html_body, 'text/html')
+    with HERO_IMAGE_PATH.open('rb') as image_file:
+        hero_image = MIMEImage(image_file.read(), _subtype='png')
+    hero_image.add_header('Content-ID', f'<{HERO_CONTENT_ID}>')
+    hero_image.add_header(
+        'Content-Disposition',
+        'inline',
+        filename=HERO_IMAGE_PATH.name,
+    )
+    message.mixed_subtype = 'related'
+    message.attach(hero_image)
     return message
 
 

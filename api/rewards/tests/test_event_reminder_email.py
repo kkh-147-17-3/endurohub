@@ -41,6 +41,16 @@ class EventReminderEmailTests(TestCase):
         self.assertEqual(mail.outbox[0].to, ['owner@example.com'])
         self.assertTrue(mail.outbox[0].subject.startswith('[TEST]'))
         self.assertIn('text/html', [part[1] for part in mail.outbox[0].alternatives])
+        self.assertEqual(len(mail.outbox[0].attachments), 1)
+        self.assertEqual(
+            mail.outbox[0].attachments[0]['Content-ID'],
+            '<endurohub-multisport-event>',
+        )
+        self.assertEqual(mail.outbox[0].attachments[0].get_content_type(), 'image/png')
+        html = mail.outbox[0].alternatives[0].content
+        self.assertIn('src="cid:endurohub-multisport-event"', html)
+        self.assertIn('word-break: keep-all', html)
+        self.assertNotIn('.summary-cell { display: block', html)
 
     def test_send_all_requires_exact_confirmation(self):
         with self.assertRaises(CommandError):
