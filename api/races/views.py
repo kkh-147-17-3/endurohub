@@ -1,5 +1,4 @@
 import copy
-import logging
 import os
 import random
 import re
@@ -10,6 +9,7 @@ from datetime import date, datetime, timedelta
 from django.conf import settings
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import IntegrityError, transaction
 from django.db.models import Avg, Count, F, Max, Min, Q
 from django.utils import timezone
 from rest_framework import status
@@ -20,6 +20,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.authentication import JWTAuthentication
+from accounts.serializers import RaceRecordSerializer, upsert_linked_race_record
 from core.analytics import track
 from core.models import AnalyticsEvent
 from core.pagination import LaravelStylePagination
@@ -30,9 +31,6 @@ from posts.serializers import PostListSerializer
 
 from .constants import DISTANCE_CATEGORIES, REGIONS, SPORTS
 from .models import DeviceToken, Race, RaceFavorite, RacePendingChange, Review, ReviewLike
-
-
-logger = logging.getLogger(__name__)
 
 
 def _favorite_race_ids(request, race_ids=None):
@@ -971,14 +969,6 @@ class ReviewCreateView(APIView):
 
         ip_hash = hash_ip(request)
 
-        # Rate limit: 3/hour
-        allowed, _ = check_rate_limit(ip_hash, 'review', 3, 3600)
-        if not allowed:
-            return Response(
-                {'errors': {'review': ['리뷰 작성 제한에 도달했습니다. 잠시 후 다시 시도해주세요.']}},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
-            )
-
         # Check duplicate
         if Review.objects.filter(race=race, user=request.user).exists():
             return Response(
@@ -986,34 +976,63 @@ class ReviewCreateView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        serializer = ReviewCreateSerializer(data=request.data)
+        serializer = ReviewCreateSerializer(
+            data=request.data,
+            context={'race': race, 'user': request.user},
+        )
         if not serializer.is_valid():
             return Response(
                 {'errors': serializer.errors},
                 status=status.HTTP_422_UNPROCESSABLE_ENTITY,
             )
 
-        data = serializer.validated_data
-        review = Review.objects.create(
-            race=race,
-            user=request.user,
-            nickname=profile.nickname or None,
-            rating=data['rating'],
-            comment=data['comment'],
-            completion_time=data.get('completion_time') or None,
-            course_difficulty=data.get('course_difficulty') or None,
-            operation_satisfaction=data.get('operation_satisfaction'),
-            recommendation_tags=data.get('recommendation_tags') or None,
-            ip_hash=ip_hash,
-        )
+        # Only valid attempts consume the shared-IP rate limit. Otherwise a
+        # member correcting required result fields could lock themselves out.
+        allowed, _ = check_rate_limit(ip_hash, 'review', 3, 3600)
+        if not allowed:
+            return Response(
+                {'errors': {'review': ['리뷰 작성 제한에 도달했습니다. 잠시 후 다시 시도해주세요.']}},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
 
-        # Entries are also rebuilt from source reviews immediately before a
-        # draw, so a temporary enrollment failure can never exclude a member.
+        data = serializer.validated_data
+        result_data = data['race_record']
+        hours, remainder = divmod(result_data['duration_seconds'], 3600)
+        minutes, seconds = divmod(remainder, 60)
+        completion_time = f'{hours}:{minutes:02d}:{seconds:02d}'
+
         try:
-            from rewards.services import enroll_review_in_active_campaigns
-            enroll_review_in_active_campaigns(review)
-        except Exception:
-            logger.exception('Failed to enroll review %s in reward campaigns', review.pk)
+            with transaction.atomic():
+                # Create the review first. Its database uniqueness constraint is
+                # the final guard against concurrent submissions and prevents a
+                # losing request from changing the user's existing race record.
+                review = Review.objects.create(
+                    race=race,
+                    user=request.user,
+                    nickname=profile.nickname or None,
+                    rating=data['rating'],
+                    comment=data['comment'],
+                    completion_time=completion_time,
+                    course_difficulty=data.get('course_difficulty') or None,
+                    operation_satisfaction=data.get('operation_satisfaction'),
+                    recommendation_tags=data.get('recommendation_tags') or None,
+                    ip_hash=ip_hash,
+                )
+                race_record = upsert_linked_race_record(
+                    user=request.user,
+                    race=race,
+                    result_data=result_data,
+                )
+        except IntegrityError:
+            # The optimistic duplicate check above can race. Query after the
+            # atomic block has rolled back so that loser requests get the same
+            # stable API response instead of a database error/500.
+            if Review.objects.filter(race=race, user=request.user).exists():
+                return Response(
+                    {'errors': {'review': ['이미 이 대회에 리뷰를 작성하셨습니다.']}},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            raise
 
         track('review_submit', request, {
             'sport': race.sport,
@@ -1022,8 +1041,9 @@ class ReviewCreateView(APIView):
 
         return Response({
             'success': True,
-            'message': '리뷰가 등록되었습니다.',
+            'message': '리뷰와 참가 기록이 등록되었습니다.',
             'review': ReviewSerializer(review, context={'liked_review_ids': set()}).data,
+            'race_record': RaceRecordSerializer(race_record).data,
         }, status=status.HTTP_201_CREATED)
 
 

@@ -122,7 +122,8 @@ class RaceRecordSerializer(serializers.ModelSerializer):
         model = RaceRecord
         fields = [
             'id', 'sport', 'sport_label', 'distance', 'name',
-            'record_date', 'duration_seconds', 'time', 'is_public', 'created_at',
+            'course_code', 'record_date', 'duration_seconds', 'time',
+            'is_personal_best', 'is_public', 'created_at',
         ]
 
     def get_sport_label(self, obj):
@@ -189,28 +190,89 @@ def course_code_for(distance: dict) -> str:
     return name[:4].upper()
 
 
-class RaceResultCreateSerializer(serializers.Serializer):
-    """Log a finish for a curated race → a RaceRecord linked to that race.
+def race_course_options(race) -> list[tuple[str, str]]:
+    """Return the valid ``(code, label)`` pairs for a curated race.
 
-    Requires the target Race in context['race']. Derives sport from the race
-    and the distance label from the matching course when possible.
+    Races without a usable distance entry use the canonical backend sport code.
+    Empty derived codes are deliberately ignored so malformed distance data cannot
+    turn an empty string into a valid course choice.
+    """
+    options = []
+    seen_codes = set()
+    for distance in race.distances or []:
+        if not isinstance(distance, dict):
+            continue
+        code = course_code_for(distance)
+        if not code or code in seen_codes:
+            continue
+        seen_codes.add(code)
+        options.append((code, distance.get('name') or code))
+
+    if options:
+        return options
+
+    from races.constants import SPORT_CODES
+
+    fallback = SPORT_CODES.get(race.sport, '')
+    return [(fallback, race.sport_label)] if fallback else []
+
+
+def upsert_linked_race_record(*, user, race, result_data):
+    """Create or update the user's result for a curated race.
+
+    Only explicitly supplied visibility/PB flags are updated. This lets callers
+    such as review creation amend the finish without silently resetting an
+    existing record's user-controlled settings.
+    """
+    code = result_data['course_code']
+    label = next(
+        (label for option_code, label in race_course_options(race) if option_code == code),
+        code,
+    )
+    defaults = {
+        'sport': race.sport,
+        'distance': label,
+        'course_code': code,
+        'name': race.title,
+        'record_date': race.race_date.isoformat() if race.race_date else '',
+        'duration_seconds': result_data['duration_seconds'],
+    }
+    for field in ('is_personal_best', 'is_public'):
+        if field in result_data:
+            defaults[field] = result_data[field]
+
+    record, _ = RaceRecord.objects.update_or_create(
+        user=user,
+        race=race,
+        defaults=defaults,
+    )
+    return record
+
+
+class RaceResultInputSerializer(serializers.Serializer):
+    """Validate a course choice and finish time for a curated race.
+
+    Requires the target Race in ``context['race']``. Persistence is intentionally
+    separate so this serializer can also be nested in review creation.
     """
 
     course_code = serializers.CharField(max_length=20)
     hours = serializers.IntegerField(required=False, min_value=0, max_value=99, default=0)
     minutes = serializers.IntegerField(required=False, min_value=0, max_value=59, default=0)
     seconds = serializers.IntegerField(required=False, min_value=0, max_value=59, default=0)
-    is_personal_best = serializers.BooleanField(required=False, default=False)
-    is_public = serializers.BooleanField(required=False, default=False)
 
     def validate_course_code(self, value):
         value = value.strip()
         if not value:
             raise serializers.ValidationError('완주한 종목을 선택해주세요.')
         race = self.context['race']
-        codes = {course_code_for(d) for d in (race.distances or []) if isinstance(d, dict)}
-        # Only enforce when the race actually publishes course distances.
-        if codes and value not in codes:
+        codes = {code for code, _ in race_course_options(race) if code}
+        # The timeline used ``CYCLE`` before the backend sport-code contract was
+        # aligned to ``CYC``. Accept and normalize that legacy fallback so an
+        # existing cycling record can still be edited during a rolling deploy.
+        if value == 'CYCLE' and 'CYC' in codes:
+            value = 'CYC'
+        if value not in codes:
             raise serializers.ValidationError(f'이 대회에 없는 종목입니다: {value}')
         return value
 
@@ -221,29 +283,16 @@ class RaceResultCreateSerializer(serializers.Serializer):
         attrs['duration_seconds'] = total
         return attrs
 
-    def create(self, validated_data):
-        race = self.context['race']
-        user = self.context['user']
-        code = validated_data['course_code']
-        # Resolve a human label for the chosen course.
-        label = code
-        for d in race.distances or []:
-            if isinstance(d, dict) and course_code_for(d) == code:
-                label = d.get('name') or code
-                break
 
-        record, _ = RaceRecord.objects.update_or_create(
-            user=user,
-            race=race,
-            defaults={
-                'sport': race.sport,
-                'distance': label,
-                'course_code': code,
-                'name': race.title,
-                'record_date': race.race_date.isoformat() if race.race_date else '',
-                'duration_seconds': validated_data['duration_seconds'],
-                'is_personal_best': validated_data.get('is_personal_best', False),
-                'is_public': validated_data.get('is_public', False),
-            },
+class RaceResultCreateSerializer(RaceResultInputSerializer):
+    """Log a finish for a curated race → a RaceRecord linked to that race."""
+
+    is_personal_best = serializers.BooleanField(required=False)
+    is_public = serializers.BooleanField(required=False)
+
+    def create(self, validated_data):
+        return upsert_linked_race_record(
+            user=self.context['user'],
+            race=self.context['race'],
+            result_data=validated_data,
         )
-        return record

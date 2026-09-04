@@ -1,6 +1,6 @@
 <script lang="ts">
-    import type { Race, Distance } from '$lib/types';
-    import { arenaSportCode } from '$lib/arena';
+    import type { Race } from '$lib/types';
+    import { raceCourseOptions } from '$lib/race-result';
     import { StatBlock, Badge, Button, Modal } from '$lib/components/eh';
     import { clientApiFetch, isApiError } from '$lib/api.client';
     import { invalidateAll } from '$app/navigation';
@@ -109,18 +109,6 @@
     const todayPct = (todayDoy / totalDays) * 100;
 
     // ── Race data mapping ──────────────────────────────────────────────────
-    function distanceCode(d: Distance): string {
-        if (d.distanceMeter && d.distanceMeter > 0) {
-            const km = d.distanceMeter / 1000;
-            return Number.isInteger(km) ? `${km}K` : `${km.toFixed(1)}K`;
-        }
-        return d.name.slice(0, 4).toUpperCase();
-    }
-    function distanceKm(d: Distance): number {
-        if (d.distanceMeter && d.distanceMeter > 0) return d.distanceMeter / 1000;
-        const m = d.name.match(/(\d+(?:\.\d+)?)/);
-        return m ? Number(m[1]) : 0;
-    }
     function parseDate(d: string | null): { m: number; day: number; year: number } | null {
         if (!d) return null;
         const parts = d.split('-');
@@ -147,14 +135,15 @@
                 const rd = parseDate(race.raceDate);
                 if (!rd || rd.year !== year) return null;
                 const reg = parseDate(race.registrationEnd);
-                const courses: SeasonCourse[] = (race.distances ?? []).slice(0, 4).map((d) => ({
-                    code: distanceCode(d),
-                    label: d.name,
-                    distKm: distanceKm(d)
+                const courses: SeasonCourse[] = raceCourseOptions(
+                    (race.distances ?? []).slice(0, 4),
+                    race.sport,
+                    race.sportLabel,
+                ).map((course) => ({
+                    code: course.code,
+                    label: course.label,
+                    distKm: course.distanceKm,
                 }));
-                if (courses.length === 0) {
-                    courses.push({ code: arenaSportCode[race.sport], label: race.sportLabel, distKm: 0 });
-                }
 
                 const derived = deriveStatus(rd);
                 const userStatus = race.userStatus ?? derived.status;
@@ -289,7 +278,10 @@
         logRace = r;
         logError = '';
         if (r.userStatus === 'logged') {
-            logCode = r.loggedCode ?? r.courses[0]?.code ?? '';
+            const savedCode = r.loggedCode ?? '';
+            logCode = r.courses.some((course) => course.code === savedCode)
+                ? savedCode
+                : r.courses[0]?.code ?? '';
             const parts = (r.result?.time ?? '').split(':').map((n) => Number(n) || 0);
             if (parts.length === 3) {
                 [logH, logM, logS] = parts.map(String);

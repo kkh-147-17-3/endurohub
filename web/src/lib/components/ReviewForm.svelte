@@ -1,6 +1,8 @@
 <script lang="ts">
     import { enhance } from '$app/forms';
     import { Button } from '$lib/components/eh';
+    import { raceCourseOptions } from '$lib/race-result';
+    import type { Distance, Sport } from '$lib/types';
 
     interface Props {
         raceSlug: string;
@@ -9,10 +11,13 @@
         hasReviewed: boolean;
         raceDate: string | null;
         raceEndDate?: string | null;
+        distances?: Distance[] | null;
+        sport: Sport;
+        sportLabel: string;
         reviewerNickname: string;
         open: boolean;
         onclose: () => void;
-        onsubmitted?: (detail: { rating: number }) => void;
+        onsubmitted?: (detail: { rating: number; message: string }) => void;
         errors?: Record<string, string[]>;
     }
 
@@ -23,6 +28,9 @@
         hasReviewed,
         raceDate,
         raceEndDate,
+        distances = [],
+        sport,
+        sportLabel,
         reviewerNickname,
         open = $bindable(false),
         onclose,
@@ -56,7 +64,10 @@
     let rating = $state(0);
     let hoverRating = $state(0);
     let comment = $state('');
-    let completionTime = $state('');
+    let courseCode = $state('');
+    let recordHours = $state(0);
+    let recordMinutes = $state(0);
+    let recordSeconds = $state(0);
     let courseDifficulty = $state('');
     let operationSatisfaction = $state(0);
     let operationHover = $state(0);
@@ -64,16 +75,39 @@
     let isSubmitting = $state(false);
     let showOptional = $state(false);
 
+    const courseOptions = $derived(raceCourseOptions(distances, sport, sportLabel));
     const lit = $derived(hoverRating || rating);
     const opsLit = $derived(operationHover || operationSatisfaction);
     const over = $derived(comment.length > RV_MAX);
-    const canSubmit = $derived(rating > 0 && comment.trim().length >= 5 && !over);
+    const recordSecondsTotal = $derived(
+        recordHours * 3600 + recordMinutes * 60 + recordSeconds,
+    );
+    const recordTimeValid = $derived(
+        Number.isInteger(recordHours) && recordHours >= 0 && recordHours <= 99
+        && Number.isInteger(recordMinutes) && recordMinutes >= 0 && recordMinutes <= 59
+        && Number.isInteger(recordSeconds) && recordSeconds >= 0 && recordSeconds <= 59
+        && recordSecondsTotal > 0,
+    );
+    const canSubmit = $derived(
+        rating > 0
+        && comment.trim().length >= 5
+        && !over
+        && !!courseCode
+        && recordTimeValid,
+    );
     const moreCount = $derived(
-        (completionTime ? 1 : 0)
-        + (courseDifficulty ? 1 : 0)
+        (courseDifficulty ? 1 : 0)
         + (operationSatisfaction ? 1 : 0)
         + selectedTags.length,
     );
+
+    $effect(() => {
+        raceSlug;
+        const options = courseOptions;
+        if (!options.some((course) => course.code === courseCode)) {
+            courseCode = options.length === 1 ? options[0].code : '';
+        }
+    });
 
     function toggleTag(tag: string) {
         selectedTags = selectedTags.includes(tag)
@@ -90,11 +124,22 @@
         if (e.key === 'Escape') close();
     }
 
+    function getSuccessMessage(data: unknown): string {
+        if (data && typeof data === 'object' && 'message' in data) {
+            const message = (data as { message?: unknown }).message;
+            if (typeof message === 'string' && message) return message;
+        }
+        return '리뷰와 참가 기록이 등록되었습니다.';
+    }
+
     function resetForm() {
         rating = 0;
         hoverRating = 0;
         comment = '';
-        completionTime = '';
+        courseCode = courseOptions.length === 1 ? courseOptions[0].code : '';
+        recordHours = 0;
+        recordMinutes = 0;
+        recordSeconds = 0;
         courseDifficulty = '';
         operationSatisfaction = 0;
         operationHover = 0;
@@ -154,7 +199,7 @@
                         return async ({ result, update }) => {
                             isSubmitting = false;
                             if (result.type === 'success') {
-                                onsubmitted?.({ rating });
+                                onsubmitted?.({ rating, message: getSuccessMessage(result.data) });
                                 resetForm();
                                 close();
                             }
@@ -210,7 +255,100 @@
                                 <span class="r">이메일 인증 완료</span>
                             </div>
                             <div class="rvm-member">@{reviewerNickname}</div>
-                            <p class="rvm-member-note">작성한 리뷰는 진행 중인 리뷰 이벤트에 회원당 1회 자동 응모되며, 당첨 시 인증된 이메일로 기프티콘을 보내드립니다.</p>
+                            <p class="rvm-member-note">작성한 리뷰는 회원 계정에 연결되어 대회 후기와 평가에 표시됩니다.</p>
+                        </div>
+
+                        <!-- 참가 기록 (필수) -->
+                        <div class="rvm-sec">
+                            <div class="rvm-flabel">
+                                <span class="l">참가 기록<span class="req">*</span></span>
+                                <span class="r">리뷰와 함께 등록</span>
+                            </div>
+                            <p class="rvm-record-note">완주한 종목과 공식 기록을 입력해주세요.</p>
+
+                            <label class="rvm-record-label" for="review-course">종목 / 코스</label>
+                            <select
+                                id="review-course"
+                                class="rvm-text rvm-select"
+                                name="course_code"
+                                bind:value={courseCode}
+                                required
+                                aria-invalid={errors.course_code ? 'true' : undefined}
+                                aria-describedby={errors.course_code ? 'review-course-error' : undefined}
+                            >
+                                {#if courseOptions.length > 1}
+                                    <option value="" disabled>완주한 종목을 선택해주세요</option>
+                                {/if}
+                                {#each courseOptions as course, index (`${course.code}-${index}`)}
+                                    <option value={course.code}>{course.label}</option>
+                                {/each}
+                            </select>
+                            {#if errors.course_code}
+                                <p id="review-course-error" class="rvm-err" role="alert">{errors.course_code[0]}</p>
+                            {/if}
+
+                            <fieldset
+                                class="rvm-time-field"
+                                class:error={!!(errors.time || errors.hours || errors.minutes || errors.seconds || errors.race_record)}
+                                aria-describedby={errors.time || errors.hours || errors.minutes || errors.seconds || errors.race_record ? 'review-time-error' : undefined}
+                            >
+                                <legend class="rvm-record-label">완주 시간</legend>
+                                <div class="rvm-time-grid">
+                                    <label class="rvm-time-part">
+                                        <input
+                                            class="rvm-time-input eh-data"
+                                            type="number"
+                                            name="hours"
+                                            min="0"
+                                            max="99"
+                                            step="1"
+                                            inputmode="numeric"
+                                            required
+                                            bind:value={recordHours}
+                                            aria-invalid={errors.hours || errors.time || errors.race_record ? 'true' : undefined}
+                                        />
+                                        <span>시</span>
+                                    </label>
+                                    <span class="rvm-time-colon" aria-hidden="true">:</span>
+                                    <label class="rvm-time-part">
+                                        <input
+                                            class="rvm-time-input eh-data"
+                                            type="number"
+                                            name="minutes"
+                                            min="0"
+                                            max="59"
+                                            step="1"
+                                            inputmode="numeric"
+                                            required
+                                            bind:value={recordMinutes}
+                                            aria-invalid={errors.minutes || errors.time || errors.race_record ? 'true' : undefined}
+                                        />
+                                        <span>분</span>
+                                    </label>
+                                    <span class="rvm-time-colon" aria-hidden="true">:</span>
+                                    <label class="rvm-time-part">
+                                        <input
+                                            class="rvm-time-input eh-data"
+                                            type="number"
+                                            name="seconds"
+                                            min="0"
+                                            max="59"
+                                            step="1"
+                                            inputmode="numeric"
+                                            required
+                                            bind:value={recordSeconds}
+                                            aria-invalid={errors.seconds || errors.time || errors.race_record ? 'true' : undefined}
+                                        />
+                                        <span>초</span>
+                                    </label>
+                                </div>
+                                <p class="rvm-record-hint">최소 1초 이상의 기록을 입력해주세요.</p>
+                            </fieldset>
+                            {#if errors.time || errors.hours || errors.minutes || errors.seconds || errors.race_record}
+                                <p id="review-time-error" class="rvm-err" role="alert">
+                                    {(errors.time || errors.hours || errors.minutes || errors.seconds || errors.race_record)[0]}
+                                </p>
+                            {/if}
                         </div>
 
                         <!-- 추가 정보 (선택) -->
@@ -223,20 +361,6 @@
 
                             {#if showOptional}
                                 <div class="rvm-morebody">
-                                    <!-- 완주 기록 -->
-                                    <div class="rvm-sub">
-                                        <span class="sl">완주 기록</span>
-                                        <input
-                                            class="rvm-text"
-                                            type="text"
-                                            name="completion_time"
-                                            bind:value={completionTime}
-                                            placeholder="예: 4:30:00"
-                                            inputmode="numeric"
-                                            maxlength="20"
-                                        />
-                                    </div>
-
                                     <!-- 코스 난이도 -->
                                     <div class="rvm-sub">
                                         <span class="sl">코스 난이도</span>
@@ -297,7 +421,7 @@
                     </div>
 
                     <div class="rvm-foot">
-                        <p class="note">공개 후기로 등록되며 <b>검수 후 노출</b>됩니다</p>
+                        <p class="note">리뷰와 참가 기록이 함께 등록되며, 리뷰는 <b>검수 후 노출</b>됩니다</p>
                         <span style="flex:1"></span>
                         <Button variant="ghost" type="button" onclick={close}>취소</Button>
                         <span class="grow">
@@ -472,6 +596,64 @@
     }
     .rvm-text:focus { outline: 0; border-color: var(--ink-900); }
     .rvm-text::placeholder { color: var(--text-faint); font-variant-numeric: normal; }
+    .rvm-select { cursor: pointer; }
+    .rvm-text[aria-invalid='true'] { border-color: var(--danger); }
+
+    /* required linked race record */
+    .rvm-record-note {
+        margin: -4px 0 16px;
+        color: var(--text-muted);
+        font-size: 12.5px;
+        line-height: 1.5;
+    }
+    .rvm-record-label {
+        display: block;
+        margin: 0 0 8px;
+        color: var(--text-muted);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+    }
+    .rvm-time-field {
+        min-width: 0;
+        margin: 16px 0 0;
+        padding: 0;
+        border: 0;
+    }
+    .rvm-time-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+        align-items: center;
+        gap: 8px;
+    }
+    .rvm-time-part {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 7px;
+        color: var(--text-muted);
+        font-size: 12px;
+    }
+    .rvm-time-input {
+        width: 100%;
+        min-width: 0;
+        border: 1px solid var(--line);
+        border-radius: var(--r-2);
+        padding: 11px 8px;
+        color: var(--text-strong);
+        background: var(--paper-0);
+        font-family: inherit;
+        font-size: 14px;
+        text-align: center;
+    }
+    .rvm-time-input:focus { outline: 0; border-color: var(--ink-900); }
+    .rvm-time-field.error .rvm-time-input { border-color: var(--danger); }
+    .rvm-time-colon { color: var(--text-faint); font-weight: 700; }
+    .rvm-record-hint {
+        margin: 8px 0 0;
+        color: var(--text-faint);
+        font-size: 11.5px;
+    }
 
     /* collapsible 추가 정보 */
     .rvm-more { border-top: var(--border-hair); }

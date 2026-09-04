@@ -83,19 +83,22 @@
 				<li>
 					<span class="step-number" aria-hidden="true">1</span>
 					<div>
-						<strong>참가한 대회의 리뷰 작성</strong>
-						<p>대회 상세 페이지에서 회원 계정으로 리뷰 1개를 작성합니다.</p>
+						<strong>참가한 대회의 리뷰 열기</strong>
+						<p>대회 상세 페이지에서 회원 계정으로 리뷰 작성 버튼을 누릅니다.</p>
 					</div>
 				</li>
 				<li>
 					<span class="step-number" aria-hidden="true">2</span>
 					<div>
-						<strong>같은 대회에 본인 기록 등록</strong>
-						<p>마이페이지에서 완주 시간 등 실제 참가 기록 1개를 남깁니다.</p>
+						<strong>종목과 완주 시간 함께 입력</strong>
+						<p>리뷰 폼에서 참가 종목과 실제 완주 시간을 입력하면 본인 기록도 함께 등록됩니다.</p>
 					</div>
 				</li>
 			</ol>
-			<p class="event-note">두 조건을 9월 30일까지 완료하면 회원당 1회 자동 응모됩니다.</p>
+			<p class="event-note">
+				두 조건을 9월 30일까지 완료하면 회원당 1회 자동 응모됩니다. 이미 리뷰를 작성했다면
+				해당 대회의 시즌 타임라인에서 완주 기록만 추가해 주세요.
+			</p>
 		</div>
 	</section>
 

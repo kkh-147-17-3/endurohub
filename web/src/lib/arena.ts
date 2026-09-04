@@ -3,7 +3,7 @@ import type { Race, Sport } from '$lib/types';
 export const arenaSportCode: Record<Sport, string> = {
     running: 'RUN',
     swimming: 'SWIM',
-    cycling: 'CYCLE',
+    cycling: 'CYC',
     triathlon: 'TRI',
     trail_running: 'TRL',
 };

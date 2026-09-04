@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from accounts.serializers import RaceResultInputSerializer
+
 from .models import DeviceToken, Race, RaceParticipation, Review
 
 
@@ -230,7 +232,7 @@ class ReviewCreateSerializer(serializers.Serializer):
     nickname = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
     rating = serializers.IntegerField(min_value=1, max_value=5)
     comment = serializers.CharField(min_length=5, max_length=200)
-    completion_time = serializers.CharField(max_length=20, required=False, allow_blank=True, allow_null=True)
+    race_record = RaceResultInputSerializer()
     course_difficulty = serializers.ChoiceField(
         choices=['easy', 'normal', 'hard'],
         required=False, allow_blank=True, allow_null=True,

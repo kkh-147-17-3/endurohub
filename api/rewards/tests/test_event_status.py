@@ -30,6 +30,12 @@ class CoffeeCouponEventStatusTests(APITestCase):
             timezone.get_current_timezone(),
         )
 
+    def set_record_times(self, record, value):
+        RaceRecord.objects.filter(pk=record.pk).update(
+            created_at=value,
+            updated_at=value,
+        )
+
     def test_reports_review_and_linked_record_created_during_event(self):
         review = Review.objects.create(
             race=self.race,
@@ -48,7 +54,7 @@ class CoffeeCouponEventStatusTests(APITestCase):
             distance='10km',
             duration_seconds=3600,
         )
-        RaceRecord.objects.filter(pk=record.pk).update(created_at=self.event_time(30))
+        self.set_record_times(record, self.event_time(30))
 
         response = self.client.get('/api/v1/rewards/coffee-coupon-event/status/')
 
@@ -68,7 +74,7 @@ class CoffeeCouponEventStatusTests(APITestCase):
             user=self.user, race=self.race, sport='running', distance='10km',
             duration_seconds=3600,
         )
-        RaceRecord.objects.filter(pk=record.pk).update(created_at=self.event_time(3))
+        self.set_record_times(record, self.event_time(3))
 
         response = self.client.get('/api/v1/rewards/coffee-coupon-event/status/')
 
@@ -76,13 +82,19 @@ class CoffeeCouponEventStatusTests(APITestCase):
         self.assertTrue(response.data['completed'])
 
     def test_excludes_free_form_and_out_of_period_records(self):
+        review = Review.objects.create(
+            race=self.race, user=self.user, nickname='runner', rating=5,
+            comment='기간 밖 기록과 함께 남긴 리뷰', ip_hash='e' * 64,
+        )
+        Review.objects.filter(pk=review.pk).update(created_at=self.event_time(10))
+
         free_form = RaceRecord.objects.create(
             user=self.user,
             sport='running',
             distance='10km',
             duration_seconds=3600,
         )
-        RaceRecord.objects.filter(pk=free_form.pk).update(created_at=self.event_time(10))
+        self.set_record_times(free_form, self.event_time(10))
 
         linked = RaceRecord.objects.create(
             user=self.user,
@@ -91,14 +103,62 @@ class CoffeeCouponEventStatusTests(APITestCase):
             distance='10km',
             duration_seconds=3600,
         )
-        RaceRecord.objects.filter(pk=linked.pk).update(
-            created_at=timezone.make_aware(
-                datetime(2026, 10, 1), timezone.get_current_timezone()
-            )
+        self.set_record_times(
+            linked,
+            timezone.make_aware(datetime(2026, 10, 1), timezone.get_current_timezone()),
         )
 
         response = self.client.get('/api/v1/rewards/coffee-coupon-event/status/')
 
         self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data['review']['completed'])
+        self.assertFalse(response.data['record']['completed'])
+        self.assertFalse(response.data['completed'])
+
+    def test_counts_existing_record_updated_with_event_review(self):
+        review = Review.objects.create(
+            race=self.race, user=self.user, nickname='runner', rating=5,
+            comment='기존 기록과 함께 남기는 리뷰', ip_hash='c' * 64,
+        )
+        Review.objects.filter(pk=review.pk).update(created_at=self.event_time(10))
+
+        record = RaceRecord.objects.create(
+            user=self.user, race=self.race, sport='running', distance='10km',
+            duration_seconds=3600,
+        )
+        self.set_record_times(
+            record,
+            timezone.make_aware(datetime(2026, 8, 20), timezone.get_current_timezone()),
+        )
+        RaceRecord.objects.filter(pk=record.pk).update(updated_at=self.event_time(10))
+
+        response = self.client.get('/api/v1/rewards/coffee-coupon-event/status/')
+
+        self.assertTrue(response.data['record']['completed'])
+        self.assertTrue(response.data['completed'])
+
+    def test_record_for_another_race_does_not_complete_same_race_condition(self):
+        other_race = Race.objects.create(
+            title='다른 이벤트 테스트 대회',
+            slug='another-coffee-event-test-race',
+            sport='running',
+            race_date=datetime(2026, 9, 11).date(),
+            location='서울',
+            region='서울',
+        )
+        review = Review.objects.create(
+            race=self.race, user=self.user, nickname='runner', rating=5,
+            comment='리뷰와 기록의 대회가 다릅니다.', ip_hash='d' * 64,
+        )
+        Review.objects.filter(pk=review.pk).update(created_at=self.event_time(10))
+        record = RaceRecord.objects.create(
+            user=self.user, race=other_race, sport='running', distance='10km',
+            duration_seconds=3600,
+        )
+        self.set_record_times(record, self.event_time(10))
+
+        response = self.client.get('/api/v1/rewards/coffee-coupon-event/status/')
+
+        self.assertTrue(response.data['review']['completed'])
         self.assertFalse(response.data['record']['completed'])
         self.assertFalse(response.data['completed'])

@@ -25,11 +25,51 @@
     import { track, trackOutboundClick } from '$lib/analytics';
     import { clientApiFetch } from '$lib/api.client';
 
-    let { data } = $props();
+    let { data, form } = $props();
 
     interface RaceSlot {
         label: string;
         races: Race[];
+    }
+
+    type ReviewFormErrors = Record<string, string[]>;
+
+    function errorKey(path: string[]): string {
+        const keys = path.map((key) => key.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase());
+        const leaf = keys.at(-1) ?? 'review';
+        if (leaf === 'detail') return 'review';
+        if (leaf === 'non_field_errors') {
+            return keys.at(-2) === 'race_record' ? 'race_record' : 'review';
+        }
+        return leaf;
+    }
+
+    function flattenReviewErrors(value: unknown): ReviewFormErrors {
+        const flattened: ReviewFormErrors = {};
+
+        function add(path: string[], messages: string[]) {
+            if (messages.length === 0) return;
+            const key = errorKey(path);
+            flattened[key] = [...(flattened[key] ?? []), ...messages];
+        }
+
+        function visit(current: unknown, path: string[]) {
+            if (Array.isArray(current)) {
+                add(path, current.filter((item): item is string => typeof item === 'string'));
+                return;
+            }
+            if (typeof current === 'string') {
+                add(path, [current]);
+                return;
+            }
+            if (!current || typeof current !== 'object') return;
+            for (const [key, child] of Object.entries(current)) {
+                visit(child, [...path, key]);
+            }
+        }
+
+        visit(value, []);
+        return flattened;
     }
 
     const race: Race = $derived(data.race);
@@ -38,6 +78,7 @@
     const reviewStats: ReviewStats = $derived(data.reviewStats);
     const hasReviewed: boolean = $derived(data.hasReviewed);
     const seasonRecords: SeasonRecord[] = $derived(data.seasonRecords ?? []);
+    const reviewFormErrors = $derived(flattenReviewErrors(form?.errors));
 
     const appUrl = $derived(data.appUrl || 'https://www.endurohub.kr');
     const kakaoJsKey = $derived(data.kakaoJsKey as string);
@@ -1320,16 +1361,22 @@
     {hasReviewed}
     raceDate={race.raceDate}
     raceEndDate={race.raceEndDate}
+    distances={race.distances}
+    sport={race.sport}
+    sportLabel={race.sportLabel}
     reviewerNickname={reviewNickname}
+    errors={reviewFormErrors}
     bind:open={reviewModalOpen}
     onclose={() => (reviewModalOpen = false)}
-    onsubmitted={({ rating }) =>
+    onsubmitted={({ rating, message }) => {
         track('review_submit', {
             item_type: 'race',
             item_id: race.id,
             sport: race.sport,
             rating,
-        })}
+        });
+        showToast(message);
+    }}
 />
 
 <!-- Mobile sticky CTA -->

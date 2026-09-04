@@ -74,6 +74,13 @@ class RaceRecord(models.Model):
     class Meta:
         db_table = 'race_records'
         ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'race'],
+                condition=models.Q(race__isnull=False),
+                name='uniq_linked_race_record_per_user',
+            ),
+        ]
 
     def __str__(self):
         return f'{self.sport}:{self.distance} ({self.duration_seconds}s)'

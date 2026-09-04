@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -26,9 +27,10 @@ class CoffeeCouponEventStatusView(APIView):
         )
         records = RaceRecord.objects.filter(
             user=request.user,
-            race__isnull=False,
-            created_at__gte=starts_at,
-            created_at__lt=ends_at,
+            race_id__in=reviews.values('race_id'),
+        ).filter(
+            Q(created_at__gte=starts_at, created_at__lt=ends_at)
+            | Q(updated_at__gte=starts_at, updated_at__lt=ends_at)
         )
 
         review_count = reviews.count()

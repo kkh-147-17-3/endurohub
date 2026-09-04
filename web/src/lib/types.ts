@@ -236,10 +236,12 @@ export interface RaceRecord {
 	sport: string;
 	sportLabel: string;
 	distance: string;
+	courseCode: string;
 	name: string;
 	recordDate: string;
 	durationSeconds: number;
 	time: string;
+	isPersonalBest: boolean;
 	isPublic: boolean;
 	createdAt: string;
 }
@@ -315,6 +317,14 @@ export interface ReviewStats {
 	average: number;
 	averageOperationSatisfaction?: number;
 	difficultyDistribution?: Record<string, number>;
+}
+
+/** Wire payload used when a review also creates the required linked race record. */
+export interface ReviewRaceRecordPayload {
+	course_code: string;
+	hours: number;
+	minutes: number;
+	seconds: number;
 }
 
 // === API Response Types ===
@@ -474,6 +484,7 @@ export interface ReviewCreateResponse {
 	success: boolean;
 	message: string;
 	review: Review;
+	raceRecord?: RaceRecord;
 }
 
 export interface PostCreateResponse {
