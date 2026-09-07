@@ -1,10 +1,20 @@
+from django.contrib.auth.hashers import make_password
 from django.core.cache import cache
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import POPUP_CACHE_KEY, Notice, Popup
-from .serializers import NoticeDetailSerializer, NoticeListSerializer, PopupSerializer
+from core.utils import check_rate_limit, hash_ip
+from .models import POPUP_CACHE_KEY, Notice, NoticeComment, Popup
+from .serializers import (
+    NoticeCommentCreateSerializer,
+    NoticeCommentDeleteSerializer,
+    NoticeCommentSerializer,
+    NoticeCommentUpdateSerializer,
+    NoticeDetailSerializer,
+    NoticeListSerializer,
+    PopupSerializer,
+)
 
 VALID_TABS = {'notice', 'racenews', 'event', 'urgent'}
 
@@ -58,7 +68,7 @@ class NoticeDetailView(APIView):
         except Notice.DoesNotExist:
             return Response({'detail': '공지사항을 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
 
-        return _notice_detail_response(notice)
+        return _notice_detail_response(notice, request)
 
 
 class NoticeSlugDetailView(APIView):
@@ -70,10 +80,10 @@ class NoticeSlugDetailView(APIView):
         except Notice.DoesNotExist:
             return Response({'detail': '공지사항을 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
 
-        return _notice_detail_response(notice)
+        return _notice_detail_response(notice, request)
 
 
-def _notice_detail_response(notice):
+def _notice_detail_response(notice, request):
     """Increment and serialize a notice shared by numeric and custom routes."""
 
     notice.increment_view_count()
@@ -98,10 +108,117 @@ def _notice_detail_response(notice):
     popup = notice.popups.order_by('-priority', '-id').first()
 
     return Response({
-        'notice': NoticeDetailSerializer(notice).data,
+        'notice': NoticeDetailSerializer(notice, context={'request': request}).data,
         'adjacent': {'prev': adjacent(prev_notice), 'next': adjacent(next_notice)},
         'event': PopupSerializer(popup).data if popup else None,
     })
+
+
+class NoticeCommentCreateView(APIView):
+    """POST /api/v1/notices/{id}/comments/"""
+
+    def post(self, request, notice_id):
+        try:
+            notice = Notice.objects.get(pk=notice_id)
+        except Notice.DoesNotExist:
+            return Response({'detail': '공지사항을 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
+
+        ip_hash = hash_ip(request)
+        allowed, _ = check_rate_limit(ip_hash, 'comment', 10, 600)
+        if not allowed:
+            return Response(
+                {'errors': {'comment': ['댓글 작성 제한에 도달했습니다. 잠시 후 다시 시도해주세요.']}},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
+        serializer = NoticeCommentCreateSerializer(data=request.data, context={'request': request})
+        if not serializer.is_valid():
+            return Response({'errors': serializer.errors}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+        data = serializer.validated_data
+        parent_id = data.get('parent_id')
+        if parent_id:
+            try:
+                parent = NoticeComment.objects.get(pk=parent_id)
+            except NoticeComment.DoesNotExist:
+                return Response({'errors': {'comment': ['잘못된 요청입니다.']}}, status=status.HTTP_400_BAD_REQUEST)
+            if parent.notice_id != notice.pk:
+                return Response({'errors': {'comment': ['잘못된 요청입니다.']}}, status=status.HTTP_400_BAD_REQUEST)
+            if parent.parent_id is not None:
+                return Response(
+                    {'errors': {'comment': ['대댓글에는 답글을 달 수 없습니다.']}},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            parent = None
+
+        is_authenticated = request.user and request.user.is_authenticated
+        comment = NoticeComment.objects.create(
+            notice=notice,
+            parent=parent,
+            user=request.user if is_authenticated else None,
+            nickname=data.get('nickname') or None,
+            content=data['content'],
+            password=make_password(data['password']) if data.get('password') else '',
+            ip_hash=ip_hash,
+        )
+        return Response({
+            'success': True,
+            'message': '댓글이 등록되었습니다.',
+            'comment': NoticeCommentSerializer(comment, context={'request': request}).data,
+        }, status=status.HTTP_201_CREATED)
+
+
+class NoticeCommentUpdateDeleteView(APIView):
+    """PUT/DELETE /api/v1/notices/{id}/comments/{commentId}/"""
+
+    @staticmethod
+    def get_comment(notice_id, comment_id):
+        try:
+            return NoticeComment.objects.get(pk=comment_id, notice_id=notice_id)
+        except NoticeComment.DoesNotExist:
+            return None
+
+    @staticmethod
+    def is_owner(request, comment):
+        return bool(
+            request.user and request.user.is_authenticated
+            and comment.user_id and comment.user_id == request.user.id
+        )
+
+    def put(self, request, notice_id, comment_id):
+        comment = self.get_comment(notice_id, comment_id)
+        if not comment:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = NoticeCommentUpdateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({'errors': serializer.errors}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        if not self.is_owner(request, comment) and not comment.check_password(serializer.validated_data['password']):
+            return Response({'errors': {'password': ['비밀번호가 일치하지 않습니다.']}}, status=status.HTTP_403_FORBIDDEN)
+
+        comment.content = serializer.validated_data['content']
+        comment.save(update_fields=['content', 'updated_at'])
+        return Response({
+            'success': True,
+            'message': '댓글이 수정되었습니다.',
+            'comment': NoticeCommentSerializer(comment, context={'request': request}).data,
+        })
+
+    def delete(self, request, notice_id, comment_id):
+        comment = self.get_comment(notice_id, comment_id)
+        if not comment:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not self.is_owner(request, comment):
+            serializer = NoticeCommentDeleteSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response({'errors': serializer.errors}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+            if not comment.check_password(serializer.validated_data['password']):
+                return Response({'errors': {'password': ['비밀번호가 일치하지 않습니다.']}}, status=status.HTTP_403_FORBIDDEN)
+
+        comment.delete()
+        return Response({'success': True, 'message': '댓글이 삭제되었습니다.'})
 
 
 class PopupActiveView(APIView):

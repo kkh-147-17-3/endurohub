@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.contrib.auth.hashers import check_password
 from django.core.cache import cache
 from django.db import models
 from django.utils import timezone
@@ -40,6 +42,55 @@ class Notice(models.Model):
         Notice.objects.filter(pk=self.pk).update(
             view_count=models.F('view_count') + 1
         )
+
+
+class NoticeComment(models.Model):
+    """A comment or one-level reply left on a notice."""
+
+    notice = models.ForeignKey(Notice, on_delete=models.CASCADE, related_name='comments')
+    parent = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='replies',
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='notice_comments',
+    )
+    nickname = models.CharField(max_length=50, null=True, blank=True)
+    content = models.TextField()
+    password = models.CharField(max_length=255, blank=True, default='')
+    ip_hash = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'notice_comments'
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'{self.display_nickname}: {self.content[:30]}'
+
+    @property
+    def display_nickname(self):
+        if self.user_id:
+            try:
+                return self.user.profile.nickname or self.nickname or '익명'
+            except Exception:
+                return self.nickname or '익명'
+        return self.nickname or '익명'
+
+    @property
+    def is_reply(self):
+        return self.parent_id is not None
+
+    def check_password(self, raw_password):
+        return check_password(raw_password, self.password)
 
 
 POPUP_CACHE_KEY = 'notices:popup:live:v1'

@@ -1,4 +1,5 @@
 import type { EventBanner } from '$lib/popup';
+import type { NoticeComment } from '$lib/types';
 
 // Types and constants for the notice pages. Data is served by the Django
 // backend at /api/v1/notices/ — see +page.server.ts for the fetches.
@@ -33,6 +34,8 @@ export interface NoticeDetail extends NoticeListItem {
   author: string;
   attachments: [string, string][] | null;  // [filename, size]
   relatedRace: string;
+  commentCount: number;
+  comments: NoticeComment[];
 }
 
 /** Minimal shape for prev/next navigation. */

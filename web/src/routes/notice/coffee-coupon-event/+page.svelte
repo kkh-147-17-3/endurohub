@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { page } from '$app/stores';
+	import CommentList from '$lib/components/CommentList.svelte';
+	import type { NoticeDetail } from '../notices';
 
 	interface CoffeeEventStatus {
 		period: { startsAt: string; endsAt: string };
@@ -11,6 +13,7 @@
 
 	let { data } = $props();
 	const participation = $derived<CoffeeEventStatus | null>(data.participation);
+	const notice = $derived<NoticeDetail>(data.notice);
 	const loginHref = $derived(`/auth/login?redirect=${encodeURIComponent($page.url.pathname)}`);
 
 	let frameHeight = $state(900);
@@ -151,8 +154,16 @@
 				<a href={loginHref}>로그인하고 확인하기</a>
 			</div>
 		{/if}
-	</section>
-</div>
+		</section>
+
+		<section class="event-comments" aria-label="이벤트 공지 댓글">
+			<CommentList
+				comments={notice.comments || []}
+				commentEndpoint={`/notices/${notice.id}/comments/`}
+				commentCount={notice.commentCount}
+			/>
+		</section>
+	</div>
 
 <style>
 	.event-page {
@@ -412,7 +423,7 @@
 		font-size: 14px;
 	}
 
-	.login-prompt a {
+		.login-prompt a {
 		display: inline-flex;
 		min-height: 42px;
 		align-items: center;
@@ -441,6 +452,13 @@
 	@media (max-width: 640px) {
 		.event-page {
 			padding: var(--sp-3) 0 var(--sp-8);
+		}
+
+		.event-comments {
+			max-width: 860px;
+			margin: var(--sp-8) auto 0;
+			padding-top: var(--sp-6);
+			border-top: var(--border-rule);
 		}
 
 		.crumb {

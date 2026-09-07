@@ -1,5 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { apiFetch } from '$lib/api';
+import type { NoticeDetailResponse } from '../notices';
 
 export interface EventCondition {
 	completed: boolean;
@@ -16,17 +17,20 @@ export interface CoffeeEventStatus {
 export const load: PageServerLoad = async ({ locals }) => {
 	// This custom page still belongs to the notice system, so loading it records
 	// a view just like the numeric /notice/[id] detail route does.
-	await apiFetch('/notices/by-slug/coffee-coupon-event/');
+	const noticeResponse = await apiFetch<NoticeDetailResponse>(
+		'/notices/by-slug/coffee-coupon-event/',
+		{ authToken: locals.authToken }
+	);
 
-	if (!locals.authToken) return { participation: null };
+	if (!locals.authToken) return { participation: null, notice: noticeResponse.notice };
 
 	try {
 		const participation = await apiFetch<CoffeeEventStatus>(
 			'/rewards/coffee-coupon-event/status/',
 			{ authToken: locals.authToken }
 		);
-		return { participation };
+		return { participation, notice: noticeResponse.notice };
 	} catch {
-		return { participation: null };
+		return { participation: null, notice: noticeResponse.notice };
 	}
 };

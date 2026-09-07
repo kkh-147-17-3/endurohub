@@ -1,11 +1,11 @@
 <script lang="ts">
-    import type { PostComment } from '$lib/types';
+    import type { CommentBase } from '$lib/types';
     import CommentForm from './CommentForm.svelte';
     import CommentItem from './CommentItem.svelte';
 
-    let { comments, postId, commentCount = 0 }: {
-        comments: PostComment[];
-        postId: number;
+    let { comments, commentEndpoint, commentCount = 0 }: {
+        comments: CommentBase[];
+        commentEndpoint: string;
         commentCount?: number;
     } = $props();
 </script>
@@ -17,13 +17,13 @@
     </header>
 
     <div class="form-wrap">
-        <CommentForm {postId} placeholder="댓글을 작성하세요" />
+        <CommentForm {commentEndpoint} placeholder="댓글을 작성하세요" />
     </div>
 
     {#if comments && comments.length > 0}
         <div class="comment-list">
             {#each comments as comment (comment.id)}
-                <CommentItem {comment} {postId} />
+                <CommentItem {comment} {commentEndpoint} />
             {/each}
         </div>
     {:else}

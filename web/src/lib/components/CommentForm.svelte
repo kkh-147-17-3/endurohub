@@ -5,12 +5,12 @@
     import type { CommentCreateResponse } from '$lib/types';
 
     let {
-        postId,
+        commentEndpoint,
         parentId = null,
         onCancel = null,
         placeholder = '댓글을 입력하세요...'
     }: {
-        postId: number;
+        commentEndpoint: string;
         parentId?: number | null;
         onCancel?: (() => void) | null;
         placeholder?: string;
@@ -43,7 +43,7 @@
 
         try {
             const result = await clientApiFetch<CommentCreateResponse | { errors: Record<string, string[]> }>(
-                `/posts/${postId}/comments/`,
+                commentEndpoint,
                 {
                     method: 'POST',
                     body: {

@@ -5,7 +5,7 @@ from unfold.admin import ModelAdmin
 from unfold.contrib.forms.widgets import WysiwygWidget
 
 from core.sanitize import sanitize_notice_html
-from .models import Notice, Popup, invalidate_popup_cache
+from .models import Notice, NoticeComment, Popup, invalidate_popup_cache
 
 
 @admin.register(Notice)
@@ -43,6 +43,27 @@ class NoticeAdmin(ModelAdmin):
     @admin.display(description='제목')
     def title_short(self, obj):
         return obj.title[:40] + ('...' if len(obj.title) > 40 else '')
+
+
+@admin.register(NoticeComment)
+class NoticeCommentAdmin(ModelAdmin):
+    list_display = ['id', 'notice', 'display_nickname_col', 'content_short', 'is_reply_col', 'created_at']
+    list_filter = ['created_at']
+    search_fields = ['nickname', 'content', 'notice__title']
+    ordering = ['-created_at']
+    readonly_fields = ['notice', 'parent', 'ip_hash', 'created_at', 'updated_at']
+
+    @admin.display(description='닉네임')
+    def display_nickname_col(self, obj):
+        return obj.display_nickname
+
+    @admin.display(description='내용')
+    def content_short(self, obj):
+        return obj.content[:40] + ('...' if len(obj.content) > 40 else '')
+
+    @admin.display(description='대댓글', boolean=True)
+    def is_reply_col(self, obj):
+        return obj.is_reply
 
 
 @admin.register(Popup)

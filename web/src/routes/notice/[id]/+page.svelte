@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { NoticeDetail, NoticeCategory } from '../notices';
 	import { CAT_LABEL } from '../notices';
+	import CommentList from '$lib/components/CommentList.svelte';
 	import EventBanner from '$lib/components/EventBanner.svelte';
 
 	let { data } = $props();
@@ -73,6 +74,14 @@
 				{/each}
 			</div>
 		{/if}
+
+		<section class="notice-comments" aria-label="공지 댓글">
+			<CommentList
+				comments={notice.comments || []}
+				commentEndpoint={`/notices/${notice.id}/comments/`}
+				commentCount={notice.commentCount}
+			/>
+		</section>
 
 		<!-- Prev / Next navigation -->
 		{#if adjacent.prev || adjacent.next}
@@ -299,7 +308,13 @@
 	.att-name { flex: 1; color: var(--text-body); }
 	.att-size { color: var(--text-faint); }
 	.att-dl { color: var(--text-muted); cursor: pointer; }
-	.att-dl:hover { color: var(--accent); }
+		.att-dl:hover { color: var(--accent); }
+
+		.notice-comments {
+			margin-top: 44px;
+			padding-top: 28px;
+			border-top: var(--border-rule);
+		}
 
 	/* ---- Prev / Next ---- */
 	.pn {

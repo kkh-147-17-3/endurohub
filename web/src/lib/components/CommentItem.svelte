@@ -1,13 +1,13 @@
 <script lang="ts">
     import { invalidateAll } from '$app/navigation';
     import { clientApiFetch } from '$lib/api.client';
-    import type { PostComment } from '$lib/types';
+    import type { CommentBase } from '$lib/types';
     import CommentForm from './CommentForm.svelte';
     import CommentItem from './CommentItem.svelte';
 
-    let { comment, postId, isReply = false }: {
-        comment: PostComment;
-        postId: number;
+    let { comment, commentEndpoint, isReply = false }: {
+        comment: CommentBase;
+        commentEndpoint: string;
         isReply?: boolean;
     } = $props();
 
@@ -36,7 +36,7 @@
 
         try {
             const result = await clientApiFetch<{ success: boolean } | { errors: Record<string, string[]> }>(
-                `/posts/${postId}/comments/${comment.id}/`,
+                `${commentEndpoint}${comment.id}/`,
                 {
                     method: 'PUT',
                     body: { content: editContent, password: isOwner ? '' : password },
@@ -65,7 +65,7 @@
 
         try {
             const result = await clientApiFetch<{ success: boolean } | { errors: Record<string, string[]> }>(
-                `/posts/${postId}/comments/${comment.id}/`,
+                `${commentEndpoint}${comment.id}/`,
                 {
                     method: 'DELETE',
                     body: { password: isOwner ? '' : password },
@@ -154,7 +154,7 @@
     {#if showReplyForm}
         <div class="reply-wrap">
             <CommentForm
-                {postId}
+                {commentEndpoint}
                 parentId={comment.id}
                 onCancel={cancelReply}
                 placeholder="{comment.nickname}님에게 답글 남기기..."
@@ -165,7 +165,7 @@
     {#if comment.replies && comment.replies.length > 0}
         <div class="replies">
             {#each comment.replies as reply (reply.id)}
-                <CommentItem comment={reply} {postId} isReply={true} />
+                <CommentItem comment={reply} {commentEndpoint} isReply={true} />
             {/each}
         </div>
     {/if}

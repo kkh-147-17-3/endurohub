@@ -336,7 +336,11 @@
 
             <!-- ── Comments ────────────────────────────────── -->
             <section class="comments" aria-label="댓글">
-                <CommentList comments={post.comments || []} postId={post.id} commentCount={post.commentCount} />
+                <CommentList
+                    comments={post.comments || []}
+                    commentEndpoint={`/posts/${post.id}/comments/`}
+                    commentCount={post.commentCount}
+                />
             </section>
 
             <!-- ── Prev / Next ─────────────────────────────── -->
