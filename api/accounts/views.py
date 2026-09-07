@@ -887,7 +887,12 @@ class MySeasonView(APIView):
             per_km = int(round(total / km))
             pm, ps = divmod(per_km, 60)
             pace = f'{pm}\'{ps:02d}"/K'
-        return {'time': time, 'pace': pace, 'pb': record.is_personal_best}
+        return {
+            'time': time,
+            'pace': pace,
+            'pb': record.is_personal_best,
+            'public': record.is_public,
+        }
 
     def _stats(self, races, today):
         from datetime import date

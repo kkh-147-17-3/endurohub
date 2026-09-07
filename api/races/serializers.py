@@ -1,6 +1,9 @@
+from django.core.exceptions import ObjectDoesNotExist
+from django.utils import timezone
 from rest_framework import serializers
 
-from accounts.serializers import RaceResultInputSerializer
+from accounts.models import RaceRecord
+from accounts.serializers import RaceResultInputSerializer, course_code_for
 
 from .models import DeviceToken, Race, RaceParticipation, Review
 
@@ -228,6 +231,103 @@ class ReviewSerializer(serializers.ModelSerializer):
         return ''
 
 
+class HomeActivityRaceSerializer(serializers.ModelSerializer):
+    """Small race reference shared by the home review and finish feeds."""
+
+    sport_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Race
+        fields = ['id', 'slug', 'title', 'sport', 'sport_label', 'race_date']
+
+    def get_sport_label(self, obj):
+        return obj.sport_label
+
+
+class HomeReviewSerializer(ReviewSerializer):
+    race = HomeActivityRaceSerializer(read_only=True)
+
+    class Meta(ReviewSerializer.Meta):
+        fields = [*ReviewSerializer.Meta.fields, 'race']
+
+
+class HomeRaceRecordSerializer(serializers.ModelSerializer):
+    """Public, catalogue-linked finish shown in the home activity board."""
+
+    nickname = serializers.SerializerMethodField()
+    sport = serializers.CharField(source='race.sport', read_only=True)
+    sport_label = serializers.CharField(source='race.sport_label', read_only=True)
+    course_label = serializers.CharField(source='distance', read_only=True)
+    time = serializers.SerializerMethodField()
+    metric_label = serializers.SerializerMethodField()
+    metric_value = serializers.SerializerMethodField()
+    date = serializers.SerializerMethodField()
+    me = serializers.SerializerMethodField()
+    race = HomeActivityRaceSerializer(read_only=True)
+
+    class Meta:
+        model = RaceRecord
+        fields = [
+            'id', 'nickname', 'sport', 'sport_label',
+            'course_code', 'course_label', 'time', 'metric_label', 'metric_value', 'date',
+            'duration_seconds', 'me', 'created_at', 'race',
+        ]
+
+    def get_nickname(self, obj):
+        try:
+            return obj.user.profile.nickname or '러너'
+        except (AttributeError, ObjectDoesNotExist):
+            return '러너'
+
+    def get_time(self, obj):
+        total = obj.duration_seconds or 0
+        hours, remainder = divmod(total, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        return f'{hours}:{minutes:02d}:{seconds:02d}'
+
+    def _distance_meters(self, obj):
+        if not obj.race_id or not obj.course_code or not obj.duration_seconds:
+            return None
+        for distance in obj.race.distances or []:
+            if not isinstance(distance, dict) or course_code_for(distance) != obj.course_code:
+                continue
+            meters = distance.get('distance_meter')
+            return meters if meters and meters > 0 else None
+        return None
+
+    def get_metric_label(self, obj):
+        if obj.race.sport == 'cycling':
+            return '평균 속도'
+        if obj.race.sport in ('running', 'trail_running', 'swimming'):
+            return '평균 페이스'
+        return '평균 페이스 · 속도'
+
+    def get_metric_value(self, obj):
+        meters = self._distance_meters(obj)
+        if not meters or not obj.duration_seconds:
+            return '—'
+        if obj.race.sport in ('running', 'trail_running'):
+            seconds_per_km = int(round(obj.duration_seconds / (meters / 1000)))
+            minutes, seconds = divmod(seconds_per_km, 60)
+            return f'{minutes}′{seconds:02d}″/km'
+        if obj.race.sport == 'cycling':
+            kilometers_per_hour = (meters / 1000) / (obj.duration_seconds / 3600)
+            return f'{kilometers_per_hour:.1f} km/h'
+        if obj.race.sport == 'swimming':
+            seconds_per_100m = int(round(obj.duration_seconds / (meters / 100)))
+            minutes, seconds = divmod(seconds_per_100m, 60)
+            return f'{minutes}′{seconds:02d}″/100m'
+        return '—'
+
+    def get_date(self, obj):
+        return timezone.localdate(obj.created_at).isoformat() if obj.created_at else None
+
+    def get_me(self, obj):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        return bool(user and user.is_authenticated and user.pk == obj.user_id)
+
+
 class ReviewCreateSerializer(serializers.Serializer):
     nickname = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
     rating = serializers.IntegerField(min_value=1, max_value=5)
@@ -260,6 +360,13 @@ class ReviewCreateSerializer(serializers.Serializer):
         if len(value) > 200:
             raise serializers.ValidationError('한줄평은 최대 200자까지 입력 가능합니다.')
         return value.strip()
+
+    def validate(self, attrs):
+        if attrs.get('race_record', {}).get('is_public') is not True:
+            raise serializers.ValidationError({
+                'race_record': ['리뷰와 완주 기록 공개에 동의해주세요.'],
+            })
+        return attrs
 
     default_error_messages = {
         'required': '이 필드는 필수입니다.',

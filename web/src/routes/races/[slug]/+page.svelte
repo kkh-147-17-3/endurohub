@@ -10,7 +10,7 @@
     import { Badge, Button, FilterChip } from '$lib/components/eh';
     import { dsBadgeStatus, SPORT_META, dsSport } from '$lib/components/eh/meta';
     import type { Race, Review, ReviewStats, Distance, FavoriteToggleResponse, LikeToggleResponse, SeasonRecord } from '$lib/types';
-    import { formatDateFull, formatDateDay, formatDateShort, formatDistanceToNow } from '$lib/date';
+    import { formatDate, formatDateFull, formatDateDay, formatDateShort, formatDistanceToNow } from '$lib/date';
     import {
         arenaDday,
         arenaDdayLabel,
@@ -608,10 +608,6 @@
         normal: '보통',
         hard: '어려움',
     };
-    function reviewYear(iso: string): string {
-        const m = /^(\d{4})/.exec(iso ?? '');
-        return m ? m[1] : '';
-    }
 
     // ── 개요 info table (folds in organizer + course meta) ─
     const overviewRows = $derived.by<{ k: string; v: string; href?: string }[]>(() => {
@@ -669,33 +665,8 @@
     const recOthers = $derived(recRows.filter((r) => !r.me));
     const recDisplay = $derived(recMine ? [recMine, ...recOthers] : recOthers);
     const hasMyRecord = $derived(seasonRecords.some((r) => r.me));
-    const hasSingleSeasonRecord = $derived(seasonRecords.length === 1);
     const hasCourseFilter = $derived(recCourseOpts.length > 2);
     const hasRecordControls = $derived(hasCourseFilter || seasonRecords.length > 1);
-
-    /** "1:24:37" / "41:56" from seconds. */
-    function fmtDur(secs: number): string {
-        const s = Math.round(secs);
-        const h = Math.floor(s / 3600);
-        const m = Math.floor((s % 3600) / 60);
-        const ss = s % 60;
-        const pad = (n: number) => String(n).padStart(2, '0');
-        return h > 0 ? `${h}:${pad(m)}:${pad(ss)}` : `${m}:${pad(ss)}`;
-    }
-    const recBest = $derived(
-        recRows.length ? fmtDur(Math.min(...recRows.map((r) => r.durationSeconds))) : '—',
-    );
-    const recAvg = $derived(
-        recRows.length
-            ? fmtDur(recRows.reduce((a, r) => a + r.durationSeconds, 0) / recRows.length)
-            : '—',
-    );
-    const seasonYear = $derived(race.raceDate ? race.raceDate.slice(0, 4) : '');
-    const recAux = $derived(
-        seasonRecords.length > 0
-            ? `${recRows.length} ${recRows.length === 1 ? 'RECORD' : 'RECORDS'}${seasonYear ? ` · ${seasonYear} SEASON` : ''}`
-            : '0 RECORDS',
-    );
 
     // ── related races (flattened, deduped) ───────────────
     const relatedFlat = $derived.by<Race[]>(() => {
@@ -734,9 +705,9 @@
                 label: '구성품',
                 show: !!race.giveaways?.length || !!race.giveawayImageSrcs?.length,
             },
-            { id: 'records', label: '시즌 기록', show: true },
-            { id: 'reviews', label: '후기', show: true },
             { id: 'related', label: '연관 대회', show: relatedFlat.length > 0 },
+            { id: 'reviews', label: '대회 리뷰', show: true },
+            { id: 'records', label: '회원 기록', show: true },
         ];
         return list.filter((s) => s.show).map((s, i) => ({ ...s, n: String(i).padStart(2, '0') }));
     });
@@ -800,7 +771,7 @@
 <!-- ══════════════════════════════════════════════════
      HERO — INK BLOCK
 ══════════════════════════════════════════════════ -->
-<section class="rd-hero">
+<section id="race-top" class="rd-hero">
     <div class="rd-hero__inner">
         <div class="rd-hero__top">
             <nav class="rd-crumb" aria-label="breadcrumb">
@@ -883,8 +854,9 @@
 <!-- ══════════════════════════════════════════════════
      BODY — 3-COLUMN GRID
 ══════════════════════════════════════════════════ -->
-<main class="rd-wrap">
-    <div class="rd-grid">
+<main>
+    <div class="rd-wrap">
+        <div class="rd-grid">
 
         <!-- ── TABLE OF CONTENTS ──────────────────── -->
         <nav class="rd-toc" aria-label="목차">
@@ -1079,213 +1051,6 @@
                 </section>
             {/if}
 
-            <!-- 시즌 기록 -->
-            <section id="records" class="rd-sec">
-                {@render sechead(secN('records'), '시즌 기록', recAux)}
-                {#if seasonRecords.length === 0}
-                    <div class="rd-rec-empty">
-                        <p class="rd-rec-empty__t">아직 등록된 기록이 없습니다</p>
-                        <p class="rd-rec-empty__s">
-                            기록은 시즌 타임라인에서 입력하거나, 리뷰 작성 시 함께 남길 수 있습니다
-                        </p>
-                        <div class="rd-rec-empty__btns">
-                            {#if !hasReviewed}
-                                <Button variant="primary" size="md" onclick={openReviewForm}>
-                                    리뷰 작성하기 →
-                                </Button>
-                            {/if}
-                            <Button variant="secondary" size="md" href="/timeline">시즌 탭에서 입력 →</Button>
-                        </div>
-                    </div>
-                {:else if hasSingleSeasonRecord}
-                    {@const record = recDisplay[0]}
-                    <article class="rd-rec-solo" class:rd-rec-solo--me={record.me}>
-                        <div class="rd-rec-solo__identity">
-                            <span class="rd-rec-solo__eyebrow">{record.me ? 'MY RECORD' : 'SEASON RECORD'}</span>
-                            <span class="rd-rec-solo__runner">{record.nickname}</span>
-                        </div>
-                        <div class="rd-rec-solo__finish">
-                            <span class="rd-rec-solo__eyebrow">FINISH TIME</span>
-                            <strong class="rd-rec-solo__time eh-data">{record.time}</strong>
-                        </div>
-                        <dl class="rd-rec-solo__details">
-                            <div>
-                                <dt>종목</dt>
-                                <dd class="eh-data">{record.courseLabel.toUpperCase()}</dd>
-                            </div>
-                            <div>
-                                <dt>페이스</dt>
-                                <dd class="eh-data">{record.pace ? `${record.pace} /km` : '—'}</dd>
-                            </div>
-                            <div>
-                                <dt>등록일</dt>
-                                <dd class="eh-data">{record.date ? formatDateShort(record.date) : '—'}</dd>
-                            </div>
-                        </dl>
-                    </article>
-                    <p class="rd-rec-note">
-                        기록은 참가자가 직접 등록한 값이며 공식 기록과 다를 수 있습니다. 기록 입력은
-                        <a href="/timeline">시즌 탭 →</a>
-                        {#if !hasReviewed}
-                            또는 <button class="rd-rec-note__btn" onclick={openReviewForm}>리뷰 작성 →</button>
-                        {/if}
-                    </p>
-                {:else}
-                    <div class="rd-rec-stats">
-                        <div class="rd-rec-stat">
-                            <div class="rd-rec-stat__k">RECORDS</div>
-                            <div class="rd-rec-stat__v eh-data">{recRows.length}<small> 건</small></div>
-                        </div>
-                        <div class="rd-rec-stat rd-rec-stat--best">
-                            <div class="rd-rec-stat__k">BEST</div>
-                            <div class="rd-rec-stat__v eh-data">{recBest}</div>
-                        </div>
-                        <div class="rd-rec-stat">
-                            <div class="rd-rec-stat__k">AVG FINISH</div>
-                            <div class="rd-rec-stat__v eh-data">{recAvg}</div>
-                        </div>
-                    </div>
-                    {#if hasRecordControls}
-                        <div class="rd-rec-filters">
-                            {#if hasCourseFilter}
-                                {#each recCourseOpts as c (c)}
-                                    <FilterChip selected={recCourse === c} onclick={() => (recCourse = c)}>
-                                        {c === '전체' ? c : c.toUpperCase()}
-                                    </FilterChip>
-                                {/each}
-                            {/if}
-                            {#if seasonRecords.length > 1}
-                                <span class="rd-rec-sortsep">
-                                    {#each recSortOpts as s (s)}
-                                        <button
-                                            type="button"
-                                            class="rd-rec-sort"
-                                            class:rd-rec-sort--on={recSort === s}
-                                            onclick={() => (recSort = s)}
-                                        >
-                                            {s}
-                                        </button>
-                                    {/each}
-                                </span>
-                            {/if}
-                        </div>
-                    {/if}
-                    {#if !hasMyRecord}
-                        <div class="rd-rec-tblnote" style="margin-top: 12px;">
-                            <span class="eh-micro rd-rec-tblnote__k">MY RECORD</span>
-                            <span>관심 추가한 대회는 <a href="/timeline">시즌 탭</a>에서 기록을 입력할 수 있습니다.</span>
-                        </div>
-                    {/if}
-                    <div class="v-table" style="margin-top: 12px;">
-                        <div class="v-thead rd-rec-row">
-                            <span>#</span>
-                            <span>러너</span>
-                            <span class="rd-hide-m">종목</span>
-                            <span>TIME</span>
-                            <span class="rd-hide-m">PACE</span>
-                            <span style="text-align: right;">DATE</span>
-                        </div>
-                        {#if recDisplay.length === 0}
-                            <div class="rd-rec-tblnote"><span>선택한 종목의 기록이 아직 없습니다.</span></div>
-                        {:else}
-                            {#each recDisplay as r (r.nickname + r.courseLabel + r.time)}
-                                <div class="v-trow rd-rec-row" class:rd-rec-row--me={r.me}>
-                                    <span class="rd-rec-rank eh-data">
-                                        {String(recRows.indexOf(r) + 1).padStart(2, '0')}
-                                    </span>
-                                    <span class="rd-rec-runner">
-                                        <span class="rd-rec-runner__nm">{r.nickname}</span>
-                                        {#if r.me}<span class="rd-rec-runner__tag">MY RECORD</span>{/if}
-                                    </span>
-                                    <span class="rd-rec-crs eh-data rd-hide-m">{r.courseLabel.toUpperCase()}</span>
-                                    <span class="rd-rec-time eh-data">{r.time}</span>
-                                    <span class="rd-rec-pace eh-data rd-hide-m">{r.pace ? `${r.pace} /km` : '—'}</span>
-                                    <span class="rd-rec-date eh-data">{r.date ? formatDateShort(r.date) : '—'}</span>
-                                </div>
-                            {/each}
-                        {/if}
-                    </div>
-                    <p class="rd-rec-note">
-                        기록은 참가자가 직접 등록한 값이며 공식 기록과 다를 수 있습니다. 기록 입력은
-                        <a href="/timeline">시즌 탭 →</a>
-                        {#if !hasReviewed}
-                            또는 <button class="rd-rec-note__btn" onclick={openReviewForm}>리뷰 작성 →</button>
-                        {/if}
-                    </p>
-                {/if}
-            </section>
-
-            <!-- 후기 -->
-            <section id="reviews" class="rd-sec">
-                {@render sechead(
-                    secN('reviews'),
-                    '후기',
-                    reviewStats.count > 0 ? `${reviewStats.count} REVIEWS · ★ ${reviewStats.average.toFixed(1)}` : undefined,
-                )}
-                {#if reviews.length === 0}
-                    <div class="rd-rv-empty">
-                        <p class="rd-rv-empty__msg">아직 작성된 후기가 없습니다.</p>
-                        {#if !hasReviewed}
-                            <button class="rd-rv-empty__btn" onclick={openReviewForm}>
-                                리뷰 작성하기 →
-                            </button>
-                        {/if}
-                    </div>
-                {:else}
-                    <div class="rd-rv-list">
-                        {#each reviews as review (review.id)}
-                            <article class="v-card rd-review">
-                                <div class="rd-review__head">
-                                    <span class="rd-review__stars" aria-label={`${review.rating}점`}>{reviewStarLine(review.rating)}</span>
-                                    <span class="eh-micro rd-review__user">@{review.nickname}{reviewYear(review.createdAt) ? ` · ${reviewYear(review.createdAt)}` : ''}</span>
-                                </div>
-                                <p class="rd-review__body">{review.comment}</p>
-                                {#if review.completionTime || review.courseDifficulty || review.operationSatisfaction || (review.recommendationTags && review.recommendationTags.length > 0)}
-                                    <div class="rd-review__foot">
-                                        {#if review.courseDifficulty && difficultyLabel[review.courseDifficulty]}
-                                            <span class="eh-micro rd-review__meta">난이도 <b>{difficultyLabel[review.courseDifficulty]}</b></span>
-                                        {/if}
-                                        {#if review.completionTime}
-                                            <span class="eh-micro rd-review__meta">기록 <b class="eh-data">{review.completionTime}</b></span>
-                                        {/if}
-                                        {#if review.operationSatisfaction}
-                                            <span class="eh-micro rd-review__meta">운영 <b>{reviewStarLine(review.operationSatisfaction)}</b></span>
-                                        {/if}
-                                        {#if review.recommendationTags && review.recommendationTags.length > 0}
-                                            <span class="rd-review__tags">
-                                                {#each review.recommendationTags as tag}
-                                                    <span class="rd-review__tag">#{tag}</span>
-                                                {/each}
-                                            </span>
-                                        {/if}
-                                    </div>
-                                {/if}
-                                <div class="rd-review__actions">
-                                    <button
-                                        type="button"
-                                        class="rd-review__like"
-                                        class:rd-review__like--on={reviewLike(review).liked}
-                                        onclick={() => toggleReviewLike(review)}
-                                        disabled={likingId === review.id}
-                                        aria-pressed={reviewLike(review).liked}
-                                        aria-label={`이 후기에 공감 ${reviewLike(review).count}`}
-                                    >
-                                        <svg width="13" height="13" viewBox="0 0 24 24" fill={reviewLike(review).liked ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-                                        <span>공감</span>
-                                        <b class="eh-data">{reviewLike(review).count}</b>
-                                    </button>
-                                </div>
-                            </article>
-                        {/each}
-                        {#if !hasReviewed}
-                            <button class="rd-rv-write-btn" onclick={openReviewForm}>
-                                후기 작성하기 →
-                            </button>
-                        {/if}
-                    </div>
-                {/if}
-            </section>
-
             <!-- 연관 대회 -->
             {#if relatedFlat.length > 0}
                 <section id="related" class="rd-sec">
@@ -1388,7 +1153,219 @@
 
         </aside><!-- /rd-rail -->
 
+        </div>
     </div>
+
+    <!-- 실제 참가자 리뷰 -->
+    <section id="reviews" class="rd-community rd-community--reviews" aria-labelledby="race-reviews-title">
+        <div class="rd-community__inner">
+            <div class="rd-community__head">
+                <div>
+                    <div class="eh-micro">
+                        <span class="rd-community__accent">RUNNER REVIEW</span> · 실제 참가자 후기
+                    </div>
+                    <h2 id="race-reviews-title" class="rd-community__title">
+                        다녀온 러너의 경험이 다음 대회의 기준이 됩니다.
+                    </h2>
+                </div>
+                <p class="rd-community__intro">
+                    {#if reviewStats.count > 0}
+                        현재 공개된 참가자 리뷰 {reviewStats.count}건을 최신순으로 모았습니다. 일정 정보만으로
+                        알기 어려운 코스와 운영의 실제 경험을 확인해보세요.
+                    {:else}
+                        아직 공개된 참가자 리뷰가 없습니다. 직접 겪은 코스와 운영을 남겨 다음 러너의 선택을
+                        도와주세요.
+                    {/if}
+                </p>
+            </div>
+
+            <div class="rd-review-stories">
+                {#if reviews.length === 0}
+                    <div class="rd-review-stories__empty">
+                        <strong>첫 번째 리뷰를 기다리고 있어요.</strong>
+                        <span>{race.title}의 코스와 운영은 어땠는지 알려주세요.</span>
+                    </div>
+                {:else}
+                    {#each reviews as review (review.id)}
+                        <article class="rd-review-story">
+                            <p class="rd-review-story__quote">“{review.comment}”</p>
+                            <div class="rd-review-story__event">
+                                <a href="#race-top">{race.title} <span aria-hidden="true">↗</span></a>
+                                {#if race.raceDate}
+                                    <span class="eh-data">{formatDate(race.raceDate)}</span>
+                                {/if}
+                            </div>
+                            <div class="rd-review-story__footer">
+                                <div class="rd-review-story__meta">
+                                    {#if review.completionTime || review.courseDifficulty || review.operationSatisfaction || (review.recommendationTags && review.recommendationTags.length > 0)}
+                                        <div class="rd-review-story__facts">
+                                            {#if review.completionTime}
+                                                <span>완주 <b class="eh-data">{review.completionTime}</b></span>
+                                            {/if}
+                                            {#if review.courseDifficulty && difficultyLabel[review.courseDifficulty]}
+                                                <span>난이도 <b>{difficultyLabel[review.courseDifficulty]}</b></span>
+                                            {/if}
+                                            {#if review.operationSatisfaction}
+                                                <span>운영 <b class="eh-data">{review.operationSatisfaction} / 5</b></span>
+                                            {/if}
+                                            {#if review.recommendationTags && review.recommendationTags.length > 0}
+                                                <span>추천 <b>{review.recommendationTags.join(' · ')}</b></span>
+                                            {/if}
+                                        </div>
+                                    {/if}
+                                    <div class="rd-review-story__identity">
+                                        <span class="rd-review-story__stars" aria-label={`5점 만점에 ${review.rating}점`}>
+                                            {reviewStarLine(review.rating)}
+                                        </span>
+                                        <div class="rd-review-story__byline">
+                                            <strong>@{review.nickname}</strong>
+                                            <span aria-hidden="true">·</span>
+                                            <time class="eh-data" datetime={review.createdAt}>
+                                                {formatDate(review.createdAt.split('T')[0])}
+                                            </time>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    class="rd-review-story__like"
+                                    class:rd-review-story__like--on={reviewLike(review).liked}
+                                    onclick={() => toggleReviewLike(review)}
+                                    disabled={likingId === review.id}
+                                    aria-pressed={reviewLike(review).liked}
+                                    aria-label={`${review.nickname}님의 리뷰에 ${reviewLike(review).liked ? '공감 취소' : '공감'}, 현재 ${reviewLike(review).count}명`}
+                                >
+                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78Z" />
+                                    </svg>
+                                    <span class="rd-sr-only" aria-live="polite">공감 {reviewLike(review).count}명</span>
+                                </button>
+                            </div>
+                        </article>
+                    {/each}
+                {/if}
+            </div>
+
+            <div class="rd-review-prompt">
+                <p>
+                    {#if hasReviewed}
+                        리뷰를 남겨주셔서 감사합니다. <span>당신의 경험이 다음 참가자에게 더 정확한 기준이 됩니다.</span>
+                    {:else}
+                        완주한 대회가 있나요? <span>직접 겪은 코스와 운영을 남기면 다음 러너에게 더 정확한 기준이 됩니다.</span>
+                    {/if}
+                </p>
+                {#if hasReviewed}
+                    <a class="rd-review-prompt__action" href="/timeline">내 시즌 기록 보기 →</a>
+                {:else}
+                    <button class="rd-review-prompt__action" type="button" onclick={openReviewForm}>리뷰 작성하기 →</button>
+                {/if}
+            </div>
+        </div>
+    </section>
+
+    <!-- 회원 완주 기록 -->
+    <section id="records" class="rd-community rd-community--records" aria-labelledby="race-records-title">
+        <div class="rd-community__inner">
+            <div class="rd-community__head rd-community__head--records">
+                <div>
+                    <div class="eh-micro">
+                        <span class="rd-community__accent">MEMBER FINISHES</span> · 회원 완주 기록
+                    </div>
+                    <h2 id="race-records-title" class="rd-community__title rd-community__title--records">
+                        회원이 직접 남긴 완주 기록.
+                    </h2>
+                </div>
+                <p class="rd-community__intro rd-community__intro--records">
+                    참가자가 직접 등록한 {race.title} 완주 기록입니다. 코스별 기록과 평균 페이스를 한눈에
+                    비교해보세요.
+                </p>
+            </div>
+
+            {#if hasRecordControls}
+                <div class="rd-record-controls" aria-label="회원 기록 필터와 정렬">
+                    {#if hasCourseFilter}
+                        <div class="rd-record-controls__courses">
+                            {#each recCourseOpts as c (c)}
+                                <FilterChip selected={recCourse === c} onclick={() => (recCourse = c)}>
+                                    {c === '전체' ? c : c.toUpperCase()}
+                                </FilterChip>
+                            {/each}
+                        </div>
+                    {/if}
+                    {#if seasonRecords.length > 1}
+                        <div class="rd-record-controls__sort" aria-label="정렬 방식">
+                            {#each recSortOpts as s (s)}
+                                <button
+                                    type="button"
+                                    class:rd-record-controls__sort--on={recSort === s}
+                                    aria-pressed={recSort === s}
+                                    onclick={() => (recSort = s)}
+                                >
+                                    {s}
+                                </button>
+                            {/each}
+                        </div>
+                    {/if}
+                </div>
+            {/if}
+
+            <div class="rd-member-records" aria-label={`회원 완주 기록 ${recDisplay.length}건`}>
+                <div class="rd-member-records__columns" aria-hidden="true">
+                    <span>러너</span>
+                    <span>대회 · 종목</span>
+                    <span>완주 기록</span>
+                    <span>평균 페이스</span>
+                </div>
+                <div class="rd-member-records__list">
+                    {#if recDisplay.length === 0}
+                        <div class="rd-member-records__empty">
+                            <strong>{seasonRecords.length > 0 ? '선택한 코스의 기록이 아직 없습니다.' : '아직 등록된 기록이 없습니다.'}</strong>
+                            <span>리뷰를 작성하거나 시즌 탭에서 완주 기록을 남길 수 있습니다.</span>
+                            <div>
+                                {#if !hasReviewed}
+                                    <button type="button" onclick={openReviewForm}>리뷰와 기록 남기기 →</button>
+                                {/if}
+                                <a href="/timeline">시즌 탭에서 입력 →</a>
+                            </div>
+                        </div>
+                    {:else}
+                        {#each recDisplay as record, index (record.nickname + record.courseCode + record.time + (record.date ?? '') + index)}
+                            <article class="rd-member-record" class:rd-member-record--me={record.me}>
+                                <div class="rd-member-record__runner">
+                                    <span class="rd-member-record__number eh-data" aria-hidden="true">
+                                        {String(recRows.indexOf(record) + 1).padStart(2, '0')}
+                                    </span>
+                                    <strong>@{record.nickname}</strong>
+                                    {#if record.me}<span class="rd-member-record__mine">MY RECORD</span>{/if}
+                                </div>
+                                <div class="rd-member-record__race">
+                                    <a href="#race-top">{race.title} <span aria-hidden="true">↗</span></a>
+                                    <span>
+                                        <i style={`--record-sport:${sportMeta.color}`} aria-hidden="true"></i>
+                                        {sportMeta.ko} · {record.courseLabel}{race.raceDate ? ` · ${formatDate(race.raceDate)}` : ''}
+                                    </span>
+                                </div>
+                                <div class="rd-member-record__metric" data-label="완주 기록">
+                                    <strong class="eh-data">{record.time}</strong>
+                                </div>
+                                <div class="rd-member-record__metric" data-label="평균 페이스">
+                                    <strong class="eh-data">{record.pace ? `${record.pace}/km` : '—'}</strong>
+                                </div>
+                            </article>
+                        {/each}
+                    {/if}
+                </div>
+                <div class="rd-member-records__foot">
+                    <span><strong>참가자 직접 등록</strong> · 공식 기록과 다를 수 있습니다.</span>
+                    <span>
+                        다른 회원은 공개로 설정한 기록만 표시됩니다.{#if !hasMyRecord}
+                            내 기록은 <a href="/timeline">시즌 탭</a>에서 입력할 수 있습니다.
+                        {/if}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </section>
 </main>
 
 <!-- Review form modal -->
@@ -1906,321 +1883,623 @@
         font-weight: 500;
     }
 
-    /* 시즌 기록 */
-    .rd-rec-stats {
-        display: flex;
-        flex-wrap: wrap;
-        margin-top: 16px;
+    /* 리뷰 · 회원 기록 — reference editorial bands */
+    .rd-community {
+        scroll-margin-top: 64px;
+    }
+    .rd-community__inner {
+        width: 100%;
+        max-width: var(--container-max);
+        margin: 0 auto;
+        padding-inline: var(--container-pad);
+    }
+    .rd-community--reviews {
+        padding: 72px 0 80px;
         border-top: var(--border-rule);
         border-bottom: var(--border-hair);
-    }
-    .rd-rec-stat {
-        flex: 1;
-        min-width: 130px;
-        padding: 16px 18px 18px;
-        border-left: var(--border-hair);
-    }
-    .rd-rec-stat:first-child { border-left: 0; padding-left: 0; }
-    .rd-rec-stat__k {
-        font-size: var(--text-micro);
-        font-weight: 600;
-        letter-spacing: var(--track-micro);
-        text-transform: uppercase;
-        color: var(--text-faint);
-        white-space: nowrap;
-    }
-    .rd-rec-stat__v {
-        font-size: 26px;
-        font-weight: 800;
-        letter-spacing: -0.025em;
-        line-height: 1.05;
-        margin-top: 7px;
-        white-space: nowrap;
-    }
-    .rd-rec-stat__v small { font-size: 13px; font-weight: 600; color: var(--text-muted); }
-    .rd-rec-stat--best .rd-rec-stat__v { color: var(--text-accent); }
-
-    .rd-rec-solo {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        grid-template-areas:
-            "identity finish"
-            "details details";
-        gap: 22px 32px;
-        margin-top: 16px;
-        padding: 22px 24px 18px;
-        border: var(--border-hair);
-        border-top: var(--border-rule);
-        background: var(--surface-card);
-    }
-    .rd-rec-solo--me {
-        box-shadow: inset 3px 0 0 var(--accent);
         background: var(--paper-50);
     }
-    .rd-rec-solo__identity {
-        grid-area: identity;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        min-width: 0;
-    }
-    .rd-rec-solo__eyebrow {
-        font-size: var(--text-micro);
-        font-weight: 700;
-        letter-spacing: var(--track-micro);
-        color: var(--text-faint);
-    }
-    .rd-rec-solo--me .rd-rec-solo__identity .rd-rec-solo__eyebrow { color: var(--text-accent); }
-    .rd-rec-solo__runner {
-        overflow: hidden;
-        font-size: 18px;
-        font-weight: 750;
-        line-height: 1.2;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    .rd-rec-solo__finish {
-        grid-area: finish;
-        display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        gap: 4px;
-    }
-    .rd-rec-solo__time {
-        font-size: 32px;
-        font-weight: 800;
-        letter-spacing: -0.035em;
-        line-height: 1;
-    }
-    .rd-rec-solo__details {
-        grid-area: details;
+    .rd-community__head {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 12px;
-        margin: 0;
-        padding-top: 14px;
-        border-top: var(--border-hair);
+        grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+        gap: clamp(32px, 5vw, 72px);
+        align-items: end;
     }
-    .rd-rec-solo__details div { min-width: 0; }
-    .rd-rec-solo__details dt {
-        margin: 0 0 4px;
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        color: var(--text-faint);
-    }
-    .rd-rec-solo__details dd {
-        overflow: hidden;
-        margin: 0;
-        font-size: 13px;
-        font-weight: 650;
-        color: var(--text-muted);
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .rd-rec-filters {
-        display: flex;
-        align-items: center;
-        gap: 7px;
-        flex-wrap: wrap;
-        margin-top: 18px;
-    }
-    .rd-rec-sortsep { margin-left: auto; display: flex; gap: 4px; align-items: center; }
-    .rd-rec-sort {
-        border: 0;
-        background: none;
-        padding: 6px 8px;
-        font-size: 12.5px;
-        font-weight: 600;
-        color: var(--text-faint);
-        cursor: pointer;
-        transition: color var(--dur-fast) var(--ease-out);
-    }
-    .rd-rec-sort:hover { color: var(--text-strong); }
-    .rd-rec-sort--on { color: var(--text-strong); text-decoration: underline; text-underline-offset: 3px; }
-
-    .rd-rec-tblnote {
-        display: flex;
-        gap: 10px;
-        align-items: baseline;
-        padding: 12px 18px;
-        border-top: var(--border-hair);
-        font-size: 13px;
-        color: var(--text-muted);
-        background: var(--paper-50);
-    }
-    .rd-rec-tblnote__k { color: var(--text-faint); }
-    .rd-rec-tblnote a { color: var(--text-strong); font-weight: 600; }
-
-    .rd-rec-row {
-        grid-template-columns: 34px minmax(120px, 1fr) 100px 112px 96px 76px;
-        gap: 12px;
-        align-items: baseline;
-    }
-    .rd-rec-rank { font-size: 12px; font-weight: 700; color: var(--text-faint); }
-    .rd-rec-runner {
-        font-weight: 600;
-        font-size: 14px;
-        display: flex;
-        align-items: baseline;
-        gap: 8px;
-        min-width: 0;
-    }
-    .rd-rec-runner__nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .rd-rec-runner__tag {
-        flex: none;
-        font-size: 10px;
-        font-weight: 800;
-        letter-spacing: 0.08em;
+    .rd-community__accent {
         color: var(--text-accent);
     }
-    .rd-rec-crs { font-size: 13px; color: var(--text-muted); }
-    .rd-rec-time { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; }
-    .rd-rec-pace { font-size: 13px; color: var(--text-muted); }
-    .rd-rec-date { font-size: 12.5px; color: var(--text-faint); text-align: right; }
-    .v-trow.rd-rec-row--me { background: var(--paper-50); box-shadow: inset 2px 0 0 var(--accent); }
-
-    .rd-rec-note { margin-top: 12px; font-size: 12.5px; color: var(--text-faint); }
-    .rd-rec-note a,
-    .rd-rec-note__btn {
+    .rd-community__title {
+        max-width: 760px;
+        margin: 10px 0 0;
+        color: var(--text-strong);
+        font-size: clamp(34px, 3.4vw, 50px);
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        line-height: 1.06;
+        text-wrap: balance;
+    }
+    .rd-community__intro {
+        max-width: 48ch;
+        margin: 0 0 4px auto;
         color: var(--text-muted);
+        font-size: 15px;
+        line-height: 1.75;
+    }
+
+    .rd-review-stories {
+        margin-top: 40px;
+        border-top: var(--border-rule);
+        border-bottom: var(--border-rule);
+        background: var(--paper-0);
+    }
+    .rd-review-story + .rd-review-story {
+        border-top: var(--border-hair);
+    }
+    .rd-review-story {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 18px;
+        padding: 28px 24px;
+    }
+    .rd-review-story__quote {
+        max-width: 940px;
+        margin: 0;
+        color: var(--text-strong);
+        font-size: clamp(19px, 1.8vw, 26px);
+        font-weight: 700;
+        letter-spacing: -0.025em;
+        line-height: 1.38;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        text-wrap: pretty;
+    }
+    .rd-review-story__event {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 12px;
+    }
+    .rd-review-story__event a {
+        display: inline-flex;
+        min-height: 44px;
+        max-width: 100%;
+        align-items: center;
+        margin: -9px 0 -9px -8px;
+        padding: 0 8px;
+        color: var(--text-strong);
+        font-size: 14px;
+        font-weight: 750;
+        line-height: 1.35;
+        text-underline-offset: 4px;
+    }
+    .rd-review-story__event a:hover {
+        background: var(--paper-100);
+    }
+    .rd-review-story__event > span {
+        margin-left: auto;
+        color: var(--text-muted);
+        font-size: 11px;
+    }
+    .rd-review-story__footer {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 20px;
+    }
+    .rd-review-story__meta {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .rd-review-story__facts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px 14px;
+        color: var(--text-muted);
+        font-size: 11px;
+    }
+    .rd-review-story__facts b {
+        color: var(--text-strong);
+        font-weight: 700;
+    }
+    .rd-review-story__identity {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 14px;
+    }
+    .rd-review-story__stars {
+        color: var(--caution);
+        font-size: 13px;
+        letter-spacing: 0.14em;
+        white-space: nowrap;
+    }
+    .rd-review-story__byline {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 8px;
+        color: var(--text-muted);
+        font-size: 12px;
+    }
+    .rd-review-story__byline strong {
+        color: var(--text-strong);
+        font-weight: 700;
+    }
+    .rd-review-story__like {
+        display: inline-grid;
+        width: 44px;
+        height: 44px;
+        flex: 0 0 44px;
+        place-items: center;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        color: var(--text-muted);
+        background: transparent;
+        cursor: pointer;
+        transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+    }
+    .rd-review-story__like svg {
+        width: 19px;
+        height: 19px;
+        overflow: visible;
+        fill: transparent;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 1.8;
+        transition: fill 0.16s var(--ease-out), transform 0.16s var(--ease-out);
+    }
+    .rd-review-story__like:hover:not(:disabled) {
+        color: var(--text-strong);
+        background: var(--paper-100);
+    }
+    .rd-review-story__like:hover:not(:disabled) svg {
+        transform: scale(1.08);
+    }
+    .rd-review-story__like--on {
+        color: var(--positive);
+        background: var(--positive-bg);
+    }
+    .rd-review-story__like--on svg {
+        fill: currentColor;
+    }
+    .rd-review-story__like:disabled {
+        cursor: default;
+        opacity: 0.6;
+    }
+    .rd-review-stories__empty {
+        display: flex;
+        min-height: 180px;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 5px;
+        padding: 36px 24px;
+        text-align: center;
+    }
+    .rd-review-stories__empty strong {
+        color: var(--text-strong);
+        font-size: 21px;
+        letter-spacing: -0.02em;
+    }
+    .rd-review-stories__empty span {
+        color: var(--text-muted);
+        font-size: 14px;
+    }
+    .rd-review-prompt {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 28px;
+        padding: 24px 28px;
+        border-right: 1px solid var(--ink-900);
+        border-bottom: 1px solid var(--ink-900);
+        border-left: 1px solid var(--ink-900);
+        color: var(--paper-0);
+        background: var(--ink-900);
+    }
+    .rd-review-prompt p {
+        margin: 0;
+        font-size: 15px;
         font-weight: 600;
+    }
+    .rd-review-prompt p span {
+        color: var(--ink-300);
+        font-weight: 500;
+    }
+    .rd-review-prompt__action {
+        display: inline-flex;
+        min-height: 44px;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        padding: 0 18px;
+        border: 1px solid var(--accent);
+        border-radius: var(--r-1);
+        color: #101312;
+        background: var(--accent);
+        font: inherit;
+        font-size: 13px;
+        font-weight: 700;
+        text-decoration: none;
+        cursor: pointer;
+        transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+    }
+    .rd-review-prompt__action:hover {
+        border-color: var(--paper-0);
+        color: var(--ink-900);
+        background: var(--paper-0);
+    }
+
+    .rd-community--records {
+        padding: 68px 0 80px;
+        border-bottom: var(--border-hair);
+        background: var(--paper-0);
+    }
+    :global(.eh-main:has(.rd-community--records) + .v-footer) {
+        margin-top: 0;
+    }
+    .rd-community__head--records {
+        grid-template-columns: minmax(0, 1fr) minmax(300px, 0.72fr);
+        margin-bottom: 30px;
+    }
+    .rd-community__title--records {
+        max-width: 720px;
+        font-size: clamp(30px, 2.8vw, 42px);
+        letter-spacing: -0.035em;
+        line-height: 1.08;
+    }
+    .rd-community__intro--records {
+        max-width: 44ch;
+        margin-bottom: 3px;
+        font-size: 14px;
+        line-height: 1.7;
+    }
+    .rd-record-controls {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin: -2px 0 16px;
+    }
+    .rd-record-controls__courses,
+    .rd-record-controls__sort {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 7px;
+    }
+    .rd-record-controls__sort {
+        margin-left: auto;
+        gap: 4px;
+    }
+    .rd-record-controls__sort button {
+        min-height: 36px;
+        padding: 6px 9px;
+        border: 0;
+        color: var(--text-faint);
+        background: transparent;
+        font: inherit;
+        font-size: 12.5px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .rd-record-controls__sort button:hover,
+    .rd-record-controls__sort--on {
+        color: var(--text-strong) !important;
         text-decoration: underline;
         text-underline-offset: 3px;
     }
-    .rd-rec-note__btn {
-        border: 0;
-        background: none;
-        padding: 0;
-        font-size: inherit;
-        cursor: pointer;
-    }
-    .rd-rec-note a:hover,
-    .rd-rec-note__btn:hover { color: var(--text-strong); }
-
-    .rd-rec-empty {
-        border: var(--border-hair);
-        background: var(--paper-50);
-        padding: 40px 24px;
-        text-align: center;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 6px;
-        margin-top: 16px;
-    }
-    .rd-rec-empty__t { font-size: 15px; font-weight: 700; margin: 0; }
-    .rd-rec-empty__s { font-size: 13.5px; color: var(--text-muted); margin: 0; }
-    .rd-rec-empty__btns { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; justify-content: center; }
-
-    @media (max-width: 768px) {
-        .rd-rec-solo {
-            grid-template-columns: minmax(0, 1fr);
-            grid-template-areas:
-                "identity"
-                "finish"
-                "details";
-            gap: 18px;
-            padding: 20px 18px 16px;
-        }
-        .rd-rec-solo__finish { align-items: flex-start; }
-        .rd-rec-solo__time { font-size: 29px; }
-        .rd-rec-row { grid-template-columns: 24px minmax(0, 1fr) 96px 68px; }
-        .rd-rec-time { font-size: 17px; }
-        .rd-rec-stat { min-width: 104px; padding: 13px 12px 14px; }
-        .rd-rec-stat__v { font-size: 21px; }
-    }
-
-    /* reviews */
-    .rd-rv-empty {
-        border: var(--border-hair);
-        background: var(--paper-50);
-        padding: 32px 24px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 14px;
-        font-size: 13px;
-        color: var(--text-muted);
-    }
-    .rd-rv-empty__msg { margin: 0; text-align: center; }
-    .rd-rv-empty__btn {
-        background: var(--ink-900);
-        color: var(--paper-0);
+    .rd-member-records {
         border: 1px solid var(--ink-900);
-        padding: 10px 20px;
-        font-size: 12px;
-        letter-spacing: 0.5px;
-        cursor: pointer;
+        border-top: var(--border-rule);
+        background: var(--paper-0);
     }
-    .rd-rv-empty__btn:hover { background: var(--ink-700); }
-    .rd-rv-list { display: flex; flex-direction: column; gap: 10px; }
-    .rd-review { padding: 18px 20px; }
-    .rd-review__head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-    .rd-review__stars {
-        color: var(--text-accent);
-        letter-spacing: 2px;
-        font-size: 13px;
+    .rd-member-records__columns,
+    .rd-member-record {
+        display: grid;
+        grid-template-columns: minmax(150px, 0.75fr) minmax(280px, 1.4fr) 170px 130px;
+    }
+    .rd-member-records__columns {
+        min-height: 42px;
+        align-items: center;
+        border-bottom: 1px solid var(--ink-900);
+        background: var(--paper-50);
+    }
+    .rd-member-records__columns span {
+        padding: 0 18px;
+        color: var(--text-muted);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+    }
+    .rd-member-record {
+        min-height: 94px;
+        align-items: center;
+        border-bottom: var(--border-hair);
+        transition: background var(--dur-fast) var(--ease-out);
+    }
+    .rd-member-record:last-child {
+        border-bottom: 0;
+    }
+    .rd-member-record:hover,
+    .rd-member-record--me {
+        background: var(--paper-50);
+    }
+    .rd-member-record--me {
+        box-shadow: inset 3px 0 0 var(--accent);
+    }
+    .rd-member-record > div {
+        min-width: 0;
+        padding: 18px;
+    }
+    .rd-member-record__runner {
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr);
+        gap: 4px 10px;
+        align-items: center;
+    }
+    .rd-member-record__number {
+        color: var(--text-faint);
+        font-size: 11px;
+        font-weight: 700;
+    }
+    .rd-member-record__runner strong {
+        overflow: hidden;
+        color: var(--text-strong);
+        font-size: 14px;
+        font-weight: 750;
+        text-overflow: ellipsis;
         white-space: nowrap;
     }
-    .rd-review__user { color: var(--text-faint); margin-left: auto; }
-    .rd-review__body {
-        font-size: 14px;
-        color: var(--text-body);
-        line-height: var(--leading-body);
-        margin-top: 8px;
-        white-space: pre-wrap;
-        word-break: break-word;
+    .rd-member-record__mine {
+        grid-column: 2;
+        color: var(--text-accent);
+        font-size: 9px;
+        font-weight: 800;
+        letter-spacing: 0.09em;
     }
-    .rd-review__foot {
+    .rd-member-record__race {
         display: flex;
-        gap: 8px 16px;
-        margin-top: 12px;
-        flex-wrap: wrap;
-        align-items: baseline;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
     }
-    .rd-review__actions { display: flex; justify-content: flex-end; margin-top: 12px; }
-    .rd-review__like {
+    .rd-member-record__race a {
         display: inline-flex;
+        min-height: 44px;
+        max-width: 100%;
         align-items: center;
-        gap: 6px;
-        border: var(--border-hair);
-        background: var(--paper-0);
-        color: var(--text-faint);
-        padding: 5px 10px;
+        margin: -8px 0 -8px -8px;
+        padding: 0 8px;
+        overflow: hidden;
+        color: var(--text-strong);
+        font-size: 14px;
+        font-weight: 750;
+        line-height: 1.35;
+        text-overflow: ellipsis;
+        text-underline-offset: 4px;
+        white-space: nowrap;
+    }
+    .rd-member-record__race a:hover {
+        background: var(--paper-100);
+    }
+    .rd-member-record__race > span {
+        display: flex;
+        max-width: 100%;
+        align-items: center;
+        gap: 7px;
+        overflow: hidden;
+        color: var(--text-muted);
         font-size: 11px;
-        letter-spacing: 0.3px;
-        cursor: pointer;
-        transition: color 0.15s, border-color 0.15s;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
-    .rd-review__like:hover:not(:disabled) { color: var(--text-strong); }
-    .rd-review__like:disabled { cursor: default; opacity: 0.6; }
-    .rd-review__like--on { color: var(--text-accent); border-color: currentColor; }
-    .rd-review__like b { font-weight: 700; }
-    .rd-review__meta { color: var(--text-faint); }
-    .rd-review__meta b { color: var(--text-strong); font-weight: 700; }
-    .rd-review__tags { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
-    .rd-review__tag {
-        border: var(--border-hair);
-        background: var(--paper-50);
-        padding: 2px 8px;
+    .rd-member-record__race i {
+        width: 6px;
+        height: 6px;
+        flex: none;
+        border-radius: 50%;
+        background: var(--record-sport);
+    }
+    .rd-member-record__metric {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+    }
+    .rd-member-record__metric::before {
+        display: none;
+        content: attr(data-label);
+        color: var(--text-muted);
         font-size: 10px;
-        letter-spacing: 0.5px;
-        color: var(--text-muted);
+        font-weight: 700;
+        letter-spacing: 0.08em;
     }
-    .rd-rv-write-btn {
-        background: transparent;
-        border: var(--border-hair);
+    .rd-member-record__metric strong {
+        color: var(--text-strong);
+        font-size: 18px;
+        font-weight: 800;
+        letter-spacing: -0.015em;
+        line-height: 1.2;
+        white-space: nowrap;
+    }
+    .rd-member-records__foot {
+        display: flex;
+        min-height: 48px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 10px 18px;
+        border-top: var(--border-hair);
         color: var(--text-muted);
-        font-size: 12px;
-        letter-spacing: 0.5px;
-        padding: 12px;
-        cursor: pointer;
+        background: var(--paper-50);
+        font-size: 11px;
+        line-height: 1.5;
+    }
+    .rd-member-records__foot strong,
+    .rd-member-records__foot a {
+        color: var(--text-strong);
+        font-weight: 700;
+    }
+    .rd-member-records__foot a {
+        text-underline-offset: 3px;
+    }
+    .rd-member-records__empty {
+        display: flex;
+        min-height: 190px;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 5px;
+        padding: 36px 24px;
         text-align: center;
-        margin-top: 2px;
     }
-    .rd-rv-write-btn:hover { border-color: var(--ink-900); color: var(--text-strong); }
+    .rd-member-records__empty > strong {
+        color: var(--text-strong);
+        font-size: 18px;
+    }
+    .rd-member-records__empty > span {
+        color: var(--text-muted);
+        font-size: 13px;
+    }
+    .rd-member-records__empty > div {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px 18px;
+        margin-top: 12px;
+    }
+    .rd-member-records__empty button,
+    .rd-member-records__empty a {
+        min-height: 36px;
+        padding: 7px 4px;
+        border: 0;
+        color: var(--text-strong);
+        background: transparent;
+        font: inherit;
+        font-size: 12px;
+        font-weight: 700;
+        text-decoration: underline;
+        text-underline-offset: 4px;
+        cursor: pointer;
+    }
+    .rd-sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    @media (max-width: 820px) {
+        .rd-member-records__columns {
+            display: none;
+        }
+        .rd-member-record {
+            min-height: 0;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px 20px;
+            padding: 22px 20px;
+        }
+        .rd-member-record > div {
+            padding: 0;
+        }
+        .rd-member-record__runner,
+        .rd-member-record__race {
+            grid-column: 1 / -1;
+        }
+        .rd-member-record__race {
+            padding-bottom: 14px !important;
+            border-bottom: var(--border-hair);
+        }
+        .rd-member-record__runner strong {
+            white-space: normal;
+        }
+        .rd-member-record__metric::before {
+            display: block;
+        }
+        .rd-member-records__foot {
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 5px;
+            padding: 14px 20px;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .rd-community__inner {
+            padding-inline: var(--container-pad-mobile);
+        }
+        .rd-community--reviews {
+            padding: 52px 0 56px;
+        }
+        .rd-community__head,
+        .rd-community__head--records {
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        .rd-community__title {
+            font-size: 34px;
+        }
+        .rd-community__intro,
+        .rd-community__intro--records {
+            margin: 0;
+        }
+        .rd-review-stories {
+            margin-top: 30px;
+        }
+        .rd-review-story {
+            padding: 26px 20px;
+        }
+        .rd-review-story__quote {
+            font-size: 23px;
+        }
+        .rd-review-story__event {
+            align-items: flex-start;
+        }
+        .rd-review-story__event > span {
+            width: 100%;
+            margin-left: 0;
+        }
+        .rd-review-prompt {
+            align-items: flex-start;
+            flex-direction: column;
+            padding: 22px 20px;
+        }
+        .rd-review-prompt__action {
+            width: 100%;
+        }
+        .rd-community--records {
+            padding: 50px 0 56px;
+        }
+        .rd-community__head--records {
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .rd-community__title--records {
+            font-size: 32px;
+        }
+        .rd-record-controls {
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .rd-record-controls__sort {
+            margin-left: 0;
+        }
+    }
 
     /* related races grid */
     .rd-rel-grid {

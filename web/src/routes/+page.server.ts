@@ -1,7 +1,21 @@
 import type { PageServerLoad } from './$types';
 import { apiFetch } from '$lib/api';
 import { kstTodayStr } from '$lib/date';
-import type { CalendarResponse } from '$lib/types';
+import type { CalendarResponse, HomeCommunityResponse } from '$lib/types';
+
+const EMPTY_COMMUNITY: HomeCommunityResponse = {
+	recentReviews: [],
+	recentRecords: []
+};
+
+function normalizeCommunity(value: unknown): HomeCommunityResponse {
+	if (!value || typeof value !== 'object') return EMPTY_COMMUNITY;
+	const data = value as Partial<HomeCommunityResponse>;
+	return {
+		recentReviews: Array.isArray(data.recentReviews) ? data.recentReviews : [],
+		recentRecords: Array.isArray(data.recentRecords) ? data.recentRecords : []
+	};
+}
 
 export const load: PageServerLoad = async ({ url, locals }) => {
 	const [todayYear, todayMonth] = kstTodayStr().split('-').map(Number);
@@ -17,10 +31,23 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	if (sport.length > 0) params.sport = sport;
 	if (region.length > 0) params.region = region;
 
-	const data = await apiFetch<CalendarResponse>(
-		'/races/calendar/',
-		{ authToken: locals.authToken || undefined },
-		params
-	);
-	return data;
+	const communityRequest = apiFetch<HomeCommunityResponse>('/home/community/', {
+		clientIp: locals.clientIp,
+		authToken: locals.authToken || undefined,
+		sessionId: locals.sessionId || undefined,
+		userAgent: locals.userAgent || undefined
+	})
+		.then(normalizeCommunity)
+		.catch(() => EMPTY_COMMUNITY);
+
+	const [calendar, community] = await Promise.all([
+		apiFetch<CalendarResponse>(
+			'/races/calendar/',
+			{ authToken: locals.authToken || undefined },
+			params
+		),
+		communityRequest
+	]);
+
+	return { ...calendar, ...community };
 };

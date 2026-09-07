@@ -280,19 +280,26 @@ export interface Post {
 	isOwner?: boolean;
 }
 
-// === PostComment ===
+// === Comments ===
 
-export interface PostComment {
+export interface CommentBase {
 	id: number;
-	postId: number;
 	parentId: number | null;
 	nickname: string;
 	content: string;
 	isReply: boolean;
 	createdAt: string;
 	createdAtFormatted: string;
-	replies?: PostComment[];
+	replies?: CommentBase[];
 	isOwner?: boolean;
+}
+
+export interface PostComment extends CommentBase {
+	postId: number;
+}
+
+export interface NoticeComment extends CommentBase {
+	noticeId: number;
 }
 
 // === Review ===
@@ -319,12 +326,48 @@ export interface ReviewStats {
 	difficultyDistribution?: Record<string, number>;
 }
 
+export interface HomeActivityRace {
+	id: number;
+	slug: string;
+	title: string;
+	sport: Sport;
+	sportLabel: string;
+	raceDate: string | null;
+}
+
+export interface HomeReview extends Review {
+	race: HomeActivityRace;
+}
+
+export interface HomeRaceRecord {
+	id: number;
+	nickname: string;
+	sport: Sport;
+	sportLabel: string;
+	courseCode: string;
+	courseLabel: string;
+	time: string;
+	metricLabel: string;
+	metricValue: string;
+	date: string | null;
+	durationSeconds: number;
+	me: boolean;
+	createdAt: string;
+	race: HomeActivityRace;
+}
+
+export interface HomeCommunityResponse {
+	recentReviews: HomeReview[];
+	recentRecords: HomeRaceRecord[];
+}
+
 /** Wire payload used when a review also creates the required linked race record. */
 export interface ReviewRaceRecordPayload {
 	course_code: string;
 	hours: number;
 	minutes: number;
 	seconds: number;
+	is_public: boolean;
 }
 
 // === API Response Types ===
@@ -520,16 +563,16 @@ export interface VerifyPasswordResponse {
 	editToken: string;
 }
 
-export interface CommentCreateResponse {
+export interface CommentCreateResponse<TComment extends CommentBase = CommentBase> {
 	success: boolean;
 	message: string;
-	comment: PostComment;
+	comment: TComment;
 }
 
-export interface CommentUpdateResponse {
+export interface CommentUpdateResponse<TComment extends CommentBase = CommentBase> {
 	success: boolean;
 	message: string;
-	comment: PostComment;
+	comment: TComment;
 }
 
 export interface CommentDeleteResponse {

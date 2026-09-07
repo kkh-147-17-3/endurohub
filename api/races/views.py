@@ -10,7 +10,19 @@ from django.conf import settings
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import IntegrityError, transaction
-from django.db.models import Avg, Count, F, Max, Min, Q
+from django.db.models import (
+    Avg,
+    Count,
+    F,
+    IntegerField,
+    Max,
+    Min,
+    OuterRef,
+    Q,
+    Subquery,
+    Value,
+)
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view
@@ -65,6 +77,8 @@ from .serializers import (
     DeviceTokenCreateSerializer,
     DeviceTokenSerializer,
     DeviceTokenUpdateSerializer,
+    HomeRaceRecordSerializer,
+    HomeReviewSerializer,
     RaceListSerializer,
     RaceSerializer,
     ReviewCreateSerializer,
@@ -131,6 +145,78 @@ class HomeView(APIView):
         for key in ('closingSoon', 'upcomingRaces', 'recentlyAdded'):
             _inject_is_favorited(request, response_data.get(key) or [])
         return Response(response_data)
+
+
+class HomeCommunityView(APIView):
+    """Five most recently submitted reviews and public, linked finishes."""
+
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        from accounts.models import RaceRecord
+
+        # Count likes only for the five rows selected by the outer query. A
+        # regular Count('likes') annotation makes PostgreSQL aggregate the
+        # entire review/like table before applying LIMIT on every home visit.
+        like_count = Coalesce(
+            Subquery(
+                ReviewLike.objects
+                .filter(review_id=OuterRef('pk'))
+                .order_by()
+                .values('review_id')
+                .annotate(count=Count('id'))
+                .values('count'),
+                output_field=IntegerField(),
+            ),
+            Value(0),
+        )
+        recent_reviews = list(
+            Review.objects
+            .select_related('race', 'user__profile')
+            .only(
+                'id', 'race_id', 'user_id', 'nickname', 'rating', 'comment',
+                'completion_time', 'course_difficulty', 'operation_satisfaction',
+                'recommendation_tags', 'created_at',
+                'race__id', 'race__slug', 'race__title', 'race__sport', 'race__race_date',
+                'user__id', 'user__profile__nickname',
+            )
+            .annotate(_like_count=like_count)
+            .order_by('-created_at', '-pk')[:5]
+        )
+        review_ids = [review.pk for review in recent_reviews]
+        liked_review_ids = set(
+            ReviewLike.objects
+            .filter(review_id__in=review_ids, ip_hash=hash_ip(request))
+            .values_list('review_id', flat=True)
+        )
+
+        recent_records = list(
+            RaceRecord.objects
+            .filter(is_public=True, race__isnull=False)
+            .select_related('race', 'user__profile')
+            .only(
+                'id', 'user_id', 'race_id', 'distance', 'course_code',
+                'duration_seconds', 'created_at',
+                'race__id', 'race__slug', 'race__title', 'race__sport',
+                'race__race_date', 'race__distances',
+                'user__id', 'user__profile__nickname',
+            )
+            .order_by('-created_at', '-pk')[:5]
+        )
+
+        return Response({
+            'recentReviews': HomeReviewSerializer(
+                recent_reviews,
+                many=True,
+                context={'liked_review_ids': liked_review_ids},
+            ).data,
+            'recentRecords': HomeRaceRecordSerializer(
+                recent_records,
+                many=True,
+                context={'request': request},
+            ).data,
+        })
 
 
 class RecommendationsView(APIView):

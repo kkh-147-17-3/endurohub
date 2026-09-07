@@ -1,5 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { apiFetch } from '$lib/api';
+import { kstTodayStr } from '$lib/date';
 import type { Race } from '$lib/types';
 
 /** Race rows from /me/season/ carry a flat participation/result overlay. */
@@ -9,9 +10,14 @@ interface SeasonResponse {
 	stats: unknown;
 }
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
 	const isAuthed = !!locals.authToken;
-	const year = new Date().getFullYear();
+	const seasonToday = kstTodayStr();
+	const currentYear = Number(seasonToday.slice(0, 4));
+	const requestedYear = Number(url.searchParams.get('year'));
+	const year = Number.isInteger(requestedYear) && requestedYear >= 2000 && requestedYear <= currentYear
+		? requestedYear
+		: currentYear;
 
 	let races: Race[] = [];
 
@@ -33,5 +39,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 	return {
 		races,
 		isAuthed,
+		seasonYear: year,
+		currentYear,
+		seasonToday,
 	};
 };

@@ -72,6 +72,7 @@
     let operationSatisfaction = $state(0);
     let operationHover = $state(0);
     let selectedTags = $state<string[]>([]);
+    let publishRecord = $state(false);
     let isSubmitting = $state(false);
     let showOptional = $state(false);
 
@@ -93,7 +94,8 @@
         && comment.trim().length >= 5
         && !over
         && !!courseCode
-        && recordTimeValid,
+        && recordTimeValid
+        && publishRecord,
     );
     const moreCount = $derived(
         (courseDifficulty ? 1 : 0)
@@ -144,6 +146,7 @@
         operationSatisfaction = 0;
         operationHover = 0;
         selectedTags = [];
+        publishRecord = false;
         showOptional = false;
     }
 </script>
@@ -349,6 +352,15 @@
                                     {(errors.time || errors.hours || errors.minutes || errors.seconds || errors.race_record)[0]}
                                 </p>
                             {/if}
+
+                            <label class="rvm-publish">
+                                <input type="checkbox" bind:checked={publishRecord} required />
+                                <span>
+                                    <b>닉네임과 완주 기록 공개에 동의합니다.</b>
+                                    <small>등록한 기록은 이 대회의 기록표와 홈 최신 기록에 표시됩니다.</small>
+                                </span>
+                            </label>
+                            <input type="hidden" name="is_public" value={publishRecord ? 'true' : 'false'} />
                         </div>
 
                         <!-- 추가 정보 (선택) -->
@@ -421,7 +433,7 @@
                     </div>
 
                     <div class="rvm-foot">
-                        <p class="note">리뷰와 참가 기록이 함께 등록되며, 리뷰는 <b>검수 후 노출</b>됩니다</p>
+                        <p class="note">리뷰와 공개에 동의한 참가 기록이 함께 등록됩니다.</p>
                         <span style="flex:1"></span>
                         <Button variant="ghost" type="button" onclick={close}>취소</Button>
                         <span class="grow">
@@ -654,6 +666,39 @@
         color: var(--text-faint);
         font-size: 11.5px;
     }
+    .rvm-publish {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        margin-top: 18px;
+        padding: 13px 14px;
+        border: 1px solid var(--line);
+        border-radius: var(--r-2);
+        background: var(--paper-50);
+        color: var(--text-body);
+        cursor: pointer;
+    }
+    .rvm-publish input {
+        width: 16px;
+        height: 16px;
+        margin: 2px 0 0;
+        flex: 0 0 auto;
+        accent-color: var(--accent);
+    }
+    .rvm-publish span {
+        display: grid;
+        gap: 3px;
+        min-width: 0;
+    }
+    .rvm-publish b {
+        color: var(--text-strong);
+        font-size: 12.5px;
+    }
+    .rvm-publish small {
+        color: var(--text-muted);
+        font-size: 11.5px;
+        line-height: 1.45;
+    }
 
     /* collapsible 추가 정보 */
     .rvm-more { border-top: var(--border-hair); }
@@ -755,7 +800,6 @@
         gap: 12px;
     }
     .rvm-foot .note { font-size: 11.5px; color: var(--text-faint); line-height: 1.45; margin: 0; }
-    .rvm-foot .note b { color: var(--text-muted); font-weight: 700; }
     .rvm-foot .grow { display: flex; }
 
     /* state (작성 불가 / 작성 완료) */

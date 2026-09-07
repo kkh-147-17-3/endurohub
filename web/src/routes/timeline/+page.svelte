@@ -1,6 +1,7 @@
 <script lang="ts">
     import type { Race } from '$lib/types';
     import { raceCourseOptions } from '$lib/race-result';
+    import { kstTodayStr } from '$lib/date';
     import { StatBlock, Badge, Button, Modal } from '$lib/components/eh';
     import { clientApiFetch, isApiError } from '$lib/api.client';
     import { invalidateAll } from '$app/navigation';
@@ -20,6 +21,7 @@
         time: string;
         pace: string;
         pb?: boolean;
+        public?: boolean;
     }
 
     interface SeasonRace {
@@ -60,10 +62,15 @@
     };
 
     // ── Date helpers ───────────────────────────────────────────────────────
-    const today = new Date();
-    const year = today.getFullYear();
-    const todayMonth = today.getMonth() + 1;
-    const todayDay = today.getDate();
+    const seasonToday = $derived(String(data.seasonToday || kstTodayStr()));
+    const todayParts = $derived(seasonToday.split('-').map(Number));
+    const currentYear = $derived(Number(data.currentYear) || todayParts[0]);
+    const today = $derived(new Date(`${seasonToday}T00:00:00+09:00`));
+    const year = $derived(Number(data.seasonYear) || currentYear);
+    const isCurrentSeason = $derived(year === currentYear);
+    const todayIso = $derived(seasonToday);
+    const todayMonth = $derived(todayParts[1]);
+    const todayDay = $derived(todayParts[2]);
 
     const months = [
         { m: 1, label: 'JAN', kr: '1월' },
@@ -80,14 +87,14 @@
         { m: 12, label: 'DEC', kr: '12월' }
     ];
 
-    const isLeap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-    const monthDays = [31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    const totalDays = monthDays.reduce((a, b) => a + b, 0);
-    const cumDays = (() => {
+    const isLeap = $derived(year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0));
+    const monthDays = $derived([31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]);
+    const totalDays = $derived(monthDays.reduce((a, b) => a + b, 0));
+    const cumDays = $derived.by(() => {
         const out = [0];
         for (const d of monthDays) out.push(out[out.length - 1] + d);
         return out;
-    })();
+    });
 
     function dayOfYear(m: number, d: number): number {
         return cumDays[Math.max(0, m - 1)] + d;
@@ -105,8 +112,8 @@
         return (monthDays[m - 1] / totalDays) * 100;
     }
 
-    const todayDoy = dayOfYear(todayMonth, todayDay);
-    const todayPct = (todayDoy / totalDays) * 100;
+    const todayDoy = $derived(dayOfYear(todayMonth, todayDay));
+    const todayPct = $derived((todayDoy / totalDays) * 100);
 
     // ── Race data mapping ──────────────────────────────────────────────────
     function parseDate(d: string | null): { m: number; day: number; year: number } | null {
@@ -164,7 +171,7 @@
                     plannedCodes: race.plannedCodes,
                     loggedCode: race.loggedCode,
                     result: race.result,
-                    recentlyPassed: userStatus === 'unknown' ? derived.recentlyPassed : false,
+                    recentlyPassed: isCurrentSeason && userStatus === 'unknown' ? derived.recentlyPassed : false,
                     mainGoal: race.mainGoal ?? false,
                     note: race.note
                 };
@@ -174,8 +181,8 @@
     );
 
     // ── Derived collections ────────────────────────────────────────────────
-    const upcoming = $derived(seasonRaces.filter((r) => dayOfYear(r.month, r.day) >= todayDoy));
-    const past = $derived(seasonRaces.filter((r) => dayOfYear(r.month, r.day) < todayDoy));
+    const upcoming = $derived(seasonRaces.filter((r) => !isPast(r)));
+    const past = $derived(seasonRaces.filter(isPast));
     const pending = $derived(seasonRaces.filter((r) => r.recentlyPassed && r.userStatus === 'unknown'));
 
     // ── Mobile vertical timeline rail ───────────────────────────────────────
@@ -195,7 +202,7 @@
         let todayPlaced = false;
         for (const r of sorted) {
             const doy = dayOfYear(r.month, r.day);
-            if (!todayPlaced && doy >= todayDoy) {
+            if (isCurrentSeason && !todayPlaced && doy >= todayDoy) {
                 items.push({ kind: 'today' });
                 todayPlaced = true;
             }
@@ -205,7 +212,7 @@
             }
             items.push({ kind: 'node', race: r });
         }
-        if (!todayPlaced) items.push({ kind: 'today' });
+        if (isCurrentSeason && !todayPlaced) items.push({ kind: 'today' });
         return items;
     });
 
@@ -213,8 +220,13 @@
         (() => {
             const nowMs = today.getTime();
             const next = upcoming[0];
-            const dday = (d: string) => Math.max(0, Math.ceil((new Date(d).getTime() - nowMs) / 86400000));
-            const goal = seasonRaces.find((r) => r.mainGoal) ?? upcoming[upcoming.length - 1];
+            const dday = (d: string) => Math.max(
+                0,
+                Math.round((new Date(`${d}T00:00:00+09:00`).getTime() - nowMs) / 86400000),
+            );
+            const goal = isCurrentSeason
+                ? seasonRaces.find((r) => r.mainGoal) ?? upcoming[upcoming.length - 1]
+                : undefined;
             return {
                 totalRaces: seasonRaces.length,
                 logged: seasonRaces.filter((r) => r.userStatus === 'logged').length,
@@ -231,9 +243,9 @@
         sel = sel === id ? null : id;
     }
 
-    /** A race is "ended" once its day-of-year is before today (this season). */
+    /** Every prior-season race is ended; the current season compares ISO dates. */
     function isPast(r: SeasonRace): boolean {
-        return dayOfYear(r.month, r.day) < todayDoy;
+        return !isCurrentSeason || r.date < todayIso;
     }
 
     /** Human label for the logged course, derived from its code. */
@@ -270,9 +282,20 @@
     let logM = $state('');
     let logS = $state('');
     let logPb = $state(false);
+    let logPublic = $state(false);
     let logBusy = $state(false);
     let logError = $state('');
     const isEditing = $derived(logRace?.userStatus === 'logged');
+
+    // Query-only year navigation reuses this component. Never leave an old
+    // season's expanded row or result dialog open over the newly loaded year.
+    $effect(() => {
+        year;
+        sel = null;
+        logOpen = false;
+        logRace = null;
+        logError = '';
+    });
 
     function openLog(r: SeasonRace) {
         logRace = r;
@@ -292,10 +315,12 @@
                 logH = logM = logS = '';
             }
             logPb = r.result?.pb ?? false;
+            logPublic = r.result?.public ?? false;
         } else {
             logCode = r.courses[0]?.code ?? '';
             logH = logM = logS = '';
             logPb = false;
+            logPublic = false;
         }
         logOpen = true;
     }
@@ -335,7 +360,14 @@
                 `/me/races/${logRace.slug}/result/`,
                 {
                     method: 'POST',
-                    body: { course_code: logCode, hours: h, minutes: m, seconds: s, is_personal_best: logPb },
+                    body: {
+                        course_code: logCode,
+                        hours: h,
+                        minutes: m,
+                        seconds: s,
+                        is_personal_best: logPb,
+                        is_public: logPublic,
+                    },
                 },
             );
             if (res?.success) {
@@ -382,7 +414,7 @@
     };
 
     function deadlineInfo(r: SeasonRace): { text: string; warn: boolean } | null {
-        if (!r.deadline) return null;
+        if (!isCurrentSeason || !r.deadline) return null;
         if (r.userStatus === 'logged' || r.userStatus === 'unknown') return null;
         const left = dayOfYear(r.deadline.m, r.deadline.day) - todayDoy;
         if (left < 0) return { text: `접수 마감됨 ${r.deadline.m}.${r.deadline.day}`, warn: false };
@@ -394,7 +426,8 @@
     }
 
     const userName = $derived(data.isAuthed ? (data.user?.nickname?.trim() ?? '') : '');
-    const loginHref = '/auth/login?next=%2Ftimeline';
+    const timelinePath = $derived(year === currentYear ? '/timeline' : `/timeline?year=${year}`);
+    const loginHref = $derived(`/auth/login?next=${encodeURIComponent(timelinePath)}`);
 </script>
 
 <svelte:head>
@@ -409,10 +442,21 @@
         <div>
             <div class="eh-micro"><span class="acc">MY SEASON</span> · {year}{#if userName} · {userName}{/if}</div>
             <h1>시즌 타임라인</h1>
+            <nav class="year-nav" aria-label="시즌 연도 선택">
+                {#if year > 2000}
+                    <a href={`/timeline?year=${year - 1}`} aria-label={`${year - 1}년 시즌 보기`}>← {year - 1}</a>
+                {/if}
+                <strong>{year}</strong>
+                {#if year < currentYear}
+                    <a href={year + 1 === currentYear ? '/timeline' : `/timeline?year=${year + 1}`} aria-label={`${year + 1}년 시즌 보기`}>
+                        {year + 1} →
+                    </a>
+                {/if}
+            </nav>
         </div>
         {#if seasonRaces.length > 0}
             <div class="hd-stats">
-                <StatBlock label="올해 대회" value={stats.totalRaces} size="md" />
+                <StatBlock label={`${year} 대회`} value={stats.totalRaces} size="md" />
                 <StatBlock label="다음 대회" value={stats.nextRaceDays != null ? `D-${stats.nextRaceDays}` : '—'} size="md" accent />
                 <StatBlock label="메인 목표" value={stats.mainGoalDays != null ? `D-${stats.mainGoalDays}` : '—'} size="md" />
                 <StatBlock label="완주 기록" value={stats.logged} size="md" />
@@ -425,7 +469,7 @@
         <div class="empty-state">
             <div class="eh-micro acc">{data.isAuthed ? 'EMPTY SEASON' : 'SIGN IN'}</div>
             {#if data.isAuthed}
-                <h2>아직 시즌에 담은 대회가 없어요</h2>
+                <h2>아직 {year} 시즌에 담은 대회가 없어요</h2>
                 <p>
                     관심 있는 대회에 ♥ 를 누르거나 참가 예정을 표시하면 이곳 타임라인에
                     한눈에 모입니다. 완주 후엔 기록도 남길 수 있어요.
@@ -466,9 +510,13 @@
     <div class="strip-wrap">
         <div class="strip-head">
             <span class="eh-micro"><span class="acc">JAN — DEC</span> · 대회 {seasonRaces.length}개</span>
-            <span class="eh-micro" style="color: var(--text-faint);">
-                오늘 {todayMonth}.{todayDay} · 시즌 {Math.round(todayPct)}% 경과
-            </span>
+            {#if isCurrentSeason}
+                <span class="eh-micro" style="color: var(--text-faint);">
+                    오늘 {todayMonth}.{todayDay} · 시즌 {Math.round(todayPct)}% 경과
+                </span>
+            {:else}
+                <span class="eh-micro" style="color: var(--text-faint);">과거 기록 공개 설정 가능</span>
+            {/if}
         </div>
 
         <div class="strip">
@@ -481,9 +529,11 @@
                 {#each months.slice(1) as m (m.m)}
                     <div class="strip-gridline" style="left: {monthLeft(m.m)}%"></div>
                 {/each}
-                <div class="strip-today" style="left: {todayPct}%">
-                    <span class="lbl">TODAY</span>
-                </div>
+                {#if isCurrentSeason}
+                    <div class="strip-today" style="left: {todayPct}%">
+                        <span class="lbl">TODAY</span>
+                    </div>
+                {/if}
                 {#each seasonRaces as r, i (r.id)}
                     {@const lane = i % 3}
                     <button
@@ -717,6 +767,11 @@
                 <span>개인 최고 기록 (PB)</span>
             </label>
 
+            <label class="log-pb">
+                <input type="checkbox" bind:checked={logPublic} />
+                <span>회원 기록표와 홈에 공개</span>
+            </label>
+
             {#if logError}
                 <p class="log-err">{logError}</p>
             {/if}
@@ -807,6 +862,33 @@
         line-height: var(--leading-display);
         margin-top: 8px;
         color: var(--text-strong);
+    }
+    .year-nav {
+        display: flex;
+        min-height: 36px;
+        align-items: center;
+        gap: 14px;
+        margin-top: 16px;
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+    }
+    .year-nav a {
+        display: inline-flex;
+        min-height: 36px;
+        align-items: center;
+        padding: 0 2px;
+        color: var(--text-muted);
+        font-weight: 650;
+        text-decoration: none;
+    }
+    .year-nav a:hover {
+        color: var(--text-strong);
+        text-decoration: underline;
+        text-underline-offset: 4px;
+    }
+    .year-nav strong {
+        color: var(--text-strong);
+        font-size: 13px;
     }
     .hd-stats {
         display: flex;
@@ -1317,6 +1399,9 @@
 
     /* ── 기록 입력 모달 ──────────────────────────────────────────────────── */
     .log {
+        max-height: calc(100dvh - 40px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
         padding: 26px 28px 24px;
     }
     .log .acc {
@@ -1408,6 +1493,9 @@
         width: 16px;
         height: 16px;
         accent-color: var(--accent);
+    }
+    .log-pb + .log-pb {
+        margin-top: 10px;
     }
     .log-err {
         margin-top: 14px;

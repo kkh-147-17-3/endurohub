@@ -38,6 +38,7 @@ export const actions: Actions = {
 			hours: Number(formData.get('hours') ?? 0),
 			minutes: Number(formData.get('minutes') ?? 0),
 			seconds: Number(formData.get('seconds') ?? 0),
+			is_public: formData.get('is_public') === 'true',
 		};
 
 		const body: Record<string, unknown> = {

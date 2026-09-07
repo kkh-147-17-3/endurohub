@@ -648,6 +648,9 @@ class Review(models.Model):
     class Meta:
         db_table = 'race_reviews'
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['-created_at', '-id'], name='review_recent_idx'),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=['user', 'race'],

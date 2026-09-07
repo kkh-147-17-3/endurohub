@@ -3,6 +3,7 @@
     import { track } from '$lib/analytics';
     import type { Race, SportOption } from '$lib/types';
     import CalendarBoard from '$lib/components/calendar/CalendarBoard.svelte';
+    import HomeCommunityHighlights from '$lib/components/home/HomeCommunityHighlights.svelte';
 
     let { data } = $props();
 
@@ -80,6 +81,11 @@
     sports={data.sports as SportOption[]}
     sportFilter={(Array.isArray(data.sport) ? data.sport : data.sport ? [data.sport] : []) as string[]}
     basePath="/"
+/>
+
+<HomeCommunityHighlights
+    reviews={data.recentReviews}
+    records={data.recentRecords}
 />
 
 <style>

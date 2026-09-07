@@ -260,6 +260,7 @@ class RaceResultInputSerializer(serializers.Serializer):
     hours = serializers.IntegerField(required=False, min_value=0, max_value=99, default=0)
     minutes = serializers.IntegerField(required=False, min_value=0, max_value=59, default=0)
     seconds = serializers.IntegerField(required=False, min_value=0, max_value=59, default=0)
+    is_public = serializers.BooleanField(required=False)
 
     def validate_course_code(self, value):
         value = value.strip()

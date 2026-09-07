@@ -74,6 +74,13 @@ class RaceRecord(models.Model):
     class Meta:
         db_table = 'race_records'
         ordering = ['-created_at']
+        indexes = [
+            models.Index(
+                fields=['-created_at', '-id'],
+                name='rr_public_recent_idx',
+                condition=models.Q(is_public=True, race__isnull=False),
+            ),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=['user', 'race'],

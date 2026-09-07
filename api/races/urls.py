@@ -11,6 +11,7 @@ urlpatterns = [
 
     # Home
     path('home/', views.HomeView.as_view(), name='home'),
+    path('home/community/', views.HomeCommunityView.as_view(), name='home-community'),
 
     # Races
     path('races/', views.RaceListView.as_view(), name='race-list'),

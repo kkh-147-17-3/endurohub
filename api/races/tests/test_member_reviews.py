@@ -53,6 +53,7 @@ class MemberReviewTestDataMixin:
                 'hours': 1,
                 'minutes': 2,
                 'seconds': 3,
+                'is_public': True,
             },
         }
 
@@ -106,6 +107,7 @@ class MemberReviewTests(MemberReviewTestDataMixin, APITestCase):
         self.assertEqual(record.course_code, '10K')
         self.assertEqual(record.distance, '10km')
         self.assertEqual(record.duration_seconds, 1 * 3600 + 2 * 60 + 3)
+        self.assertTrue(record.is_public)
         self.assertEqual(response.data['race_record']['id'], record.pk)
 
     def test_race_detail_season_record_date_is_record_created_date(self):
@@ -134,6 +136,18 @@ class MemberReviewTests(MemberReviewTestDataMixin, APITestCase):
         self.client.force_authenticate(user=user)
         payload = deepcopy(self.payload)
         payload.pop('race_record')
+
+        response = self.client.post(self.url, payload, format='json')
+
+        self.assertEqual(response.status_code, 422)
+        self.assertFalse(Review.objects.exists())
+        self.assertFalse(RaceRecord.objects.exists())
+
+    def test_public_record_consent_is_required(self):
+        user = self.make_user()
+        self.client.force_authenticate(user=user)
+        payload = deepcopy(self.payload)
+        payload['race_record'].pop('is_public')
 
         response = self.client.post(self.url, payload, format='json')
 
