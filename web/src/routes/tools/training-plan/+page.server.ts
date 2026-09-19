@@ -18,7 +18,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			{ authToken: locals.authToken },
 			{ per_page: '100' }
 		)
-			.then((res) => favoriteRacesToGoals(res.data ?? []))
+			.then((res) => favoriteRacesToGoals(res.results ?? []))
 			.catch(() => [])
 	]);
 

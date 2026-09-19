@@ -6,6 +6,7 @@
     import Pagination from '$lib/components/Pagination.svelte';
     import { formatDistanceToNow } from '$lib/date';
     import { dsSport } from '$lib/components/eh/meta';
+    import { DEFAULT_PAGE_SIZE } from '$lib/pagination';
     import type { Post } from '$lib/types';
 
     let { data } = $props();
@@ -70,10 +71,9 @@
     }
 
     // ── Derived ──────────────────────────────────────────────────────
-    const posts = $derived(data.data as Post[]);
-    const meta = $derived(data.meta);
+    const posts = $derived(data.results as Post[]);
     const sidebar = $derived(data.sidebar);
-    const totalCount = $derived(meta?.total ?? 0);
+    const totalCount = $derived(data.count ?? 0);
 
     // ── Helpers ──────────────────────────────────────────────────────
     const CAT_LABELS: Record<string, string> = {
@@ -241,9 +241,9 @@
                     </a>
                 {/each}
 
-                {#if meta && meta.lastPage > 1}
+                {#if data.count > DEFAULT_PAGE_SIZE}
                     <div class="pag-wrap">
-                        <Pagination {meta} showInfo scrollToTop />
+                        <Pagination paginated={data} showInfo scrollToTop />
                     </div>
                 {/if}
             {/if}

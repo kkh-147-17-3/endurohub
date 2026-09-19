@@ -4,6 +4,7 @@
     import RaceResultList from '$lib/components/eh/RaceResultList.svelte';
     import { sportLabels } from '$lib/race';
     import { track } from '$lib/analytics';
+    import { currentPageFromUrl, getPaginationInfo } from '$lib/pagination';
 
     let { data } = $props();
 
@@ -59,7 +60,7 @@
     let ogImage = $derived(`${data.appUrl}${ogImagePath}`);
 
     // ── Pagination (DS) ───────────────────────────────────────────────────────
-    let meta = $derived(data.meta);
+    let info = $derived(getPaginationInfo(data, currentPageFromUrl($page.url)));
     function pageHref(n: number): string {
         const sp = new URLSearchParams($page.url.search);
         if (n <= 1) sp.delete('page');
@@ -68,8 +69,8 @@
         return qs ? `?${qs}` : '/races';
     }
     let pageItems = $derived.by((): (number | 'gap')[] => {
-        const cur = meta.currentPage;
-        const last = meta.lastPage;
+        const cur = info.currentPage;
+        const last = info.lastPage;
         const out: (number | 'gap')[] = [];
         const push = (n: number) => out.push(n);
         push(1);
@@ -98,31 +99,31 @@
 <main class="v-container races-page">
     <h1 class="sr-only">{title}</h1>
 
-    <RaceFilterBar filters={data.filters} applied={data.applied} total={data.meta.total} {title} />
+    <RaceFilterBar filters={data.filters} applied={data.applied} total={data.count} {title} />
 
-    {#if data.data.length === 0}
+    {#if data.results.length === 0}
         <div class="empty">
             <span class="eh-micro">NO RESULTS</span>
             <p>검색 조건에 맞는 대회가 없습니다. 조건을 바꿔보세요.</p>
         </div>
     {:else}
-        <RaceResultList races={data.data} />
+        <RaceResultList races={data.results} />
 
-        {#if meta.lastPage > 1}
+        {#if info.lastPage > 1}
             <nav class="pager" aria-label="페이지 이동">
-                <a class="pager__edge" class:disabled={meta.currentPage <= 1} href={pageHref(meta.currentPage - 1)} aria-disabled={meta.currentPage <= 1} tabindex={meta.currentPage <= 1 ? -1 : undefined}>← 이전</a>
+                <a class="pager__edge" class:disabled={!info.hasPrevious} href={pageHref(info.currentPage - 1)} aria-disabled={!info.hasPrevious} tabindex={!info.hasPrevious ? -1 : undefined}>← 이전</a>
                 <div class="pager__nums">
                     {#each pageItems as item, i (item === 'gap' ? `gap-${i}` : item)}
                         {#if item === 'gap'}
                             <span class="pager__gap">…</span>
                         {:else}
-                            <a class="pager__num eh-data" class:on={item === meta.currentPage} href={pageHref(item)} aria-current={item === meta.currentPage ? 'page' : undefined}>{item}</a>
+                            <a class="pager__num eh-data" class:on={item === info.currentPage} href={pageHref(item)} aria-current={item === info.currentPage ? 'page' : undefined}>{item}</a>
                         {/if}
                     {/each}
                 </div>
-                <a class="pager__edge" class:disabled={meta.currentPage >= meta.lastPage} href={pageHref(meta.currentPage + 1)} aria-disabled={meta.currentPage >= meta.lastPage} tabindex={meta.currentPage >= meta.lastPage ? -1 : undefined}>다음 →</a>
+                <a class="pager__edge" class:disabled={!info.hasNext} href={pageHref(info.currentPage + 1)} aria-disabled={!info.hasNext} tabindex={!info.hasNext ? -1 : undefined}>다음 →</a>
             </nav>
-            <p class="pager__info eh-micro eh-data">{meta.from}–{meta.to} / {meta.total.toLocaleString()}</p>
+            <p class="pager__info eh-micro eh-data">{info.from}–{info.to} / {info.total.toLocaleString()}</p>
         {/if}
     {/if}
 </main>

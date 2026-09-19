@@ -15,7 +15,7 @@ export async function loadSportLanding(
 	locals: App.Locals,
 ): Promise<{
 	content: ReturnType<typeof getSportLanding>;
-	races: RaceListResponse['data'];
+	races: RaceListResponse['results'];
 	total: number;
 	openTotal: number | null;
 }> {
@@ -37,8 +37,8 @@ export async function loadSportLanding(
 
 	return {
 		content,
-		races: upcoming.data,
-		total: upcoming.meta.total,
-		openTotal: open?.meta.total ?? null,
+		races: upcoming.results,
+		total: upcoming.count,
+		openTotal: open?.count ?? null,
 	};
 }

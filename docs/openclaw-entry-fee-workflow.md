@@ -58,10 +58,13 @@ Paginate through upcoming/open races:
 GET ${API_BASE_URL}/races/?status=upcoming&status=registration_open&status=closing_soon&per_page=100&page=${N}
 ```
 
-Response shape (LaravelStylePagination):
+Response shape (Django/DRF page-number pagination):
 ```json
 {
-  "data": [
+  "count": 432,
+  "next": "...",
+  "previous": null,
+  "results": [
     {
       "id": 123,
       "slug": "seoul-marathon-2026",
@@ -72,13 +75,11 @@ Response shape (LaravelStylePagination):
         {"name": "10km", "distance_meter": 10000}
       ]
     }
-  ],
-  "meta": {"currentPage": 1, "lastPage": 5, "total": 432},
-  "links": {"next": "...", "prev": null}
+  ]
 }
 ```
 
-Iterate pages until `meta.currentPage == meta.lastPage`.
+Iterate pages until `next` is null.
 
 For each race, keep it as a candidate **only if**:
 - `official_url` is non-empty, AND

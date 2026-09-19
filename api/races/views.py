@@ -39,7 +39,7 @@ from accounts.authentication import JWTAuthentication
 from accounts.serializers import RaceRecordSerializer, upsert_linked_race_record
 from core.analytics import track
 from core.models import AnalyticsEvent
-from core.pagination import LaravelStylePagination
+from core.pagination import StandardPagination
 from core.utils import check_rate_limit, hash_ip, post_count_subqueries
 from notices.models import Notice
 from posts.models import Post
@@ -472,7 +472,7 @@ class RaceListView(APIView):
             if not closing_soon_only and not upcoming_only:
                 qs = qs.by_month_range(month_from, month_to)
 
-        paginator = LaravelStylePagination()
+        paginator = StandardPagination()
         per_page = request.query_params.get('per_page')
         if per_page:
             paginator.page_size = min(int(per_page), 100)
@@ -563,7 +563,7 @@ class RaceNlSearchView(APIView):
         if keyword:
             qs = qs.by_name(keyword)
 
-        paginator = LaravelStylePagination()
+        paginator = StandardPagination()
         per_page = request.query_params.get('per_page')
         if per_page:
             paginator.page_size = min(int(per_page), 100)

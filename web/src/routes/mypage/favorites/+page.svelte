@@ -1,11 +1,12 @@
 <script lang="ts">
     import RaceRow from '$lib/components/arena/RaceRow.svelte';
     import Pagination from '$lib/components/Pagination.svelte';
+    import { DEFAULT_PAGE_SIZE } from '$lib/pagination';
 
     let { data } = $props();
 
-    let races = $derived(data.data);
-    let total = $derived(data.meta.total);
+    let races = $derived(data.results);
+    let total = $derived(data.count);
 </script>
 
 <svelte:head>
@@ -55,9 +56,9 @@
                 {/each}
             </div>
 
-            {#if data.meta.lastPage > 1}
+            {#if data.count > DEFAULT_PAGE_SIZE}
                 <div class="pagination-wrap">
-                    <Pagination meta={data.meta} showInfo scrollToTop />
+                    <Pagination paginated={data} showInfo scrollToTop />
                 </div>
             {/if}
         {/if}

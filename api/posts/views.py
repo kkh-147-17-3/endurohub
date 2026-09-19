@@ -17,7 +17,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.analytics import track
-from core.pagination import LaravelStylePagination
+from core.pagination import StandardPagination
 from core.utils import check_rate_limit, hash_ip
 from races.models import Race
 from races.serializers import UpcomingRaceSerializer
@@ -61,7 +61,7 @@ class PostListCreateView(APIView):
         else:
             qs = qs.order_by('-created_at')
 
-        paginator = LaravelStylePagination()
+        paginator = StandardPagination()
         page = paginator.paginate_queryset(qs, request)
         serializer = PostListSerializer(
             page, many=True,

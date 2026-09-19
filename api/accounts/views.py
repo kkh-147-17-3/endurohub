@@ -779,7 +779,7 @@ class MyFavoriteRacesView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request: Request) -> Response:
-        from core.pagination import LaravelStylePagination
+        from core.pagination import StandardPagination
         from races.models import Race, RaceFavorite
         from races.serializers import RaceSerializer
 
@@ -792,7 +792,7 @@ class MyFavoriteRacesView(APIView):
         races = list(Race.objects.filter(id__in=favorite_ids))
         races.sort(key=lambda r: id_order.get(r.id, 0))
 
-        paginator = LaravelStylePagination()
+        paginator = StandardPagination()
         per_page = request.query_params.get('per_page')
         if per_page:
             paginator.page_size = min(int(per_page), 100)

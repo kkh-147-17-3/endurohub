@@ -1,19 +1,22 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
     import { page } from '$app/stores';
-    import type { PaginationMeta } from '$lib/types';
+    import { currentPageFromUrl, getPaginationInfo } from '$lib/pagination';
+    import type { PaginatedResponse } from '$lib/types';
 
     interface Props {
-        meta: PaginationMeta;
+        paginated: Pick<PaginatedResponse<unknown>, 'count' | 'next' | 'previous'>;
         showInfo?: boolean;
         scrollToTop?: boolean;
     }
 
-    let { meta, showInfo = false, scrollToTop = false }: Props = $props();
+    let { paginated, showInfo = false, scrollToTop = false }: Props = $props();
+
+    let info = $derived(getPaginationInfo(paginated, currentPageFromUrl($page.url)));
 
     let visiblePages = $derived(() => {
-        const current = meta.currentPage;
-        const last = meta.lastPage;
+        const current = info.currentPage;
+        const last = info.lastPage;
         const delta = 2;
         const pages: (number | 'ellipsis')[] = [];
 
@@ -52,15 +55,15 @@
     }
 </script>
 
-{#if meta.lastPage > 1}
+{#if info.lastPage > 1}
     <nav aria-label="페이지 네비게이션" class="arena-pagination">
         {#if showInfo}
             <div class="pag-info">
-                {#if meta.from && meta.to}
-                    총 <strong>{meta.total.toLocaleString()}</strong>개 중
-                    <strong>{meta.from.toLocaleString()}</strong>–<strong>{meta.to.toLocaleString()}</strong>
+                {#if info.from && info.to}
+                    총 <strong>{info.total.toLocaleString()}</strong>개 중
+                    <strong>{info.from.toLocaleString()}</strong>–<strong>{info.to.toLocaleString()}</strong>
                 {:else}
-                    총 <strong>{meta.total.toLocaleString()}</strong>개
+                    총 <strong>{info.total.toLocaleString()}</strong>개
                 {/if}
             </div>
         {/if}
@@ -68,8 +71,8 @@
         <div class="pag-controls">
             <button
                 type="button"
-                onclick={() => goToPage(meta.currentPage - 1)}
-                disabled={meta.currentPage <= 1}
+                onclick={() => goToPage(info.currentPage - 1)}
+                disabled={!info.hasPrevious}
                 class="pag-btn pag-btn-nav"
                 aria-label="이전 페이지"
             >
@@ -88,9 +91,9 @@
                             type="button"
                             onclick={() => goToPage(p)}
                             class="pag-btn pag-btn-page"
-                            class:is-active={p === meta.currentPage}
+                            class:is-active={p === info.currentPage}
                             aria-label="{p} 페이지"
-                            aria-current={p === meta.currentPage ? 'page' : undefined}
+                            aria-current={p === info.currentPage ? 'page' : undefined}
                         >
                             {p}
                         </button>
@@ -99,15 +102,15 @@
             </div>
 
             <div class="pag-mobile">
-                <strong>{meta.currentPage}</strong>
+                <strong>{info.currentPage}</strong>
                 <span class="pag-mobile-sep">/</span>
-                <span>{meta.lastPage}</span>
+                <span>{info.lastPage}</span>
             </div>
 
             <button
                 type="button"
-                onclick={() => goToPage(meta.currentPage + 1)}
-                disabled={meta.currentPage >= meta.lastPage}
+                onclick={() => goToPage(info.currentPage + 1)}
+                disabled={!info.hasNext}
                 class="pag-btn pag-btn-nav"
                 aria-label="다음 페이지"
             >

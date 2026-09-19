@@ -1,25 +1,11 @@
-// === Pagination ===
+// === Pagination (Django/DRF style) ===
 
-export interface PaginationMeta {
-	currentPage: number;
-	lastPage: number;
-	perPage: number;
-	total: number;
-	from: number;
-	to: number;
-}
-
-export interface PaginationLinks {
-	first: string | null;
-	last: string | null;
-	prev: string | null;
-	next: string | null;
-}
-
+/** DRF PageNumberPagination 봉투: count/next/previous/results. */
 export interface PaginatedResponse<T> {
-	data: T[];
-	meta: PaginationMeta;
-	links: PaginationLinks;
+	count: number;
+	next: string | null;
+	previous: string | null;
+	results: T[];
 }
 
 // === Race ===
