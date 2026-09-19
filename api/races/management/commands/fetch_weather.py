@@ -1,8 +1,9 @@
 import time
 from datetime import timedelta
+from typing import Any
 
 import httpx
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandParser
 from django.utils import timezone
 
 from races.models import Race
@@ -20,7 +21,7 @@ RETRY_BASE_DELAY = 1.0                                  # 1초 → 2초
 RETRY_STATUS_CODES = frozenset({408, 425, 429, 500, 502, 503, 504})
 
 
-def _wind_direction_label(degrees):
+def _wind_direction_label(degrees: float | None) -> str:
     if degrees is None:
         return ''
     dirs = ['북', '북동', '동', '남동', '남', '남서', '서', '북서']
@@ -62,7 +63,7 @@ _WEATHER_CODE_MAP = {
 }
 
 
-def _interpret_weather_code(code):
+def _interpret_weather_code(code: float | int | None) -> tuple[str | None, str | None]:
     if code is None:
         return None, None
     label, icon = _WEATHER_CODE_MAP.get(int(code), (None, None))
@@ -84,7 +85,7 @@ _WEATHER_SEVERITY = {
 }
 
 
-def _format_wind(speed_kmh, direction_deg):
+def _format_wind(speed_kmh: float | None, direction_deg: float | None) -> str | None:
     if speed_kmh is None:
         return None
     label = _wind_direction_label(direction_deg)
@@ -94,8 +95,8 @@ def _format_wind(speed_kmh, direction_deg):
     return f'{speed_ms} m/s'
 
 
-def _hourly_sample(hourly, idx):
-    def get(key):
+def _hourly_sample(hourly: dict[str, Any], idx: int) -> dict[str, Any]:
+    def get(key: str) -> Any:
         arr = hourly.get(key) or []
         return arr[idx] if idx < len(arr) else None
     code = get('weather_code')
@@ -118,7 +119,7 @@ def _hourly_sample(hourly, idx):
     }
 
 
-def _summarize_window(samples):
+def _summarize_window(samples: list[dict[str, Any]]) -> dict[str, Any] | None:
     if not samples:
         return None
     temps = [s['temperature'] for s in samples if s['temperature'] is not None]
@@ -153,7 +154,7 @@ def _summarize_window(samples):
 class Command(BaseCommand):
     help = '임박한 대회의 날씨 예보를 Open-Meteo API에서 가져와 저장합니다'
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument(
             '--days', type=int, default=MAX_FORECAST_DAYS,
             help=f'오늘부터 며칠 이내 대회를 대상으로 할지 (기본: {MAX_FORECAST_DAYS}, 최대: {MAX_FORECAST_DAYS})',
@@ -167,7 +168,7 @@ class Command(BaseCommand):
             help='저장하지 않고 결과만 출력',
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> str | None:
         days = min(options['days'], MAX_FORECAST_DAYS)
         slug = options['slug']
         dry_run = options['dry_run']
@@ -238,8 +239,9 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f'완료: 갱신 {updated} / 실패 {failed} / 전체 {total}'
         ))
+        return None
 
-    def _get_with_retry(self, client, params, slug):
+    def _get_with_retry(self, client: httpx.Client, params: dict[str, Any], slug: str) -> httpx.Response:
         """일시적 오류(연결 실패 / 429 / 5xx)만 지수 백오프로 재시도한다.
 
         400 같은 영구 오류는 재시도해도 소용없으므로 즉시 올린다.
@@ -263,10 +265,16 @@ class Command(BaseCommand):
                     f'{type(exc).__name__} — {delay:g}초 후'
                 ))
                 time.sleep(delay)
+        # 루프의 모든 경로가 return 이나 raise 라 실제로는 도달하지 않는다.
+        # mypy 는 이를 증명하지 못하므로 방어적 raise 로 경로를 소진한다.
+        raise RuntimeError('unreachable')
 
-    def _fetch(self, client, race):
+    def _fetch(self, client: httpx.Client, race: Race) -> dict[str, Any] | None:
         race_date_str = race.race_date.isoformat()
-        params = {
+        # 쿼리에서 latitude/longitude 는 null 제외 필터됨
+        assert race.latitude is not None
+        assert race.longitude is not None
+        params: dict[str, Any] = {
             'latitude': float(race.latitude),
             'longitude': float(race.longitude),
             'daily': ','.join([
@@ -322,9 +330,12 @@ class Command(BaseCommand):
                 forecast['race_window'] = _summarize_window(window)
         return forecast
 
-    def _extract_race_window(self, hourly, race):
+    def _extract_race_window(self, hourly: dict[str, Any], race: Race) -> list[dict[str, Any]] | None:
         # API 응답은 'YYYY-MM-DDTHH:MM' 문자열 (Asia/Seoul). 출발시간 정각으로 내려서 매칭.
-        start_hour = race.start_time.hour
+        start_time = race.start_time
+        if start_time is None:
+            return None
+        start_hour = start_time.hour
         target_prefix = f'{race.race_date.isoformat()}T{start_hour:02d}:00'
         times = hourly.get('time') or []
         try:
@@ -332,7 +343,7 @@ class Command(BaseCommand):
         except ValueError:
             return None
         # 출발 ~ 출발+3h (총 4 시점)
-        samples = []
+        samples: list[dict[str, Any]] = []
         for offset in range(4):
             idx = start_idx + offset
             if idx >= len(times):

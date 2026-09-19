@@ -33,14 +33,14 @@ class RaceRecordAdmin(ModelAdmin):
     autocomplete_fields = ['race']
 
     @admin.display(description='대회명')
-    def race_link(self, obj):
+    def race_link(self, obj: RaceRecord) -> str:
         if obj.race:
             url = reverse('admin:races_race_change', args=[obj.race_id])
             return format_html('<a href="{}">{}</a>', url, obj.race.title[:30])
         return obj.name or '(자유 입력)'
 
     @admin.display(description='기록', ordering='duration_seconds')
-    def duration_display(self, obj):
+    def duration_display(self, obj: RaceRecord) -> str:
         total = obj.duration_seconds or 0
         h, rem = divmod(total, 3600)
         m, s = divmod(rem, 60)

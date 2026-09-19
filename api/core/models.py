@@ -27,7 +27,7 @@ class AnalyticsEvent(models.Model):
             models.Index(fields=['session_id']),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         label = self.event_type
         if self.item_type and self.item_id:
             label += f' {self.item_type}:{self.item_id}'

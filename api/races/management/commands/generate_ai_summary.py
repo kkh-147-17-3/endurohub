@@ -8,8 +8,9 @@
 """
 
 import time
+from typing import Any
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandParser
 from django.db.models import Q
 
 from races.models import Race
@@ -19,7 +20,7 @@ from races.services.ai_summary import generate_summary
 class Command(BaseCommand):
     help = '대회 요약(ai_summary)을 LLM 으로 생성한다'
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument('--limit', type=int, default=0, help='처리할 최대 건수 (0=전체)')
         parser.add_argument('--dry-run', action='store_true', help='저장하지 않고 결과만 출력')
         parser.add_argument('--force', action='store_true', help='이미 요약이 있어도 다시 생성')
@@ -29,7 +30,7 @@ class Command(BaseCommand):
             help='호출 간 대기(초). 레이트리밋 회피용',
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> str | None:
         qs = Race.objects.all().order_by('-race_date')
         if options['slug']:
             qs = qs.filter(slug=options['slug'])
@@ -68,3 +69,4 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(f'완료 — 생성 {done}건 / 건너뜀·실패 {skipped}건')
         )
+        return None

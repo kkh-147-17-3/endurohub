@@ -1,6 +1,10 @@
+from typing import Any
+
 from django.contrib.auth.hashers import make_password
+from django.contrib.auth.models import User
 from django.core.cache import cache
 from rest_framework import status
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -19,7 +23,7 @@ from .serializers import (
 VALID_TABS = {'notice', 'racenews', 'event', 'urgent'}
 
 
-def _sort_key(notice):
+def _sort_key(notice: Notice) -> tuple[int, int, float]:
     """Mirror getSortedNotices() in the frontend:
     pinned first (urgent-pinned before regular pinned), then newest first.
     """
@@ -30,14 +34,14 @@ def _sort_key(notice):
     )
 
 
-def _sorted_notices():
+def _sorted_notices() -> list[Notice]:
     return sorted(Notice.objects.all(), key=_sort_key)
 
 
 class NoticeListView(APIView):
     """GET /api/v1/notices/?tab= — full sorted list + per-category counts."""
 
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         notices = _sorted_notices()
 
         counts = {
@@ -62,7 +66,7 @@ class NoticeListView(APIView):
 class NoticeDetailView(APIView):
     """GET /api/v1/notices/<pk>/ — detail + prev/next, increments view count."""
 
-    def get(self, request, pk):
+    def get(self, request: Request, pk: int) -> Response:
         try:
             notice = Notice.objects.get(pk=pk)
         except Notice.DoesNotExist:
@@ -74,7 +78,7 @@ class NoticeDetailView(APIView):
 class NoticeSlugDetailView(APIView):
     """GET /api/v1/notices/by-slug/<slug>/ — custom notice page view tracking."""
 
-    def get(self, request, slug):
+    def get(self, request: Request, slug: str) -> Response:
         try:
             notice = Notice.objects.get(slug=slug)
         except Notice.DoesNotExist:
@@ -83,7 +87,7 @@ class NoticeSlugDetailView(APIView):
         return _notice_detail_response(notice, request)
 
 
-def _notice_detail_response(notice, request):
+def _notice_detail_response(notice: Notice, request: Request) -> Response:
     """Increment and serialize a notice shared by numeric and custom routes."""
 
     notice.increment_view_count()
@@ -94,7 +98,7 @@ def _notice_detail_response(notice, request):
     prev_notice = ordered[idx - 1] if idx is not None and idx > 0 else None
     next_notice = ordered[idx + 1] if idx is not None and idx < len(ordered) - 1 else None
 
-    def adjacent(n):
+    def adjacent(n: Notice | None) -> dict[str, Any] | None:
         if n is None:
             return None
         return {
@@ -117,7 +121,7 @@ def _notice_detail_response(notice, request):
 class NoticeCommentCreateView(APIView):
     """POST /api/v1/notices/{id}/comments/"""
 
-    def post(self, request, notice_id):
+    def post(self, request: Request, notice_id: int) -> Response:
         try:
             notice = Notice.objects.get(pk=notice_id)
         except Notice.DoesNotExist:
@@ -152,11 +156,13 @@ class NoticeCommentCreateView(APIView):
         else:
             parent = None
 
-        is_authenticated = request.user and request.user.is_authenticated
+        user: User | None = None
+        if request.user.is_authenticated:
+            user = request.user
         comment = NoticeComment.objects.create(
             notice=notice,
             parent=parent,
-            user=request.user if is_authenticated else None,
+            user=user,
             nickname=data.get('nickname') or None,
             content=data['content'],
             password=make_password(data['password']) if data.get('password') else '',
@@ -173,20 +179,20 @@ class NoticeCommentUpdateDeleteView(APIView):
     """PUT/DELETE /api/v1/notices/{id}/comments/{commentId}/"""
 
     @staticmethod
-    def get_comment(notice_id, comment_id):
+    def get_comment(notice_id: int, comment_id: int) -> NoticeComment | None:
         try:
             return NoticeComment.objects.get(pk=comment_id, notice_id=notice_id)
         except NoticeComment.DoesNotExist:
             return None
 
     @staticmethod
-    def is_owner(request, comment):
+    def is_owner(request: Request, comment: NoticeComment) -> bool:
         return bool(
             request.user and request.user.is_authenticated
             and comment.user_id and comment.user_id == request.user.id
         )
 
-    def put(self, request, notice_id, comment_id):
+    def put(self, request: Request, notice_id: int, comment_id: int) -> Response:
         comment = self.get_comment(notice_id, comment_id)
         if not comment:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
@@ -205,7 +211,7 @@ class NoticeCommentUpdateDeleteView(APIView):
             'comment': NoticeCommentSerializer(comment, context={'request': request}).data,
         })
 
-    def delete(self, request, notice_id, comment_id):
+    def delete(self, request: Request, notice_id: int, comment_id: int) -> Response:
         comment = self.get_comment(notice_id, comment_id)
         if not comment:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
@@ -230,7 +236,7 @@ class PopupActiveView(APIView):
 
     CACHE_TTL = 60
 
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         cached = cache.get(POPUP_CACHE_KEY)
         if cached is not None:
             return Response(cached)

@@ -17,6 +17,7 @@ import json
 import logging
 import re
 from datetime import date, datetime
+from typing import Any
 
 import httpx
 from bs4 import BeautifulSoup
@@ -24,7 +25,7 @@ from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone
 
-from races.models import Race
+from races.models import Race, RaceQuerySet
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +57,7 @@ _VERDICT_SCHEMA = {
 }
 
 
-def fetch_page_text(url):
+def fetch_page_text(url: str) -> str:
     """페이지의 정제된 텍스트를 반환한다."""
     resp = httpx.get(url, timeout=10, follow_redirects=True,
                      headers={'User-Agent': 'Mozilla/5.0 (compatible; EnduroHubBot/1.0)'})
@@ -67,7 +68,7 @@ def fetch_page_text(url):
     return soup.get_text(' ', strip=True)[:PAGE_TEXT_LIMIT]
 
 
-def _call_anthropic(system_prompt, user_message):
+def _call_anthropic(system_prompt: str, user_message: str) -> str | None:
     try:
         import anthropic
     except ImportError:
@@ -84,15 +85,17 @@ def _call_anthropic(system_prompt, user_message):
             messages=[{'role': 'user', 'content': user_message}],
         )
         for block in resp.content:
-            if getattr(block, 'type', None) == 'text' and getattr(block, 'text', None):
-                return block.text
+            if getattr(block, 'type', None) == 'text':
+                block_text: str | None = getattr(block, 'text', None)
+                if block_text:
+                    return block_text
         return None
     except Exception as exc:  # noqa: BLE001
         logger.warning('reg_status Anthropic call failed: %s', exc)
         return None
 
 
-def _call_openai(system_prompt, user_message):
+def _call_openai(system_prompt: str, user_message: str) -> str | None:
     url = f'{settings.LLM_BASE_URL}/chat/completions'
     # gpt-5 계열은 max_tokens/temperature 를 거부한다 — max_completion_tokens 사용,
     # temperature 미전송. reasoning 토큰이 완성 한도를 잠식하므로 여유 있게 잡는다.
@@ -119,14 +122,16 @@ def _call_openai(system_prompt, user_message):
         resp = httpx.post(url, json=payload, headers=headers,
                           timeout=max(settings.LLM_TIMEOUT, 20))
         resp.raise_for_status()
-        return resp.json()['choices'][0]['message']['content']
+        data = resp.json()
+        content: str = data['choices'][0]['message']['content']
+        return content
     except (httpx.HTTPError, KeyError, IndexError, ValueError) as exc:
         body = getattr(getattr(exc, 'response', None), 'text', '')
         logger.warning('reg_status LLM call failed: %s %s', exc, body[:200])
         return None
 
 
-def _parse_verdict(raw):
+def _parse_verdict(raw: str) -> dict[str, Any] | None:
     """LLM 응답에서 판정 JSON 추출. 코드펜스/잡텍스트 방어. 실패 시 None."""
     try:
         t = re.sub(r'^```(?:json)?|```$', '', raw.strip(), flags=re.IGNORECASE).strip()
@@ -147,7 +152,7 @@ def _parse_verdict(raw):
     }
 
 
-def _parse_close_date(value):
+def _parse_close_date(value: str) -> date | None:
     """YYYY-MM-DD 검증 + 상식 범위(오늘 기준 ±2년) 밖이면 버린다."""
     try:
         d = datetime.strptime(value.strip(), '%Y-%m-%d').date()
@@ -162,7 +167,7 @@ def _parse_close_date(value):
 _WS = re.compile(r'\s+')
 
 
-def _evidence_in_page(evidence, page_text):
+def _evidence_in_page(evidence: str, page_text: str) -> bool:
     """근거 인용문이 페이지에 실제로 존재하는지 검증 — LLM 환각 인용을 기각하는 안전망."""
     ev = _WS.sub(' ', evidence).strip()
     if len(ev) < MIN_EVIDENCE:
@@ -170,7 +175,7 @@ def _evidence_in_page(evidence, page_text):
     return ev in _WS.sub(' ', page_text)
 
 
-def _judge(race, page_text):
+def _judge(race: Race, page_text: str) -> dict[str, Any] | None:
     """페이지 텍스트를 근거로 접수마감 여부를 LLM 판정. 실패 시 None."""
     user = (
         f'오늘 날짜: {timezone.localdate().isoformat()}\n'
@@ -179,6 +184,7 @@ def _judge(race, page_text):
         f'DB상 접수 마감일: {race.registration_end or "미상"}\n\n'
         f'--- 페이지 원문 ---\n{page_text}'
     )
+    raw: str | None
     if settings.LLM_PROVIDER == 'anthropic':
         raw = _call_anthropic(_SYSTEM_PROMPT, user)
     else:
@@ -186,7 +192,7 @@ def _judge(race, page_text):
     return _parse_verdict(raw) if raw else None
 
 
-def _target_races():
+def _target_races() -> RaceQuerySet[Race]:
     """마감 전 + 아직 안 끝난 + 확인할 URL이 있는 대회들."""
     today = timezone.localdate()
     not_finished = Q(race_end_date__gte=today) | Q(race_end_date__isnull=True, race_date__gte=today)
@@ -202,7 +208,7 @@ def _target_races():
     )
 
 
-def _apply(race, verdict, dry_run):
+def _apply(race: Race, verdict: dict[str, Any], dry_run: bool) -> bool:
     """마감 반영. 잠금/자동갱신 설정을 존중한다. 반영(또는 dry-run 반영 예정)이면 True."""
     locked = set(race.locked_fields or [])
     if not race.auto_update_enabled:
@@ -232,7 +238,7 @@ def _apply(race, verdict, dry_run):
     return True
 
 
-def update_registration_status(dry_run=False, limit=None):
+def update_registration_status(dry_run: bool = False, limit: int | None = None) -> dict[str, int]:
     """잡 1회 실행. 요약 카운트를 반환한다."""
     summary = {'total': 0, 'checked': 0, 'closed': 0,
                'rejected_evidence': 0, 'skipped_locked': 0, 'errors': 0}
@@ -242,6 +248,9 @@ def update_registration_status(dry_run=False, limit=None):
     for race in races:
         summary['total'] += 1
         url = race.official_url or race.source_url
+        if not url:
+            summary['errors'] += 1
+            continue
         try:
             page_text = fetch_page_text(url)
         except httpx.HTTPError as exc:

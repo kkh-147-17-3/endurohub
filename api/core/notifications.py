@@ -6,11 +6,12 @@ import urllib.error
 from threading import Thread
 
 from django.conf import settings
+from django.http import HttpRequest
 
 logger = logging.getLogger(__name__)
 
 
-def send_telegram(message):
+def send_telegram(message: str) -> None:
     """Telegram Bot API로 메시지를 전송한다. 별도 스레드에서 비동기 실행."""
     bot_token = getattr(settings, 'TELEGRAM_BOT_TOKEN', '')
     chat_id = getattr(settings, 'TELEGRAM_CHAT_ID', '')
@@ -18,7 +19,7 @@ def send_telegram(message):
     if not bot_token or not chat_id:
         return
 
-    def _send():
+    def _send() -> None:
         url = f'https://api.telegram.org/bot{bot_token}/sendMessage'
         # Telegram 메시지 최대 4096자
         truncated = message[:4000]
@@ -42,7 +43,7 @@ def send_telegram(message):
     Thread(target=_send, daemon=True).start()
 
 
-def notify_server_error(request, exception):
+def notify_server_error(request: HttpRequest, exception: Exception) -> None:
     """500 에러 발생 시 Telegram으로 알림을 보낸다."""
     method = request.method
     path = request.get_full_path()

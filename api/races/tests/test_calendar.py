@@ -16,14 +16,14 @@ from races.models import Race
     },
 })
 class RaceCalendarTests(APITestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         cache.clear()
         self.url = reverse('race-calendar')
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         cache.clear()
 
-    def create_race(self, race_date, slug):
+    def create_race(self, race_date: date, slug: str) -> Race:
         return Race.objects.create(
             title=f'{race_date:%Y-%m} 테스트 대회',
             slug=slug,
@@ -33,7 +33,7 @@ class RaceCalendarTests(APITestCase):
             region='서울',
         )
 
-    def test_rejects_noncanonical_or_invalid_year_and_month(self):
+    def test_rejects_noncanonical_or_invalid_year_and_month(self) -> None:
         invalid_queries = (
             {'year': '2026foo', 'month': '1'},
             {'year': '02026', 'month': '1'},
@@ -49,7 +49,7 @@ class RaceCalendarTests(APITestCase):
                 response = self.client.get(self.url, query)
                 self.assertEqual(response.status_code, 404)
 
-    def test_empty_database_only_serves_current_month_without_navigation(self):
+    def test_empty_database_only_serves_current_month_without_navigation(self) -> None:
         today = timezone.localdate()
         response = self.client.get(self.url, {
             'year': str(today.year),
@@ -68,7 +68,7 @@ class RaceCalendarTests(APITestCase):
         })
         self.assertEqual(response.status_code, 404)
 
-    def test_bounds_limit_navigation_and_allow_empty_months_between_them(self):
+    def test_bounds_limit_navigation_and_allow_empty_months_between_them(self) -> None:
         today = timezone.localdate()
         middle_month = date(today.year, today.month, 1)
         first_month = (middle_month - timedelta(days=1)).replace(day=1)
@@ -118,7 +118,7 @@ class RaceCalendarTests(APITestCase):
         self.assertEqual(before.status_code, 404)
         self.assertEqual(after.status_code, 404)
 
-    def test_current_month_remains_available_when_all_races_are_in_the_past(self):
+    def test_current_month_remains_available_when_all_races_are_in_the_past(self) -> None:
         today = timezone.localdate()
         current_month = date(today.year, today.month, 1)
         previous_month = current_month - timedelta(days=1)
@@ -137,7 +137,7 @@ class RaceCalendarTests(APITestCase):
         })
         self.assertIsNone(response.data['nextMonth'])
 
-    def test_current_month_remains_available_when_all_races_are_in_the_future(self):
+    def test_current_month_remains_available_when_all_races_are_in_the_future(self) -> None:
         today = timezone.localdate()
         current_month = date(today.year, today.month, 1)
         next_month = (current_month + timedelta(days=32)).replace(day=1)

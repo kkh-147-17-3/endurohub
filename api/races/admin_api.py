@@ -11,8 +11,10 @@ from django.utils import timezone
 from rest_framework import serializers as drf_serializers
 from rest_framework import status
 from rest_framework.permissions import BasePermission
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from typing import Any, cast
 
 from .image_utils import delete_upload, get_webp_path, process_image, save_upload
 from .models import Race
@@ -22,11 +24,11 @@ from .serializers import RaceSerializer
 class IsAdminBearer(BasePermission):
     message = 'Admin authorization required.'
 
-    def has_permission(self, request, view):
+    def has_permission(self, request: Request, view: APIView) -> bool:
         secret = getattr(settings, 'ADMIN_SECRET', '')
         if not secret:
             return False
-        auth = request.META.get('HTTP_AUTHORIZATION', '')
+        auth: str = request.META.get('HTTP_AUTHORIZATION', '')
         if not auth.startswith('Bearer '):
             return False
         return auth[7:] == secret
@@ -46,14 +48,14 @@ EDITABLE_FIELDS = [
 ]
 
 
-class RaceAdminEditSerializer(drf_serializers.ModelSerializer):
+class RaceAdminEditSerializer(drf_serializers.ModelSerializer[Race]):
     class Meta:
         model = Race
         fields = EDITABLE_FIELDS
         extra_kwargs = {f: {'required': False} for f in EDITABLE_FIELDS}
 
 
-def _get_race(slug):
+def _get_race(slug: str) -> Race:
     if slug.isdigit():
         return Race.objects.get(id=int(slug))
     return Race.objects.get(slug=slug)
@@ -63,7 +65,7 @@ class RaceAdminListView(APIView):
     authentication_classes = []
     permission_classes = [IsAdminBearer]
 
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         q = (request.query_params.get('q') or '').strip()
         per_page = max(1, min(int(request.query_params.get('per_page') or 50), 200))
         page = max(1, int(request.query_params.get('page') or 1))
@@ -98,7 +100,7 @@ class RaceAdminListView(APIView):
         })
 
 
-def _missing_enrich_fields(race):
+def _missing_enrich_fields(race: Race) -> list[str]:
     """보강(enrich) 크롤러가 채울 수 있는 누락 필드 목록. locked_fields 는 제외."""
     locked = set(race.locked_fields or [])
     missing = []
@@ -106,7 +108,7 @@ def _missing_enrich_fields(race):
         if not Race.distance_names(race.distances):
             missing.append('distances')
         elif not any(isinstance(d, dict) and d.get('fee') is not None
-                     for d in race.distances):
+                     for d in race.distances or []):
             missing.append('fee')
     if not race.giveaways and 'giveaways' not in locked:
         missing.append('giveaways')
@@ -122,7 +124,7 @@ class RaceAdminEnrichTargetsView(APIView):
     authentication_classes = []
     permission_classes = [IsAdminBearer]
 
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         limit = max(1, min(int(request.query_params.get('limit') or 500), 1000))
         today = timezone.localdate()
         not_finished = (
@@ -139,7 +141,7 @@ class RaceAdminEnrichTargetsView(APIView):
             .filter(auto_update_enabled=True)
             .order_by('race_date')
         )
-        targets = []
+        targets: list[dict[str, Any]] = []
         for race in qs.iterator():
             missing = _missing_enrich_fields(race)
             if not missing:
@@ -162,9 +164,9 @@ class RaceAdminEnrichTargetsView(APIView):
         return Response({'targets': targets})
 
 
-def _admin_payload(race):
+def _admin_payload(race: Race) -> dict[str, Any]:
     """Race detail plus admin-only image upload paths (not exposed publicly)."""
-    data = RaceSerializer(race).data
+    data: dict[str, Any] = dict(RaceSerializer(race).data)
     data['course_image_uploads'] = _resolve_uploads(race.course_image_uploads)
     data['giveaway_image_uploads'] = _resolve_uploads(race.giveaway_image_uploads)
     data['locked_fields'] = list(race.locked_fields or [])
@@ -173,7 +175,7 @@ def _admin_payload(race):
     return data
 
 
-def _resolve_uploads(paths):
+def _resolve_uploads(paths: list[str] | None) -> list[dict[str, str]]:
     paths = paths or []
     return [
         {'path': p, 'url': f"{settings.STORAGE_URL}{get_webp_path(p)}"}
@@ -185,14 +187,14 @@ class RaceAdminDetailView(APIView):
     authentication_classes = []
     permission_classes = [IsAdminBearer]
 
-    def get(self, request, slug):
+    def get(self, request: Request, slug: str) -> Response:
         try:
             race = _get_race(slug)
         except Race.DoesNotExist:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
         return Response(_admin_payload(race))
 
-    def patch(self, request, slug):
+    def patch(self, request: Request, slug: str) -> Response:
         try:
             race = _get_race(slug)
         except Race.DoesNotExist:
@@ -229,7 +231,7 @@ class RaceAdminImageView(APIView):
         'giveaway': {'field': 'giveaway_image_uploads', 'subdir': 'races/giveaway'},
     }
 
-    def _resolve(self, slug, kind):
+    def _resolve(self, slug: str, kind: Any) -> tuple[Race | None, dict[str, str] | None, Response | None]:
         try:
             race = _get_race(slug)
         except Race.DoesNotExist:
@@ -242,11 +244,14 @@ class RaceAdminImageView(APIView):
             )
         return race, cfg, None
 
-    def post(self, request, slug):
-        kind = request.data.get('kind') or request.query_params.get('kind')
+    def post(self, request: Request, slug: str) -> Response:
+        data = cast("dict[str, Any]", request.data)
+        kind = data.get('kind') or request.query_params.get('kind')
         race, cfg, err = self._resolve(slug, kind)
         if err:
             return err
+        race = cast(Race, race)
+        cfg = cast("dict[str, str]", cfg)
 
         files = request.FILES.getlist('images')
         if not files:
@@ -261,7 +266,7 @@ class RaceAdminImageView(APIView):
             )
 
         existing = list(getattr(race, cfg['field']) or [])
-        new_paths = []
+        new_paths: list[str] = []
         for f in files:
             rel = save_upload(f, subdir=cfg['subdir'])
             process_image(rel)
@@ -275,12 +280,15 @@ class RaceAdminImageView(APIView):
             status=status.HTTP_201_CREATED,
         )
 
-    def delete(self, request, slug):
-        kind = request.query_params.get('kind') or request.data.get('kind')
-        path = request.query_params.get('path') or request.data.get('path')
+    def delete(self, request: Request, slug: str) -> Response:
+        data = cast("dict[str, Any]", request.data)
+        kind = request.query_params.get('kind') or data.get('kind')
+        path = request.query_params.get('path') or data.get('path')
         race, cfg, err = self._resolve(slug, kind)
         if err:
             return err
+        race = cast(Race, race)
+        cfg = cast("dict[str, str]", cfg)
         if not path:
             return Response(
                 {'errors': {'path': ['path is required']}},
@@ -300,12 +308,15 @@ class RaceAdminImageView(APIView):
         race.refresh_from_db()
         return Response({'images': self._serialize_images(race, cfg)})
 
-    def put(self, request, slug):
-        kind = request.data.get('kind')
-        paths = request.data.get('paths')
+    def put(self, request: Request, slug: str) -> Response:
+        data = cast("dict[str, Any]", request.data)
+        kind = data.get('kind')
+        paths = data.get('paths')
         race, cfg, err = self._resolve(slug, kind)
         if err:
             return err
+        race = cast(Race, race)
+        cfg = cast("dict[str, str]", cfg)
         if not isinstance(paths, list):
             return Response(
                 {'errors': {'paths': ['paths must be an array']}},
@@ -323,7 +334,7 @@ class RaceAdminImageView(APIView):
         return Response({'images': self._serialize_images(race, cfg)})
 
     @staticmethod
-    def _serialize_images(race, cfg):
+    def _serialize_images(race: Race, cfg: dict[str, str]) -> list[dict[str, str]]:
         paths = getattr(race, cfg['field']) or []
         return [
             {'path': p, 'url': f"{settings.STORAGE_URL}{get_webp_path(p)}"}

@@ -1,3 +1,5 @@
+from typing import Any
+
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
@@ -6,20 +8,24 @@ class LaravelStylePagination(PageNumberPagination):
     page_size = 20
     page_size_query_param = None
 
-    def get_first_link(self):
+    def get_first_link(self) -> str | None:
+        assert self.page is not None
+        assert self.request is not None
         if not self.page.paginator.count:
             return None
         url = self.request.build_absolute_uri()
         return self.replace_query_param(url, self.page_query_param, 1)
 
-    def get_last_link(self):
+    def get_last_link(self) -> str | None:
+        assert self.page is not None
+        assert self.request is not None
         if not self.page.paginator.count:
             return None
         url = self.request.build_absolute_uri()
         return self.replace_query_param(url, self.page_query_param, self.page.paginator.num_pages)
 
     @staticmethod
-    def replace_query_param(url, key, val):
+    def replace_query_param(url: str, key: str, val: int | str) -> str:
         from urllib.parse import urlencode, urlparse, parse_qs, urlunparse
         parsed = urlparse(url)
         query = parse_qs(parsed.query)
@@ -27,7 +33,8 @@ class LaravelStylePagination(PageNumberPagination):
         new_query = urlencode(query, doseq=True)
         return urlunparse(parsed._replace(query=new_query))
 
-    def get_paginated_response(self, data):
+    def get_paginated_response(self, data: Any) -> Response:
+        assert self.page is not None
         return Response({
             'data': data,
             'meta': {
@@ -46,7 +53,7 @@ class LaravelStylePagination(PageNumberPagination):
             }
         })
 
-    def get_paginated_response_schema(self, schema):
+    def get_paginated_response_schema(self, schema: dict[str, Any]) -> dict[str, Any]:
         return {
             'type': 'object',
             'properties': {

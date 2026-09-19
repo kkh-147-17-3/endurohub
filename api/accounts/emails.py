@@ -1,10 +1,13 @@
 import logging
+from datetime import timedelta
+from typing import Any, Iterable
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils import timezone
 
+from accounts.models import UserProfile
 from races.constants import SPORT_CODES, SPORT_LABELS
 from races.models import Race
 
@@ -13,7 +16,7 @@ logger = logging.getLogger(__name__)
 APP_URL = getattr(settings, 'APP_URL', 'https://www.endurohub.kr')
 
 
-def _make_absolute_url(url):
+def _make_absolute_url(url: str | None) -> str | None:
     """Convert relative URLs to absolute using APP_URL."""
     if not url:
         return None
@@ -22,15 +25,15 @@ def _make_absolute_url(url):
     return f'{APP_URL}{url}'
 
 
-def _prepare_races_for_email(races):
+def _prepare_races_for_email(races: list[Race]) -> list[Race]:
     """Ensure all race image URLs are absolute and inject sport_code for email rendering."""
     for race in races:
-        race.email_image_src = _make_absolute_url(race.image_src)
-        race.sport_code = SPORT_CODES.get(race.sport, race.sport[:3].upper() if race.sport else '')
+        setattr(race, 'email_image_src', _make_absolute_url(race.image_src))
+        setattr(race, 'sport_code', SPORT_CODES.get(race.sport, race.sport[:3].upper() if race.sport else ''))
     return races
 
 
-def _get_recommended_races(profile, limit=4):
+def _get_recommended_races(profile: UserProfile, limit: int = 4) -> list[Race]:
     """Get recommended races based on user preferences, or popular upcoming races."""
     qs = Race.objects.upcoming()
 
@@ -54,7 +57,7 @@ def _get_recommended_races(profile, limit=4):
     return list(qs.order_by('-view_count')[:limit])
 
 
-def _get_closing_soon_races(profile, limit=3):
+def _get_closing_soon_races(profile: UserProfile, limit: int = 3) -> list[Race]:
     """Get races with registration closing soon, filtered by user preferences."""
     qs = Race.objects.closing_soon(days=7)
 
@@ -66,7 +69,7 @@ def _get_closing_soon_races(profile, limit=3):
     return list(qs[:limit])
 
 
-def send_welcome_email(profile):
+def send_welcome_email(profile: UserProfile) -> bool:
     """Send personalized welcome email with race recommendations."""
     user = profile.user
     if not user.email:
@@ -120,7 +123,7 @@ def send_welcome_email(profile):
     return True
 
 
-def send_weekly_digest_email(profile):
+def send_weekly_digest_email(profile: UserProfile) -> bool:
     """Send weekly digest email with personalized race recommendations."""
     user = profile.user
     if not user.email:
@@ -130,7 +133,7 @@ def send_weekly_digest_email(profile):
     closing_soon_races = _prepare_races_for_email(_get_closing_soon_races(profile, limit=5))
 
     # New races added in the last 7 days
-    week_ago = timezone.now() - timezone.timedelta(days=7)
+    week_ago = timezone.now() - timedelta(days=7)
     new_races_qs = Race.objects.upcoming().filter(created_at__gte=week_ago)
     if profile.preferred_sports:
         filtered_new = new_races_qs.by_sport(profile.preferred_sports)
@@ -175,10 +178,8 @@ def send_weekly_digest_email(profile):
     return True
 
 
-def send_new_races_alert(races):
+def send_new_races_alert(races: Iterable[Race]) -> int:
     """Send new race alert to all opted-in users. Called hourly if new races exist."""
-    from accounts.models import UserProfile
-
     races = _prepare_races_for_email(list(races))
     if not races:
         return 0
@@ -242,7 +243,7 @@ def send_new_races_alert(races):
     return sent
 
 
-def _build_new_races_text(ctx):
+def _build_new_races_text(ctx: dict[str, Any]) -> str:
     lines = [
         f'{ctx["nickname"]}님, 새 대회 {ctx["race_count"]}건이 등록되었습니다.',
         '',
@@ -260,7 +261,7 @@ def _build_new_races_text(ctx):
     return '\n'.join(lines)
 
 
-def _build_welcome_text(ctx):
+def _build_welcome_text(ctx: dict[str, Any]) -> str:
     lines = [
         f'{ctx["nickname"]}님, EnduroHub에 오신 것을 환영합니다!',
         '',
@@ -281,7 +282,7 @@ def _build_welcome_text(ctx):
     return '\n'.join(lines)
 
 
-def _build_digest_text(ctx):
+def _build_digest_text(ctx: dict[str, Any]) -> str:
     lines = [
         f'{ctx["nickname"]}님의 주간 대회 소식 ({ctx["week_label"]})',
         '',

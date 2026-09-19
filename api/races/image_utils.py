@@ -3,6 +3,7 @@ import uuid
 from pathlib import Path
 
 from django.conf import settings
+from django.core.files.uploadedfile import UploadedFile
 from PIL import Image
 
 THUMB_WIDTH = 600
@@ -11,12 +12,12 @@ WEBP_QUALITY = 82
 try:
     RESAMPLE_FILTER = Image.Resampling.LANCZOS
 except AttributeError:
-    RESAMPLE_FILTER = Image.LANCZOS
+    RESAMPLE_FILTER = getattr(Image, 'LANCZOS')
 
 
-def save_upload(uploaded_file, subdir='races'):
+def save_upload(uploaded_file: UploadedFile, subdir: str = 'races') -> str:
     """Save an uploaded file under MEDIA_ROOT/<subdir>/ and return its relative path."""
-    ext = os.path.splitext(uploaded_file.name)[1].lower() or '.bin'
+    ext = os.path.splitext(uploaded_file.name or '')[1].lower() or '.bin'
     filename = f'{uuid.uuid4().hex}{ext}'
     rel_path = f'{subdir}/{filename}'
     abs_path = os.path.join(settings.MEDIA_ROOT, rel_path)
@@ -27,7 +28,7 @@ def save_upload(uploaded_file, subdir='races'):
     return rel_path
 
 
-def delete_upload(rel_path):
+def delete_upload(rel_path: str | None) -> None:
     """Delete the uploaded original and its derived WebP/thumb files (best-effort)."""
     if not rel_path:
         return
@@ -41,7 +42,7 @@ def delete_upload(rel_path):
             pass
 
 
-def process_image(rel_path):
+def process_image(rel_path: str) -> dict[str, str] | None:
     """Convert image to WebP and create thumbnail.
 
     Args:
@@ -65,18 +66,18 @@ def process_image(rel_path):
 
     try:
         with Image.open(src) as img:
-            img = img.convert('RGBA') if img.mode == 'RGBA' else img.convert('RGB')
+            converted: Image.Image = img.convert('RGBA') if img.mode == 'RGBA' else img.convert('RGB')
 
             # Save WebP full-size
-            img.save(str(webp_path), 'WEBP', quality=WEBP_QUALITY)
+            converted.save(str(webp_path), 'WEBP', quality=WEBP_QUALITY)
 
             # Save thumbnail
             thumb_dir.mkdir(parents=True, exist_ok=True)
-            thumb = img.copy()
+            thumb = converted.copy()
             if thumb.width > THUMB_WIDTH:
                 ratio = THUMB_WIDTH / thumb.width
                 new_height = int(thumb.height * ratio)
-                thumb = thumb.resize((THUMB_WIDTH, new_height), Image.LANCZOS)
+                thumb = thumb.resize((THUMB_WIDTH, new_height), RESAMPLE_FILTER)
             thumb.save(str(thumb_path), 'WEBP', quality=WEBP_QUALITY)
 
     except Exception:
@@ -90,7 +91,7 @@ def process_image(rel_path):
     }
 
 
-def get_webp_path(rel_path):
+def get_webp_path(rel_path: str | None) -> str | None:
     """Return WebP relative path if file exists, else original."""
     if not rel_path:
         return rel_path
@@ -103,7 +104,7 @@ def get_webp_path(rel_path):
     return rel_path
 
 
-def get_thumb_path(rel_path):
+def get_thumb_path(rel_path: str | None) -> str | None:
     """Return thumbnail relative path if file exists, else None."""
     if not rel_path:
         return None

@@ -1,10 +1,12 @@
+from typing import Any
+
 from rest_framework import serializers
 
 from core.sanitize import html_to_text, sanitize_html
 from .models import Post, PostComment, PostLike
 
 
-class PostCommentSerializer(serializers.ModelSerializer):
+class PostCommentSerializer(serializers.ModelSerializer[PostComment]):
     nickname = serializers.SerializerMethodField()
     is_reply = serializers.SerializerMethodField()
     created_at_formatted = serializers.SerializerMethodField()
@@ -19,31 +21,31 @@ class PostCommentSerializer(serializers.ModelSerializer):
             'is_owner',
         ]
 
-    def get_nickname(self, obj):
+    def get_nickname(self, obj: PostComment) -> str:
         return obj.display_nickname
 
-    def get_is_reply(self, obj):
+    def get_is_reply(self, obj: PostComment) -> bool:
         return obj.is_reply
 
-    def get_created_at_formatted(self, obj):
+    def get_created_at_formatted(self, obj: PostComment) -> str:
         if obj.created_at:
             return obj.created_at.strftime('%Y.%m.%d %H:%M')
         return ''
 
-    def get_is_owner(self, obj):
+    def get_is_owner(self, obj: PostComment) -> bool:
         request = self.context.get('request')
         if request and hasattr(request, 'user') and request.user.is_authenticated:
             return obj.user_id == request.user.id if obj.user_id else False
         return False
 
-    def get_replies(self, obj):
+    def get_replies(self, obj: PostComment) -> Any:
         if obj.parent_id is not None:
             return []
         replies = obj.replies.all().order_by('created_at')
         return PostCommentSerializer(replies, many=True, context=self.context).data
 
 
-class PostSerializer(serializers.ModelSerializer):
+class PostSerializer(serializers.ModelSerializer[Post]):
     nickname = serializers.SerializerMethodField()
     image_srcs = serializers.SerializerMethodField()
     comment_count = serializers.SerializerMethodField()
@@ -65,35 +67,35 @@ class PostSerializer(serializers.ModelSerializer):
             'tagged_races', 'comments', 'is_owner',
         ]
 
-    def get_nickname(self, obj):
+    def get_nickname(self, obj: Post) -> str:
         return obj.display_nickname
 
-    def get_image_srcs(self, obj):
+    def get_image_srcs(self, obj: Post) -> list[str]:
         return obj.image_srcs
 
-    def get_comment_count(self, obj):
+    def get_comment_count(self, obj: Post) -> int:
         if hasattr(obj, '_comment_count'):
-            return obj._comment_count
+            return int(getattr(obj, '_comment_count'))
         return obj.comment_count
 
-    def get_like_count(self, obj):
+    def get_like_count(self, obj: Post) -> int:
         if hasattr(obj, '_like_count'):
-            return obj._like_count
+            return int(getattr(obj, '_like_count'))
         return obj.like_count
 
-    def get_created_at_formatted(self, obj):
+    def get_created_at_formatted(self, obj: Post) -> str:
         if obj.created_at:
             return obj.created_at.strftime('%Y.%m.%d %H:%M')
         return ''
 
-    def get_tagged_races(self, obj):
+    def get_tagged_races(self, obj: Post) -> Any:
         include_races = self.context.get('include_tagged_races', False)
         if not include_races:
             return None
         from races.serializers import TaggedRaceSerializer
         return TaggedRaceSerializer(obj.races.all(), many=True).data
 
-    def get_comments(self, obj):
+    def get_comments(self, obj: Post) -> Any:
         include_comments = self.context.get('include_comments', False)
         if not include_comments:
             return None
@@ -102,18 +104,18 @@ class PostSerializer(serializers.ModelSerializer):
         ).prefetch_related('replies').order_by('-created_at')
         return PostCommentSerializer(root_comments, many=True, context=self.context).data
 
-    def get_is_owner(self, obj):
+    def get_is_owner(self, obj: Post) -> bool:
         request = self.context.get('request')
         if request and hasattr(request, 'user') and request.user.is_authenticated:
             return obj.user_id == request.user.id if obj.user_id else False
         return False
 
-    def get_content_text(self, obj):
+    def get_content_text(self, obj: Post) -> str:
         text = html_to_text(obj.content) if obj.content else ''
         return text[:500]
 
 
-class PostListSerializer(serializers.ModelSerializer):
+class PostListSerializer(serializers.ModelSerializer[Post]):
     """Lighter serializer for post listings (no comments)."""
     nickname = serializers.SerializerMethodField()
     image_srcs = serializers.SerializerMethodField()
@@ -134,37 +136,37 @@ class PostListSerializer(serializers.ModelSerializer):
             'tagged_races',
         ]
 
-    def get_nickname(self, obj):
+    def get_nickname(self, obj: Post) -> str:
         return obj.display_nickname
 
-    def get_image_srcs(self, obj):
+    def get_image_srcs(self, obj: Post) -> list[str]:
         return obj.image_srcs
 
-    def get_comment_count(self, obj):
+    def get_comment_count(self, obj: Post) -> int:
         if hasattr(obj, '_comment_count'):
-            return obj._comment_count
+            return int(getattr(obj, '_comment_count'))
         return obj.comment_count
 
-    def get_like_count(self, obj):
+    def get_like_count(self, obj: Post) -> int:
         if hasattr(obj, '_like_count'):
-            return obj._like_count
+            return int(getattr(obj, '_like_count'))
         return obj.like_count
 
-    def get_created_at_formatted(self, obj):
+    def get_created_at_formatted(self, obj: Post) -> str:
         if obj.created_at:
             return obj.created_at.strftime('%Y.%m.%d %H:%M')
         return ''
 
-    def get_tagged_races(self, obj):
+    def get_tagged_races(self, obj: Post) -> Any:
         from races.serializers import TaggedRaceSerializer
         return TaggedRaceSerializer(obj.races.all(), many=True).data
 
-    def get_content_text(self, obj):
+    def get_content_text(self, obj: Post) -> str:
         text = html_to_text(obj.content) if obj.content else ''
         return text[:500]
 
 
-class PostCreateSerializer(serializers.Serializer):
+class PostCreateSerializer(serializers.Serializer[dict[str, Any]]):
     nickname = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
     title = serializers.CharField(max_length=100)
     content = serializers.CharField()
@@ -180,14 +182,14 @@ class PostCreateSerializer(serializers.Serializer):
         max_length=5,
     )
 
-    def validate_title(self, value):
+    def validate_title(self, value: str) -> str:
         if not value or not value.strip():
             raise serializers.ValidationError('제목을 입력해주세요.')
         if len(value) > 100:
             raise serializers.ValidationError('제목은 최대 100자까지 입력 가능합니다.')
         return value.strip()
 
-    def validate_content(self, value):
+    def validate_content(self, value: str) -> str:
         if not value or not value.strip():
             raise serializers.ValidationError('내용을 입력해주세요.')
         # Sanitize HTML
@@ -198,7 +200,7 @@ class PostCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError('내용은 최대 10000자까지 입력 가능합니다.')
         return sanitized
 
-    def validate(self, attrs):
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         # Password is required only for unauthenticated users
         request = self.context.get('request')
         is_authenticated = request and hasattr(request, 'user') and request.user.is_authenticated
@@ -207,7 +209,7 @@ class PostCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError({'password': ['비밀번호는 최소 4자 이상이어야 합니다.']})
         return attrs
 
-    def validate_race_ids(self, value):
+    def validate_race_ids(self, value: list[int]) -> list[int]:
         if value and len(value) > 5:
             raise serializers.ValidationError('대회 태그는 최대 5개까지 선택 가능합니다.')
         if value:
@@ -218,7 +220,7 @@ class PostCreateSerializer(serializers.Serializer):
         return value
 
 
-class PostUpdateSerializer(serializers.Serializer):
+class PostUpdateSerializer(serializers.Serializer[dict[str, Any]]):
     edit_token = serializers.CharField(required=False, allow_blank=True, default='')
     nickname = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
     title = serializers.CharField(max_length=100)
@@ -239,12 +241,12 @@ class PostUpdateSerializer(serializers.Serializer):
         allow_null=True,
     )
 
-    def validate_title(self, value):
+    def validate_title(self, value: str) -> str:
         if not value or not value.strip():
             raise serializers.ValidationError('제목을 입력해주세요.')
         return value.strip()
 
-    def validate_content(self, value):
+    def validate_content(self, value: str) -> str:
         if not value or not value.strip():
             raise serializers.ValidationError('내용을 입력해주세요.')
         # Sanitize HTML
@@ -256,20 +258,20 @@ class PostUpdateSerializer(serializers.Serializer):
         return sanitized
 
 
-class CommentCreateSerializer(serializers.Serializer):
+class CommentCreateSerializer(serializers.Serializer[dict[str, Any]]):
     parent_id = serializers.IntegerField(required=False, allow_null=True)
     nickname = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
     content = serializers.CharField(max_length=1000)
     password = serializers.CharField(min_length=4, max_length=50, required=False, allow_blank=True, default='')
 
-    def validate_content(self, value):
+    def validate_content(self, value: str) -> str:
         if not value or not value.strip():
             raise serializers.ValidationError('댓글 내용을 입력해주세요.')
         if len(value) > 1000:
             raise serializers.ValidationError('댓글은 최대 1000자까지 입력 가능합니다.')
         return value.strip()
 
-    def validate(self, attrs):
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         request = self.context.get('request')
         is_authenticated = request and hasattr(request, 'user') and request.user.is_authenticated
         password = attrs.get('password', '')
@@ -278,15 +280,15 @@ class CommentCreateSerializer(serializers.Serializer):
         return attrs
 
 
-class CommentUpdateSerializer(serializers.Serializer):
+class CommentUpdateSerializer(serializers.Serializer[dict[str, Any]]):
     content = serializers.CharField(max_length=1000)
     password = serializers.CharField(required=False, allow_blank=True, default='')
 
-    def validate_content(self, value):
+    def validate_content(self, value: str) -> str:
         if not value or not value.strip():
             raise serializers.ValidationError('댓글 내용을 입력해주세요.')
         return value.strip()
 
 
-class CommentDeleteSerializer(serializers.Serializer):
+class CommentDeleteSerializer(serializers.Serializer[dict[str, Any]]):
     password = serializers.CharField(required=False, allow_blank=True, default='')

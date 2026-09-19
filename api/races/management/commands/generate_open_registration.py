@@ -1,4 +1,6 @@
-from django.core.management.base import BaseCommand
+from typing import Any
+
+from django.core.management.base import BaseCommand, CommandParser
 from django.utils import timezone
 
 from races.models import Race
@@ -7,7 +9,7 @@ from races.models import Race
 class Command(BaseCommand):
     help = 'Generate blog post for currently open registration races'
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument('year', nargs='?', type=int)
         parser.add_argument('month', nargs='?', type=int)
         parser.add_argument('--sport', type=str, default=None)
@@ -19,7 +21,7 @@ class Command(BaseCommand):
         parser.add_argument('--dry-run', action='store_true')
         parser.add_argument('--output', type=str, default=None)
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> str | None:
         now = timezone.localdate()
         year = options.get('year')
         month = options.get('month')
@@ -33,7 +35,7 @@ class Command(BaseCommand):
             qs = qs.filter(race_date__year=year, race_date__month=month)
         elif year or month:
             self.stderr.write('year and month must be provided together')
-            return
+            return None
 
         if options['sport']:
             qs = qs.filter(sport=options['sport'])
@@ -45,7 +47,7 @@ class Command(BaseCommand):
 
         if not races:
             self.stdout.write('No open registration races found.')
-            return
+            return None
 
         # Group by sport
         sport_order = ['running', 'trail_running', 'triathlon', 'cycling', 'swimming']
@@ -53,7 +55,7 @@ class Command(BaseCommand):
             'running': '마라톤', 'trail_running': '트레일러닝',
             'triathlon': '철인3종', 'cycling': '자전거', 'swimming': '수영',
         }
-        grouped = {}
+        grouped: dict[str, list[Race]] = {}
         for race in races:
             grouped.setdefault(race.sport, []).append(race)
 
@@ -66,7 +68,7 @@ class Command(BaseCommand):
 
         if options['dry_run']:
             self.stdout.write('\n[Dry run] No files generated.')
-            return
+            return None
 
         # Image generation
         if options['image'] or options['instagram']:
@@ -90,3 +92,4 @@ class Command(BaseCommand):
                 self.stderr.write(f'Image generation failed: {e}')
 
         self.stdout.write(self.style.SUCCESS('Done.'))
+        return None

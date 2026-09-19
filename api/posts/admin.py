@@ -1,5 +1,7 @@
 from django.contrib import admin
 from core.utils import post_count_subqueries
+from django.db.models import QuerySet
+from django.http import HttpRequest
 from django.utils.html import format_html
 from unfold.admin import ModelAdmin, TabularInline
 
@@ -42,35 +44,38 @@ class PostAdmin(ModelAdmin):
         }),
     )
 
-    def get_queryset(self, request):
+    def get_queryset(self, request: HttpRequest) -> QuerySet[Post]:
         comment_count_sq, like_count_sq = post_count_subqueries()
-        return super().get_queryset(request).annotate(
+        qs: QuerySet[Post] = super().get_queryset(request)
+        return qs.annotate(
             _comments_count=comment_count_sq,
             _likes_count=like_count_sq,
         )
 
     @admin.display(description='제목')
-    def title_short(self, obj):
+    def title_short(self, obj: Post) -> str:
         return obj.title[:30] + ('...' if len(obj.title) > 30 else '')
 
     @admin.display(description='닉네임')
-    def display_nickname_col(self, obj):
+    def display_nickname_col(self, obj: Post) -> str:
         return obj.display_nickname
 
     @admin.display(description='댓글', ordering='_comments_count')
-    def comments_count_col(self, obj):
-        return getattr(obj, '_comments_count', 0)
+    def comments_count_col(self, obj: Post) -> int:
+        count: int = getattr(obj, '_comments_count', 0)
+        return count
 
     @admin.display(description='좋아요', ordering='_likes_count')
-    def likes_count_col(self, obj):
-        return getattr(obj, '_likes_count', 0)
+    def likes_count_col(self, obj: Post) -> int:
+        count: int = getattr(obj, '_likes_count', 0)
+        return count
 
     @admin.display(description='태그된 대회')
-    def tagged_races_col(self, obj):
+    def tagged_races_col(self, obj: Post) -> str:
         races = obj.races.all()[:3]
         if not races:
             return '-'
-        badges = []
+        badges: list[str] = []
         for race in races:
             badges.append(format_html(
                 '<span style="padding:1px 6px; border-radius:4px; '
@@ -81,7 +86,7 @@ class PostAdmin(ModelAdmin):
         return format_html(''.join(str(b) for b in badges))
 
     @admin.display(description='첨부 이미지')
-    def images_preview(self, obj):
+    def images_preview(self, obj: Post) -> str:
         if not obj.images or not isinstance(obj.images, list):
             return '이미지 없음'
         from django.conf import settings
@@ -98,11 +103,11 @@ class PostAdmin(ModelAdmin):
         return format_html(''.join(html_parts))
 
     @admin.display(description='댓글 수')
-    def comments_count_display(self, obj):
+    def comments_count_display(self, obj: Post) -> int:
         return obj.comments.count()
 
     @admin.display(description='좋아요 수')
-    def likes_count_display(self, obj):
+    def likes_count_display(self, obj: Post) -> int:
         return obj.likes.count()
 
 
@@ -115,22 +120,22 @@ class PostCommentAdmin(ModelAdmin):
     readonly_fields = ['post', 'parent', 'ip_hash', 'created_at', 'updated_at']
 
     @admin.display(description='게시글')
-    def post_link(self, obj):
+    def post_link(self, obj: PostComment) -> str:
         return format_html(
             '<a href="/dj-admin/posts/post/{}/change/">{}</a>',
             obj.post_id, obj.post.title[:20],
         )
 
     @admin.display(description='닉네임')
-    def display_nickname_col(self, obj):
+    def display_nickname_col(self, obj: PostComment) -> str:
         return obj.display_nickname
 
     @admin.display(description='내용')
-    def content_short(self, obj):
+    def content_short(self, obj: PostComment) -> str:
         return obj.content[:40] + ('...' if len(obj.content) > 40 else '')
 
     @admin.display(description='대댓글', boolean=True)
-    def is_reply_col(self, obj):
+    def is_reply_col(self, obj: PostComment) -> bool:
         return obj.is_reply
 
 
@@ -141,5 +146,5 @@ class PostLikeAdmin(ModelAdmin):
     readonly_fields = ['post', 'ip_hash', 'created_at']
 
     @admin.display(description='IP Hash')
-    def ip_hash_short(self, obj):
+    def ip_hash_short(self, obj: PostLike) -> str:
         return obj.ip_hash[:16] + '...'

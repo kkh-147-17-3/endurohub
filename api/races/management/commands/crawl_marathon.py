@@ -1,4 +1,6 @@
-from django.core.management.base import BaseCommand
+from typing import Any
+
+from django.core.management.base import BaseCommand, CommandParser
 
 from races.services import MarathonCrawlerService
 
@@ -6,7 +8,7 @@ from races.services import MarathonCrawlerService
 class Command(BaseCommand):
     help = 'Roadrun 마라톤 대회 정보를 크롤링합니다'
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument(
             '--year', type=int, default=None,
             help='크롤링할 연도 (기본: 현재 연도)',
@@ -24,7 +26,7 @@ class Command(BaseCommand):
             help='데이터베이스에 저장하지 않고 결과만 출력',
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> str | None:
         from django.utils import timezone
 
         year = options['year'] or timezone.now().year
@@ -65,3 +67,4 @@ class Command(BaseCommand):
                     self.stdout.write(
                         f"- {race.get('race_date')} | {race.get('region')} | {race.get('title')}"
                     )
+        return None

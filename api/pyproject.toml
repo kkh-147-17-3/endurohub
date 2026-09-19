@@ -2,15 +2,18 @@
 # Django 모델/ORM의 동적 동작을 정적 분석기에 알려주는 플러그인
 plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
 
-python_version = "3.13"
+# 프로덕션 런타임 기준 (api/Dockerfile python:3.14)
+python_version = "3.14"
 
-# --- 점진 도입용 설정 (처음엔 느슨하게, 익숙해지면 조여간다) ---
-# 타입 힌트가 없는 함수는 검사하지 않음 (기존 코드 전체가 에러로 도배되는 걸 방지)
-check_untyped_defs = false
-disallow_untyped_defs = false
-ignore_missing_imports = true
+# --- strongly typed 기본 강제 ---
+# 힌트가 없는 함수는 본문도 검사하지 않으면 검사가 묵시적으로 물러나므로 둘 다 켠다.
+check_untyped_defs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+warn_return_any = true
+strict_equality = true
 
-# 유용한 경고는 켜둔다
+# 유용한 경고
 warn_redundant_casts = true
 warn_unused_ignores = true
 show_error_codes = true
@@ -18,6 +21,12 @@ pretty = true
 
 # 마이그레이션 파일은 자동 생성물이라 검사 제외
 exclude = "(^|/)migrations/"
+
+# 서드파티 중 py.typed 미제공 라이브러리 — 스텁이 없어 검사 불가이므로 임포트 오류만 억제
+# (우리 코드 예외가 아니라 타사 라이브러리 자체에 힌트가 없는 경우)
+[[tool.mypy.overrides]]
+module = ["celery", "celery.*", "django_celery_beat", "django_celery_beat.*", "django_filters", "django_filters.*", "unfold", "unfold.*"]
+ignore_missing_imports = true
 
 [tool.django-stubs]
 django_settings_module = "config.settings"

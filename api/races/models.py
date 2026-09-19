@@ -1,5 +1,7 @@
+import json
 import re
-from datetime import date
+from datetime import date, timedelta
+from typing import Any, TypedDict, cast
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
@@ -15,16 +17,25 @@ from .constants import (
 from .image_utils import get_thumb_path, get_webp_path
 
 
-class RaceQuerySet(models.QuerySet):
+class DistanceCategory(TypedDict, total=False):
+    value: str
+    label: str
+    type: str
+    min: float
+    max: float
+    keyword: str
 
-    def upcoming(self):
+class RaceQuerySet(models.QuerySet["Race"]):
+
+    def upcoming(self) -> "RaceQuerySet":
         today = timezone.localdate()
         return self.filter(race_date__gte=today).order_by('race_date')
 
-    def closing_soon(self, days=7):
+    def closing_soon(self, days: int = 7) -> "RaceQuerySet":
         today = timezone.localdate()
-        end_date = today + timezone.timedelta(days=days)
-        return self.exclude(
+        end_date = today + timedelta(days=days)
+        # .extra() 가 Self 를 잃고 QuerySet[Any, Any] 를 반환해 경계에서 되돌린다.
+        return cast("RaceQuerySet", self.exclude(
             status='registration_closed'
         ).extra(
             where=["COALESCE(race_end_date, race_date) >= %s"],
@@ -32,9 +43,9 @@ class RaceQuerySet(models.QuerySet):
         ).filter(
             registration_end__gte=today,
             registration_end__lte=end_date,
-        ).order_by('registration_end')
+        ).order_by('registration_end'))
 
-    def by_month_range(self, month_from=None, month_to=None):
+    def by_month_range(self, month_from: str | None = None, month_to: str | None = None) -> "RaceQuerySet":
         from datetime import datetime
         qs = self
         if month_from:
@@ -48,17 +59,17 @@ class RaceQuerySet(models.QuerySet):
             qs = qs.filter(race_date__lte=end)
         return qs.order_by('race_date')
 
-    def by_sport(self, sport):
+    def by_sport(self, sport: str | list[str] | tuple[str, ...]) -> "RaceQuerySet":
         if isinstance(sport, (list, tuple)):
             return self.filter(sport__in=sport)
         return self.filter(sport=sport)
 
-    def by_region(self, region):
+    def by_region(self, region: str | list[str] | tuple[str, ...]) -> "RaceQuerySet":
         if isinstance(region, (list, tuple)):
             return self.filter(region__in=region)
         return self.filter(region=region)
 
-    def by_status(self, statuses):
+    def by_status(self, statuses: str | list[str]) -> "RaceQuerySet":
         from django.db.models import Q
         if isinstance(statuses, str):
             statuses = [statuses]
@@ -112,10 +123,10 @@ class RaceQuerySet(models.QuerySet):
             q |= (status_q | auto_q)
         return self.filter(q)
 
-    def by_name(self, name):
+    def by_name(self, name: str) -> "RaceQuerySet":
         return self.filter(title__icontains=name)
 
-    def by_distance_category(self, sport, categories):
+    def by_distance_category(self, sport: str, categories: str | list[str]) -> "RaceQuerySet":
         """Filter by distance category using Python-based matching.
 
         Uses Race.parse_distance_km to handle distance strings like '42.195km', '1,800m'.
@@ -123,11 +134,11 @@ class RaceQuerySet(models.QuerySet):
         """
         if isinstance(categories, str):
             categories = [categories]
-        sport_categories = DISTANCE_CATEGORIES.get(sport, [])
+        sport_categories = cast("list[DistanceCategory]", DISTANCE_CATEGORIES.get(sport, []))
         if not sport_categories or not categories:
             return self
 
-        cats = []
+        cats: list[DistanceCategory] = []
         for cat_value in categories:
             cat = next((c for c in sport_categories if c['value'] == cat_value), None)
             if cat:
@@ -137,7 +148,7 @@ class RaceQuerySet(models.QuerySet):
 
         # Fetch candidates with distances and filter in Python
         candidates = self.filter(distances__isnull=False)
-        matching_ids = []
+        matching_ids: list[int] = []
         for race in candidates.only('id', 'distances'):
             dists = race.distances
             if not isinstance(dists, list) or not dists:
@@ -185,7 +196,7 @@ class RaceQuerySet(models.QuerySet):
 
         return self.filter(pk__in=matching_ids)
 
-    def by_fee_max(self, max_fee):
+    def by_fee_max(self, max_fee: Any) -> "RaceQuerySet":
         """참가비 상한 필터 (Python 기반, by_distance_category 패턴 미러링).
 
         각 대회의 distances[].fee 중 파싱 가능한 최소 참가비가 max_fee 이하인 대회만 남긴다.
@@ -199,12 +210,12 @@ class RaceQuerySet(models.QuerySet):
             return self
 
         candidates = self.filter(distances__isnull=False)
-        matching_ids = []
+        matching_ids: list[int] = []
         for race in candidates.only('id', 'distances'):
             dists = race.distances
             if not isinstance(dists, list) or not dists:
                 continue
-            fees = []
+            fees: list[int] = []
             for d in dists:
                 if isinstance(d, dict) and d.get('fee') is not None:
                     fee = Race.parse_fee(d['fee'])
@@ -215,7 +226,7 @@ class RaceQuerySet(models.QuerySet):
 
         return self.filter(pk__in=matching_ids)
 
-    def registration_open(self):
+    def registration_open(self) -> "RaceQuerySet":
         from django.db.models import Q
         today = timezone.localdate()
         return self.filter(
@@ -231,6 +242,9 @@ class RaceQuerySet(models.QuerySet):
                 Q(race_end_date__isnull=True, race_date__gte=today)
             )
         )
+
+
+RaceManager = models.Manager.from_queryset(RaceQuerySet)
 
 
 class Race(models.Model):
@@ -282,7 +296,7 @@ class Race(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    objects = RaceQuerySet.as_manager()
+    objects: RaceManager = RaceManager()
 
     # 크롤러가 갱신 대상으로 삼는 필드들 (marathon_crawler._get_changes 와 동기화).
     # 어드민에서 이 중 하나를 직접 편집하면 자동으로 locked_fields 에 추가된다.
@@ -298,13 +312,13 @@ class Race(models.Model):
         db_table = 'races'
         ordering = ['race_date']
 
-    def save(self, **kwargs):
+    def save(self, **kwargs: Any) -> None:
         if self.sport == 'running' and self._title_matches_trail_running():
             self.sport = 'trail_running'
         self._fill_distance_meters()
         super().save(**kwargs)
 
-    def _fill_distance_meters(self):
+    def _fill_distance_meters(self) -> None:
         """Auto-calculate distance_meter from name when not set."""
         if not self.distances or not isinstance(self.distances, list):
             return
@@ -314,15 +328,15 @@ class Race(models.Model):
                 if km is not None:
                     d['distance_meter'] = round(km * 1000)
 
-    def _title_matches_trail_running(self):
+    def _title_matches_trail_running(self) -> bool:
         title_lower = self.title.lower()
         return any(kw.lower() in title_lower for kw in TRAIL_RUNNING_KEYWORDS)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.title
 
     @property
-    def computed_status(self):
+    def computed_status(self) -> str:
         """Return status from DB if set, otherwise calculate from dates."""
         if self.status:
             return self.status
@@ -338,15 +352,15 @@ class Race(models.Model):
         return 'upcoming'
 
     @property
-    def sport_label(self):
+    def sport_label(self) -> str:
         return SPORT_LABELS.get(self.sport, self.sport)
 
     @property
-    def status_label(self):
+    def status_label(self) -> str:
         return STATUS_LABELS.get(self.computed_status, self.computed_status)
 
     @property
-    def image_src(self):
+    def image_src(self) -> str | None:
         if self.image_url:
             return self.image_url
         if self.image_path:
@@ -355,7 +369,7 @@ class Race(models.Model):
         return None
 
     @property
-    def image_src_thumb(self):
+    def image_src_thumb(self) -> str | None:
         if self.image_url:
             return self.image_url
         if self.image_path:
@@ -366,8 +380,8 @@ class Race(models.Model):
         return None
 
     @property
-    def course_image_srcs(self):
-        images = []
+    def course_image_srcs(self) -> list[str]:
+        images: list[str] = []
         if self.course_images:
             images.extend(self._resolve_image_urls(self.course_images))
         if self.course_image_uploads:
@@ -377,8 +391,8 @@ class Race(models.Model):
         return images
 
     @property
-    def giveaway_image_srcs(self):
-        images = []
+    def giveaway_image_srcs(self) -> list[str]:
+        images: list[str] = []
         if self.giveaway_images:
             images.extend(self._resolve_image_urls(self.giveaway_images))
         if self.giveaway_image_uploads:
@@ -388,31 +402,31 @@ class Race(models.Model):
         return images
 
     @property
-    def days_until_race(self):
+    def days_until_race(self) -> int:
         if not self.race_date:
             return 0
         return (self.race_date - timezone.localdate()).days
 
     @property
-    def days_until_registration_end(self):
+    def days_until_registration_end(self) -> int | None:
         if not self.registration_end:
             return None
         return (self.registration_end - timezone.localdate()).days
 
     @property
-    def is_registration_open(self):
+    def is_registration_open(self) -> bool:
         return self.computed_status == 'registration_open'
 
     @property
-    def is_verified(self):
+    def is_verified(self) -> bool:
         return self.verified_at is not None
 
     @property
-    def url(self):
+    def url(self) -> str:
         return f'/races/{self.slug}'
 
-    def _resolve_image_urls(self, paths):
-        resolved = []
+    def _resolve_image_urls(self, paths: Any) -> list[str]:
+        resolved: list[str] = []
         for path in paths:
             if isinstance(path, str):
                 if path.startswith(('http://', 'https://')):
@@ -421,10 +435,10 @@ class Race(models.Model):
                     resolved.append(f'{settings.STORAGE_URL}{path}')
         return resolved
 
-    def is_field_locked(self, field):
+    def is_field_locked(self, field: str) -> bool:
         return field in (self.locked_fields or [])
 
-    def lock_fields_for_edit(self, field_names):
+    def lock_fields_for_edit(self, field_names: list[str]) -> list[str]:
         """편집된 필드 중 크롤러 추적 대상을 locked_fields 에 추가.
 
         Returns:
@@ -443,7 +457,7 @@ class Race(models.Model):
         return newly
 
     @staticmethod
-    def parse_distance_km(distance_string):
+    def parse_distance_km(distance_string: Any) -> float | None:
         """Extract km value from distance strings like '42.195km', '10km', '1,800m'."""
         if not distance_string or not isinstance(distance_string, str):
             return None
@@ -472,7 +486,7 @@ class Race(models.Model):
         return None
 
     @staticmethod
-    def parse_fee(value):
+    def parse_fee(value: Any) -> int | None:
         """참가비 값에서 원 단위 정수 추출. '30,000', '30000원', '3만원', 30000 등 지원."""
         if value is None:
             return None
@@ -505,7 +519,7 @@ class Race(models.Model):
         return None
 
     @staticmethod
-    def distance_names(distances):
+    def distance_names(distances: Any) -> list[str]:
         """Extract name strings from distances (supports both old and new format).
 
         Old format: ["50km", "30km"]
@@ -514,7 +528,7 @@ class Race(models.Model):
         """
         if not distances or not isinstance(distances, list):
             return []
-        names = []
+        names: list[str] = []
         for d in distances:
             if isinstance(d, str):
                 names.append(d)
@@ -523,7 +537,7 @@ class Race(models.Model):
         return names
 
     @staticmethod
-    def detect_distance_category(distances, sport):
+    def detect_distance_category(distances: Any, sport: Any) -> str | None:
         """Find matching distance category for given distances and sport.
 
         Finds max km from distances array, then matches against DISTANCE_CATEGORIES rules.
@@ -531,14 +545,14 @@ class Race(models.Model):
         """
         if not distances or not sport:
             return None
-        sport_categories = DISTANCE_CATEGORIES.get(sport, [])
+        sport_categories = cast("list[DistanceCategory]", DISTANCE_CATEGORIES.get(sport, []))
         if not sport_categories:
             return None
 
         names = Race.distance_names(distances)
 
         # Parse all distances to find max km
-        km_values = []
+        km_values: list[float] = []
         for name in names:
             km = Race.parse_distance_km(name)
             if km is not None:
@@ -568,7 +582,7 @@ class Race(models.Model):
         return None
 
     @staticmethod
-    def get_next_distance_category(distances, sport):
+    def get_next_distance_category(distances: Any, sport: Any) -> str | None:
         """Get the next distance category above the current one.
 
         Returns the value of the next category, or None if already at max.
@@ -576,7 +590,7 @@ class Race(models.Model):
         current = Race.detect_distance_category(distances, sport)
         if current is None:
             return None
-        sport_categories = DISTANCE_CATEGORIES.get(sport, [])
+        sport_categories = cast("list[DistanceCategory]", DISTANCE_CATEGORIES.get(sport, []))
         if not sport_categories:
             return None
         for i, cat in enumerate(sport_categories):
@@ -587,18 +601,18 @@ class Race(models.Model):
         return None
 
     @staticmethod
-    def get_distance_category_label(category_value, sport):
+    def get_distance_category_label(category_value: Any, sport: Any) -> str | None:
         """Look up human-readable label for a category value in a sport."""
         if not category_value or not sport:
             return None
-        sport_categories = DISTANCE_CATEGORIES.get(sport, [])
+        sport_categories = cast("list[DistanceCategory]", DISTANCE_CATEGORIES.get(sport, []))
         for cat in sport_categories:
             if cat['value'] == category_value:
                 return cat['label']
         return None
 
     @staticmethod
-    def generate_unique_slug(title):
+    def generate_unique_slug(title: str) -> str:
         slug = Race.title_to_slug(title)
         original_slug = slug
         counter = 2
@@ -608,7 +622,7 @@ class Race(models.Model):
         return slug
 
     @staticmethod
-    def title_to_slug(title):
+    def title_to_slug(title: str) -> str:
         slug = re.sub(r'\s+', '-', title.strip())
         slug = re.sub(r'[^\w\-]', '', slug, flags=re.UNICODE)
         slug = re.sub(r'-+', '-', slug)
@@ -659,21 +673,23 @@ class Review(models.Model):
             ),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'{self.display_nickname}: {self.rating}star - {self.race}'
 
     @property
-    def display_nickname(self):
-        if self.user_id:
+    def display_nickname(self) -> str:
+        user = self.user
+        if user is not None:
             try:
-                if self.user.profile.nickname:
-                    return self.user.profile.nickname
+                nickname = user.profile.nickname
+                if nickname:
+                    return nickname
             except (AttributeError, ObjectDoesNotExist):
                 pass
         return self.nickname or '익명'
 
     @property
-    def like_count(self):
+    def like_count(self) -> int:
         return self.likes.count()
 
 
@@ -724,24 +740,23 @@ class RacePendingChange(models.Model):
         db_table = 'race_pending_changes'
         ordering = ['-created_at']
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'{self.race} - {self.field_label} ({self.status_display})'
 
     @property
-    def field_label(self):
+    def field_label(self) -> str:
         return self.FIELD_LABELS.get(self.field_name, self.field_name)
 
     @property
-    def status_display(self):
+    def status_display(self) -> str:
         return self.STATUS_LABELS.get(self.status, self.status)
 
-    def approve(self, reviewed_by=None):
-        import json
+    def approve(self, reviewed_by: str | None = None) -> bool:
         race = self.race
         if not race:
             return False
-        new_value = self.new_value
-        if self.field_name in self.JSON_FIELDS:
+        new_value: Any = self.new_value
+        if self.field_name in self.JSON_FIELDS and new_value is not None:
             try:
                 new_value = json.loads(new_value)
             except (json.JSONDecodeError, TypeError):
@@ -754,7 +769,7 @@ class RacePendingChange(models.Model):
         self.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'updated_at'])
         return True
 
-    def reject(self, reviewed_by=None):
+    def reject(self, reviewed_by: str | None = None) -> bool:
         self.status = 'rejected'
         self.reviewed_by = reviewed_by
         self.reviewed_at = timezone.now()
@@ -773,7 +788,7 @@ class DeviceToken(models.Model):
     class Meta:
         db_table = 'device_tokens'
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'{self.platform}: {self.token[:20]}...'
 
 
@@ -795,7 +810,7 @@ class RaceFavorite(models.Model):
         unique_together = [('user', 'race')]
         indexes = [models.Index(fields=['user', '-created_at'])]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'{self.user_id} -> Race#{self.race_id}'
 
 
@@ -838,7 +853,7 @@ class RaceParticipation(models.Model):
         unique_together = [('user', 'race')]
         indexes = [models.Index(fields=['user', '-updated_at'])]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'{self.user_id} -> Race#{self.race_id} ({self.status})'
 
 
@@ -854,5 +869,5 @@ class ReviewLike(models.Model):
         # (review, ip_hash) 유니크 인덱스의 선행 컬럼이 review 라 개수 집계도 이걸 탄다.
         unique_together = [('review', 'ip_hash')]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'Like on Review#{self.review_id} by {self.ip_hash[:8]}...'

@@ -1,4 +1,7 @@
+from typing import Any
+
 from rest_framework import status
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -18,7 +21,7 @@ MAX_PROPERTIES_SIZE = 20
 class EventTrackView(APIView):
     """POST /api/v1/events/ — 프론트엔드 이벤트를 AnalyticsEvent 테이블에 기록한다."""
 
-    def post(self, request):
+    def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         events = request.data if isinstance(request.data, list) else [request.data]
 
         if len(events) > 10:

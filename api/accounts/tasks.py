@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task(ignore_result=True)
-def send_welcome_email_task(user_id):
+def send_welcome_email_task(user_id: int) -> None:
     """Send welcome email to a newly registered user."""
     from accounts.emails import send_welcome_email
     from accounts.models import UserProfile
@@ -21,7 +21,7 @@ def send_welcome_email_task(user_id):
 
 
 @shared_task(ignore_result=True)
-def send_weekly_digest_task():
+def send_weekly_digest_task() -> None:
     """Send weekly digest email to all opted-in users."""
     from accounts.emails import send_weekly_digest_email
     from accounts.models import UserProfile
@@ -49,14 +49,16 @@ def send_weekly_digest_task():
 
 
 @shared_task(ignore_result=True)
-def send_new_races_alert_task():
+def send_new_races_alert_task() -> None:
     """Check for races added in the last hour and notify opted-in users."""
+    from datetime import timedelta
+
     from django.utils import timezone
 
     from accounts.emails import send_new_races_alert
     from races.models import Race
 
-    one_hour_ago = timezone.now() - timezone.timedelta(hours=1)
+    one_hour_ago = timezone.now() - timedelta(hours=1)
     new_races = Race.objects.upcoming().filter(created_at__gte=one_hour_ago)
 
     count = new_races.count()

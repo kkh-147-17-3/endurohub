@@ -22,7 +22,7 @@ TEST_CACHES = {
 
 @override_settings(CACHES=TEST_CACHES)
 class NoticeSlugDetailTests(APITestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         cache.clear()
         self.addCleanup(cache.clear)
         self.notice, _ = Notice.objects.update_or_create(
@@ -35,7 +35,7 @@ class NoticeSlugDetailTests(APITestCase):
             },
         )
 
-    def test_slug_detail_increments_view_count(self):
+    def test_slug_detail_increments_view_count(self) -> None:
         response = self.client.get('/api/v1/notices/by-slug/coffee-coupon-event/')
 
         self.assertEqual(response.status_code, 200)
@@ -43,7 +43,7 @@ class NoticeSlugDetailTests(APITestCase):
         self.assertEqual(self.notice.view_count, 1)
         self.assertEqual(response.json()['notice']['views'], 1)
 
-    def test_list_exposes_custom_href_and_current_views(self):
+    def test_list_exposes_custom_href_and_current_views(self) -> None:
         self.notice.view_count = 7
         self.notice.save(update_fields=['view_count'])
 
@@ -55,7 +55,7 @@ class NoticeSlugDetailTests(APITestCase):
         self.assertEqual(item['views'], 7)
         self.assertEqual(response.json()['counts']['event'], 1)
 
-    def test_sitemap_payload_exposes_notice_canonical_identifier(self):
+    def test_sitemap_payload_exposes_notice_canonical_identifier(self) -> None:
         response = self.client.get('/api/v1/sitemap/')
 
         self.assertEqual(response.status_code, 200)
@@ -63,7 +63,7 @@ class NoticeSlugDetailTests(APITestCase):
         self.assertEqual(item['slug'], 'coffee-coupon-event')
         self.assertIn('updatedAt', item)
 
-    def test_authenticated_user_can_comment_and_reply(self):
+    def test_authenticated_user_can_comment_and_reply(self) -> None:
         user = User.objects.create_user(username='runner@example.com', email='runner@example.com')
         UserProfile.objects.create(user=user, nickname='러너')
         self.client.force_authenticate(user=user)
@@ -91,7 +91,7 @@ class NoticeSlugDetailTests(APITestCase):
         self.assertEqual(detail.data['notice']['comments'][0]['nickname'], '러너')
         self.assertEqual(detail.data['notice']['comments'][0]['replies'][0]['content'], '저도 참여합니다!')
 
-    def test_comment_owner_can_update_and_delete(self):
+    def test_comment_owner_can_update_and_delete(self) -> None:
         user = User.objects.create_user(username='runner@example.com', email='runner@example.com')
         self.client.force_authenticate(user=user)
         comment = NoticeComment.objects.create(
@@ -111,7 +111,7 @@ class NoticeSlugDetailTests(APITestCase):
         self.assertEqual(deleted.status_code, status.HTTP_200_OK)
         self.assertFalse(NoticeComment.objects.filter(pk=comment.pk).exists())
 
-    def test_anonymous_comment_requires_password(self):
+    def test_anonymous_comment_requires_password(self) -> None:
         response = self.client.post(
             f'/api/v1/notices/{self.notice.id}/comments/',
             {'nickname': '익명', 'content': '댓글'},

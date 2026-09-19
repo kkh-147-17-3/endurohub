@@ -3,6 +3,7 @@ from django.contrib.auth.hashers import check_password
 from django.core.cache import cache
 from django.db import models
 from django.utils import timezone
+from typing import Any
 
 
 class Notice(models.Model):
@@ -31,14 +32,14 @@ class Notice(models.Model):
         db_table = 'notices'
         ordering = ['-pinned', '-published_at']
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.title
 
     @property
-    def is_urgent(self):
+    def is_urgent(self) -> bool:
         return self.category == 'urgent'
 
-    def increment_view_count(self):
+    def increment_view_count(self) -> None:
         Notice.objects.filter(pk=self.pk).update(
             view_count=models.F('view_count') + 1
         )
@@ -73,30 +74,31 @@ class NoticeComment(models.Model):
         db_table = 'notice_comments'
         ordering = ['created_at']
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'{self.display_nickname}: {self.content[:30]}'
 
     @property
-    def display_nickname(self):
-        if self.user_id:
+    def display_nickname(self) -> str:
+        user = self.user
+        if user is not None:
             try:
-                return self.user.profile.nickname or self.nickname or '익명'
+                return user.profile.nickname or self.nickname or '익명'
             except Exception:
                 return self.nickname or '익명'
         return self.nickname or '익명'
 
     @property
-    def is_reply(self):
+    def is_reply(self) -> bool:
         return self.parent_id is not None
 
-    def check_password(self, raw_password):
+    def check_password(self, raw_password: str) -> bool:
         return check_password(raw_password, self.password)
 
 
 POPUP_CACHE_KEY = 'notices:popup:live:v1'
 
 
-def invalidate_popup_cache():
+def invalidate_popup_cache() -> None:
     cache.delete(POPUP_CACHE_KEY)
 
 
@@ -162,19 +164,20 @@ class Popup(models.Model):
         verbose_name = '팝업 배너'
         verbose_name_plural = '팝업 배너'
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: Any, **kwargs: Any) -> None:
         super().save(*args, **kwargs)
         invalidate_popup_cache()
 
-    def delete(self, *args, **kwargs):
-        super().delete(*args, **kwargs)
+    def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
+        result = super().delete(*args, **kwargs)
         invalidate_popup_cache()
+        return result
 
     @property
-    def is_live(self):
+    def is_live(self) -> bool:
         """지금이 게시기간 안인가."""
         if not self.active:
             return False
@@ -186,11 +189,11 @@ class Popup(models.Model):
         return True
 
     @property
-    def image_url(self):
+    def image_url(self) -> str:
         return self.image.url if self.image else ''
 
     @property
-    def target_url(self):
+    def target_url(self) -> str:
         if self.cta_url:
             return self.cta_url
         if self.notice_id:
@@ -198,7 +201,7 @@ class Popup(models.Model):
         return ''
 
     @classmethod
-    def live(cls):
+    def live(cls) -> 'Popup | None':
         """게시기간 안인 팝업 중 우선순위가 가장 높은 하나.
 
         이미지가 없으면 띄울 내용이 없다 — 아예 후보에서 뺀다.

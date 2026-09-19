@@ -1,6 +1,7 @@
 import re
+from typing import Any
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandParser
 
 from races.models import Race
 
@@ -29,7 +30,7 @@ def extract_edition(title: str) -> str | None:
 class Command(BaseCommand):
     help = "기존 대회 title에서 '제N회' 패턴을 추출해 edition 필드에 채웁니다"
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument(
             '--dry-run', action='store_true',
             help='저장하지 않고 매칭 결과만 출력',
@@ -39,7 +40,7 @@ class Command(BaseCommand):
             help='이미 edition 값이 있어도 덮어씀 (기본: 비어있는 것만)',
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> str | None:
         dry_run = options['dry_run']
         overwrite = options['overwrite']
 
@@ -70,3 +71,4 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f'완료: 매칭 {matched} / 미매칭 {skipped} / 전체 {total}'
         ))
+        return None

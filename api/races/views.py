@@ -5,8 +5,10 @@ import re
 import uuid
 from collections import defaultdict
 from datetime import date, datetime, timedelta
+from typing import Any, Iterable, cast
 
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import IntegrityError, transaction
@@ -19,6 +21,7 @@ from django.db.models import (
     Min,
     OuterRef,
     Q,
+    QuerySet,
     Subquery,
     Value,
 )
@@ -28,6 +31,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -45,7 +49,7 @@ from .constants import DISTANCE_CATEGORIES, REGIONS, SPORTS
 from .models import DeviceToken, Race, RaceFavorite, RacePendingChange, Review, ReviewLike
 
 
-def _favorite_race_ids(request, race_ids=None):
+def _favorite_race_ids(request: Request, race_ids: Iterable[int] | None = None) -> set[int]:
     """Return set of race IDs favorited by the authenticated user (empty if anonymous)."""
     user = getattr(request, 'user', None)
     if not user or not user.is_authenticated:
@@ -56,7 +60,7 @@ def _favorite_race_ids(request, race_ids=None):
     return set(qs.values_list('race_id', flat=True))
 
 
-def _inject_is_favorited(request, race_dicts):
+def _inject_is_favorited(request: Request, race_dicts: list[dict[str, Any]]) -> None:
     """Overwrite isFavorited on a list of already-serialized race dicts for the current user.
 
     Used after cache retrieval since cached payloads are user-agnostic.
@@ -93,7 +97,7 @@ class HomeView(APIView):
     CACHE_KEY = 'home_page_data'
     CACHE_TTL = 300  # 5 minutes
 
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         cached = cache.get(self.CACHE_KEY)
         if cached:
             import copy
@@ -153,7 +157,7 @@ class HomeCommunityView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [AllowAny]
 
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         from accounts.models import RaceRecord
 
         # Count likes only for the five rows selected by the outer query. A
@@ -234,7 +238,7 @@ class RecommendationsView(APIView):
     TOP_COUNT = 4
     RANDOM_COUNT = 2
 
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         user = request.user if request.user and request.user.is_authenticated else None
         session_id = request.META.get('HTTP_X_SESSION_ID', '') or request.COOKIES.get('ehub_sid', '')
 
@@ -292,10 +296,10 @@ class RecommendationsView(APIView):
         _inject_is_favorited(request, response_data.get('races') or [])
         return Response(response_data)
 
-    def _personalized(self, events):
+    def _personalized(self, events: QuerySet[AnalyticsEvent]) -> dict[str, Any]:
         """Generate personalized recommendations based on user event history."""
-        sport_scores = defaultdict(float)
-        region_scores = defaultdict(float)
+        sport_scores: defaultdict[str, float] = defaultdict(float)
+        region_scores: defaultdict[str, float] = defaultdict(float)
         viewed_race_ids = set()
 
         for event in events.filter(
@@ -312,8 +316,8 @@ class RecommendationsView(APIView):
                 viewed_race_ids.add(event['item_id'])
 
         # Also aggregate race_search events
-        for event in events.filter(event_type='race_search').values('properties'):
-            props = event['properties'] or {}
+        for search_event in events.filter(event_type='race_search').values('properties'):
+            props = search_event['properties'] or {}
             for sport in (props.get('sport') or []):
                 sport_scores[sport] += self.EVENT_WEIGHTS['race_search']
             for region in (props.get('region') or []):
@@ -378,7 +382,7 @@ class RecommendationsView(APIView):
             },
         }
 
-    def _popular_fallback(self):
+    def _popular_fallback(self) -> dict[str, Any]:
         """Return popular races based on view_count."""
         qs = Race.objects.upcoming().exclude(title__contains='(취소)')
 
@@ -400,7 +404,7 @@ class RaceListView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [AllowAny]
 
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         sport = request.query_params.getlist('sport', [])
         if not sport:
             sport_single = request.query_params.get('sport')
@@ -473,7 +477,7 @@ class RaceListView(APIView):
         if per_page:
             paginator.page_size = min(int(per_page), 100)
 
-        page = paginator.paginate_queryset(qs, request)
+        page: list[Race] = paginator.paginate_queryset(qs, request) or []
         page_ids = [r.id for r in page]
         favorite_ids = _favorite_race_ids(request, page_ids)
         serializer = RaceSerializer(page, many=True, context={'favorite_race_ids': favorite_ids})
@@ -507,12 +511,12 @@ class RaceNlSearchView(APIView):
     """자연어 대회 검색. q(자연어)를 LLM으로 구조화 필터로 파싱 후 목록 반환.
 
     LLM 미설정/실패 시 q를 제목 키워드로 쓰는 폴백으로 동작한다.
-    응답은 RaceListView 와 동일한 data/meta/links 형태에 interpretation(요약·칩)을 더한다.
+    응답은 RaceListView 와 동일한 count/next/previous/results 형태에 interpretation(요약·칩)을 더한다.
     """
     authentication_classes = [JWTAuthentication]
     permission_classes = [AllowAny]
 
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         from .nl_search import VALID_DISTANCE_CATEGORIES, interpret_query
 
         raw_query = (request.query_params.get('q') or '').strip()
@@ -564,7 +568,7 @@ class RaceNlSearchView(APIView):
         if per_page:
             paginator.page_size = min(int(per_page), 100)
 
-        page = paginator.paginate_queryset(qs, request)
+        page: list[Race] = paginator.paginate_queryset(qs, request) or []
         page_ids = [r.id for r in page]
         favorite_ids = _favorite_race_ids(request, page_ids)
         serializer = RaceSerializer(page, many=True, context={'favorite_race_ids': favorite_ids})
@@ -599,7 +603,7 @@ class RaceDetailView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [AllowAny]
 
-    def get(self, request, slug):
+    def get(self, request: Request, slug: str) -> Response:
         try:
             if slug.isdigit():
                 race = Race.objects.get(id=int(slug))
@@ -614,7 +618,7 @@ class RaceDetailView(APIView):
             'slug': race.slug,
             'sport': race.sport,
             'region': race.region,
-        }, item_id=race.id, item_type='race')
+        }, item_id=str(race.id), item_type='race')
 
         # Related races (slot-based, cached 10min)
         cache_key = f'related_races_{race.id}'
@@ -702,13 +706,13 @@ class RaceDetailView(APIView):
             'seasonRecords': season_records,
         })
 
-    def _season_records(self, race, request):
+    def _season_records(self, race: Race, request: Request) -> list[dict[str, Any]]:
         """이 대회의 공개 완주 기록 목록. 로그인 사용자의 기록은 비공개여도 me로 포함."""
         from accounts.models import RaceRecord
 
         user = request.user if request.user.is_authenticated else None
         records = RaceRecord.objects.filter(race=race).select_related('user__profile')
-        out = []
+        out: list[dict[str, Any]] = []
         for rec in records:
             is_me = user is not None and rec.user_id == user.id
             if not rec.is_public and not is_me:
@@ -742,7 +746,7 @@ class RaceDetailView(APIView):
         out.sort(key=lambda r: r['durationSeconds'])
         return out
 
-    def _course_km(self, race, code):
+    def _course_km(self, race: Race, code: str | None) -> float | None:
         from accounts.serializers import course_code_for
         if not code:
             return None
@@ -750,13 +754,14 @@ class RaceDetailView(APIView):
             if isinstance(d, dict) and course_code_for(d) == code:
                 meters = d.get('distance_meter')
                 if meters and meters > 0:
-                    return meters / 1000
+                    km: float = meters / 1000
+                    return km
         return None
 
-    def _get_related_races(self, race, request=None):
+    def _get_related_races(self, race: Race, request: Request | None = None) -> list[dict[str, Any]]:
         from datetime import timedelta
 
-        slots = []
+        slots: list[dict[str, Any]] = []
         exclude_ids = {race.id}
         now = timezone.localdate()
 
@@ -821,10 +826,10 @@ class RaceYearlyView(APIView):
     CACHE_TTL = 300  # 5 minutes
 
     @staticmethod
-    def _cache_key(year):
+    def _cache_key(year: int) -> str:
         return f'races_yearly_{year}'
 
-    def get(self, request, year):
+    def get(self, request: Request, year: int) -> Response:
         year = int(year)
         cache_key = self._cache_key(year)
 
@@ -868,7 +873,7 @@ class RaceCalendarView(APIView):
     REGIONS_CACHE_TTL = 3600  # 지역 목록은 거의 안 바뀐다 — 달력 캐시보다 길게 잡는다
 
     @staticmethod
-    def _cache_key(year, month, sport, region, min_month, max_month):
+    def _cache_key(year: int, month: int, sport: list[str], region: list[str], min_month: date, max_month: date) -> str:
         # 필터 조합마다 별도 키. 쿼리 파라미터 순서가 달라도 같은 키가 되도록 정렬.
         return 'races_calendar_{}_{}_{}_{}_{}_{}'.format(
             year,
@@ -880,7 +885,7 @@ class RaceCalendarView(APIView):
         )
 
     @staticmethod
-    def _query_month(request):
+    def _query_month(request: Request) -> tuple[int, int, date, date]:
         today = timezone.localdate()
         raw_year = request.query_params.get('year')
         raw_month = request.query_params.get('month')
@@ -897,7 +902,7 @@ class RaceCalendarView(APIView):
         return year, month, date(year, month, 1), date(today.year, today.month, 1)
 
     @staticmethod
-    def _adjacent_month(year, month, offset):
+    def _adjacent_month(year: int, month: int, offset: int) -> dict[str, int]:
         month_index = year * 12 + month - 1 + offset
         return {
             'year': month_index // 12,
@@ -905,9 +910,9 @@ class RaceCalendarView(APIView):
         }
 
     @classmethod
-    def _regions(cls):
+    def _regions(cls) -> list[str]:
         """전체 지역 목록 — 매 요청 DISTINCT 전체 스캔하던 것을 캐시한다."""
-        regions = cache.get(cls.REGIONS_CACHE_KEY)
+        regions: list[str] | None = cache.get(cls.REGIONS_CACHE_KEY)
         if regions is None:
             regions = list(
                 Race.objects.exclude(region__isnull=True)
@@ -919,7 +924,7 @@ class RaceCalendarView(APIView):
             cache.set(cls.REGIONS_CACHE_KEY, regions, cls.REGIONS_CACHE_TTL)
         return regions
 
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         year, month, requested_month, current_month = self._query_month(request)
         sport = request.query_params.getlist('sport')
         region = request.query_params.getlist('region')
@@ -1019,12 +1024,12 @@ class RaceCalendarView(APIView):
 
 
 class RaceSportsView(APIView):
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         return Response(SPORTS)
 
 
 class RaceRegionsView(APIView):
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         return Response(REGIONS)
 
 
@@ -1032,7 +1037,7 @@ class ReviewCreateView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, slug):
+    def post(self, request: Request, slug: str) -> Response:
         try:
             if slug.isdigit():
                 race = Race.objects.get(id=int(slug))
@@ -1041,6 +1046,9 @@ class ReviewCreateView(APIView):
         except Race.DoesNotExist:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
+        # permission_classes=[IsAuthenticated] 가 이미 인증을 보장하므로 좁혀서 사용
+        user = cast(User, request.user)
+
         race_end_date = race.race_end_date or race.race_date
         if race_end_date > timezone.localdate():
             return Response(
@@ -1048,8 +1056,8 @@ class ReviewCreateView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        profile = getattr(request.user, 'profile', None)
-        if not profile or not profile.email_verified or not request.user.email:
+        profile = getattr(user, 'profile', None)
+        if not profile or not profile.email_verified or not user.email:
             return Response(
                 {'errors': {'review': ['이메일 인증을 완료한 회원만 리뷰를 작성할 수 있습니다.']}},
                 status=status.HTTP_403_FORBIDDEN,
@@ -1058,7 +1066,7 @@ class ReviewCreateView(APIView):
         ip_hash = hash_ip(request)
 
         # Check duplicate
-        if Review.objects.filter(race=race, user=request.user).exists():
+        if Review.objects.filter(race=race, user=user).exists():
             return Response(
                 {'errors': {'review': ['이미 이 대회에 리뷰를 작성하셨습니다.']}},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -1096,7 +1104,7 @@ class ReviewCreateView(APIView):
                 # losing request from changing the user's existing race record.
                 review = Review.objects.create(
                     race=race,
-                    user=request.user,
+                    user=user,
                     nickname=profile.nickname or None,
                     rating=data['rating'],
                     comment=data['comment'],
@@ -1107,7 +1115,7 @@ class ReviewCreateView(APIView):
                     ip_hash=ip_hash,
                 )
                 race_record = upsert_linked_race_record(
-                    user=request.user,
+                    user=user,
                     race=race,
                     result_data=result_data,
                 )
@@ -1115,7 +1123,7 @@ class ReviewCreateView(APIView):
             # The optimistic duplicate check above can race. Query after the
             # atomic block has rolled back so that loser requests get the same
             # stable API response instead of a database error/500.
-            if Review.objects.filter(race=race, user=request.user).exists():
+            if Review.objects.filter(race=race, user=user).exists():
                 return Response(
                     {'errors': {'review': ['이미 이 대회에 리뷰를 작성하셨습니다.']}},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -1125,7 +1133,7 @@ class ReviewCreateView(APIView):
         track('review_submit', request, {
             'sport': race.sport,
             'rating': review.rating,
-        }, item_id=race.id, item_type='race')
+        }, item_id=str(race.id), item_type='race')
 
         return Response({
             'success': True,
@@ -1141,7 +1149,7 @@ class ReviewLikeToggleView(APIView):
     게시글 추천(PostLikeToggleView)과 동일하게 로그인 없이 IP 해시로 1인 1회.
     """
 
-    def post(self, request, slug, review_id):
+    def post(self, request: Request, slug: str, review_id: int) -> Response:
         if slug.isdigit():
             race_filter = Q(race_id=int(slug))
         else:
@@ -1185,7 +1193,7 @@ class RaceFavoriteToggleView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, slug):
+    def post(self, request: Request, slug: str) -> Response:
         try:
             if slug.isdigit():
                 race = Race.objects.get(id=int(slug))
@@ -1194,17 +1202,19 @@ class RaceFavoriteToggleView(APIView):
         except Race.DoesNotExist:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        existing = RaceFavorite.objects.filter(user=request.user, race=race).first()
+        # permission_classes=[IsAuthenticated] 가 이미 인증을 보장하므로 좁혀서 사용
+        user = cast(User, request.user)
+        existing = RaceFavorite.objects.filter(user=user, race=race).first()
         if existing:
             existing.delete()
             return Response({'success': True, 'favorited': False})
 
-        RaceFavorite.objects.create(user=request.user, race=race)
+        RaceFavorite.objects.create(user=user, race=race)
         return Response({'success': True, 'favorited': True})
 
 
 class SitemapView(APIView):
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         races = Race.objects.order_by('-updated_at').values('slug', 'updated_at')
         posts = Post.objects.order_by('-updated_at').values('id', 'updated_at')
         notices = Notice.objects.order_by('-updated_at').values('id', 'slug', 'updated_at')
@@ -1258,7 +1268,7 @@ class SitemapView(APIView):
 
 
 class DeviceTokenCreateView(APIView):
-    def post(self, request):
+    def post(self, request: Request) -> Response:
         serializer = DeviceTokenCreateSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(
@@ -1283,7 +1293,7 @@ class DeviceTokenCreateView(APIView):
 
 
 class DeviceTokenUpdateView(APIView):
-    def put(self, request):
+    def put(self, request: Request) -> Response:
         serializer = DeviceTokenUpdateSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(
@@ -1313,8 +1323,8 @@ class DeviceTokenUpdateView(APIView):
 
 
 class DeviceTokenDeleteView(APIView):
-    def delete(self, request):
-        token = request.data.get('token')
+    def delete(self, request: Request) -> Response:
+        token = cast(dict[str, Any], request.data).get('token')
         if not token:
             return Response(
                 {'message': '토큰이 필요합니다.'},
@@ -1334,7 +1344,7 @@ class DeviceTokenDeleteView(APIView):
 
 
 class RaceImageUploadView(APIView):
-    def post(self, request, slug):
+    def post(self, request: Request, slug: str) -> Response:
         # Bearer token auth
         auth_header = request.META.get('HTTP_AUTHORIZATION', '')
         if not auth_header.startswith('Bearer '):
@@ -1357,7 +1367,7 @@ class RaceImageUploadView(APIView):
         except Race.DoesNotExist:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        image_type = request.data.get('type')
+        image_type = cast(dict[str, Any], request.data).get('type')
         if image_type not in ('main', 'course', 'giveaway'):
             return Response(
                 {'errors': {'type': ['type must be main, course, or giveaway']}},

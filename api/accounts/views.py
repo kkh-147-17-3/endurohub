@@ -2,14 +2,17 @@ import logging
 import random
 import secrets
 import string
+from datetime import date, timedelta
+from typing import TYPE_CHECKING, Any, cast
 
 from django.conf import settings
-from django.contrib.auth import get_user_model
+from django.contrib.auth.models import User
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -29,9 +32,11 @@ from .serializers import (
 )
 from .tokens import create_access_token
 
+if TYPE_CHECKING:
+    from races.models import Race, RaceParticipation
+
 logger = logging.getLogger(__name__)
-User = get_user_model()
-PENDING_SOCIAL_LOGIN_TTL = timezone.timedelta(minutes=30)
+PENDING_SOCIAL_LOGIN_TTL = timedelta(minutes=30)
 
 
 def coalesce_email(current_value: str, new_value: str) -> str:
@@ -43,7 +48,7 @@ def generate_verification_code() -> str:
     return ''.join(random.choices(string.digits, k=6))
 
 
-def parse_checkbox_value(value) -> bool:
+def parse_checkbox_value(value: Any) -> bool:
     if isinstance(value, bool):
         return value
     return str(value).strip().lower() in {'1', 'true', 'on', 'yes'}
@@ -88,9 +93,9 @@ def _parse_device_label(user_agent: str) -> str:
     return ' · '.join(p for p in (browser, os_name) if p)
 
 
-def send_verification_email(email: str, code: str, request=None) -> None:
+def send_verification_email(email: str, code: str, request: Request | None = None) -> None:
     now = timezone.localtime()
-    expires_at = now + timezone.timedelta(minutes=10)
+    expires_at = now + timedelta(minutes=10)
 
     context = {
         'code': code,
@@ -116,9 +121,10 @@ def send_verification_email(email: str, code: str, request=None) -> None:
     )
 
 
-def get_pending_social_login(request) -> PendingSocialLogin | None:
+def get_pending_social_login(request: Request) -> PendingSocialLogin | None:
+    data = cast(dict[str, Any], request.data)
     pending_token = (
-        request.data.get('pending_token', '').strip()
+        data.get('pending_token', '').strip()
         or request.COOKIES.get('pending_social_token', '').strip()
     )
     if not pending_token:
@@ -131,11 +137,11 @@ def get_pending_social_login(request) -> PendingSocialLogin | None:
 
 
 def ensure_profile(
-    user,
-    user_info: dict,
+    user: User,
+    user_info: dict[str, Any],
     mark_email_verified: bool = False,
     email_updates_opt_in: bool | None = None,
-):
+) -> tuple[UserProfile, bool]:
     profile, created = UserProfile.objects.get_or_create(
         user=user,
         defaults={
@@ -163,14 +169,14 @@ def ensure_profile(
 
 
 def build_auth_response(
-    request,
-    user,
-    user_info: dict,
+    request: Request,
+    user: User,
+    user_info: dict[str, Any],
     provider: str,
     is_new_user: bool,
     mark_email_verified: bool = False,
     email_updates_opt_in: bool | None = None,
-):
+) -> Response:
     profile, _ = ensure_profile(
         user,
         user_info,
@@ -193,7 +199,7 @@ def build_auth_response(
 class OAuthLoginView(APIView):
     """POST /api/v1/auth/{provider}/login/ — returns OAuth authorize URL."""
 
-    def post(self, request, provider):
+    def post(self, request: Request, provider: str) -> Response:
         try:
             oauth = get_provider(provider)
         except OAuthError:
@@ -202,7 +208,8 @@ class OAuthLoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        redirect_uri = request.data.get('redirect_uri', '')
+        data = cast(dict[str, Any], request.data)
+        redirect_uri = data.get('redirect_uri', '')
         if not redirect_uri:
             return Response(
                 {'error': 'redirect_uri가 필요합니다.'},
@@ -226,7 +233,7 @@ class OAuthLoginView(APIView):
 class OAuthCallbackView(APIView):
     """POST /api/v1/auth/{provider}/callback/ — exchange code for JWT."""
 
-    def post(self, request, provider):
+    def post(self, request: Request, provider: str) -> Response:
         try:
             oauth = get_provider(provider)
         except OAuthError:
@@ -235,9 +242,10 @@ class OAuthCallbackView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        code = request.data.get('code', '')
-        redirect_uri = request.data.get('redirect_uri', '')
-        state = request.data.get('state', '')
+        data = cast(dict[str, Any], request.data)
+        code = data.get('code', '')
+        redirect_uri = data.get('redirect_uri', '')
+        state = data.get('state', '')
 
         if not code or not redirect_uri:
             return Response(
@@ -325,7 +333,8 @@ class NicknameSetupView(APIView):
     """POST /api/v1/auth/nickname/ — set nickname after first login."""
     permission_classes = [IsAuthenticated]
 
-    def post(self, request):
+    def post(self, request: Request) -> Response:
+        user = cast(User, request.user)
         serializer = NicknameSetupSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(
@@ -336,7 +345,7 @@ class NicknameSetupView(APIView):
         nickname = serializer.validated_data['nickname']
 
         profile, _ = UserProfile.objects.get_or_create(
-            user=request.user,
+            user=user,
             defaults={'nickname': nickname},
         )
         if profile.nickname != nickname:
@@ -353,8 +362,8 @@ class EmailSendView(APIView):
     """POST /api/v1/auth/email/send/ — send verification code email."""
     permission_classes = [IsAuthenticated]
 
-    def post(self, request):
-        user = request.user
+    def post(self, request: Request) -> Response:
+        user = cast(User, request.user)
         serializer = EmailSendSerializer(data=request.data, context={'user': user})
         if not serializer.is_valid():
             return Response(
@@ -376,7 +385,7 @@ class EmailSendView(APIView):
         # Check for recent verification to prevent spam
         recent = EmailVerification.objects.filter(
             user=user,
-            created_at__gte=timezone.now() - timezone.timedelta(minutes=1),
+            created_at__gte=timezone.now() - timedelta(minutes=1),
         ).exists()
         if recent:
             return Response(
@@ -385,7 +394,7 @@ class EmailSendView(APIView):
             )
 
         code = generate_verification_code()
-        expires_at = timezone.now() + timezone.timedelta(minutes=10)
+        expires_at = timezone.now() + timedelta(minutes=10)
 
         EmailVerification.objects.create(
             user=user,
@@ -412,7 +421,7 @@ class EmailSendView(APIView):
 class PendingSocialEmailSendView(APIView):
     """POST /api/v1/auth/pending/email/send/ — verify email for pending social login."""
 
-    def post(self, request):
+    def post(self, request: Request) -> Response:
         pending_social = get_pending_social_login(request)
         if not pending_social:
             return Response(
@@ -429,7 +438,7 @@ class PendingSocialEmailSendView(APIView):
 
         if (
             pending_social.verification_code
-            and pending_social.updated_at >= timezone.now() - timezone.timedelta(minutes=1)
+            and pending_social.updated_at >= timezone.now() - timedelta(minutes=1)
         ):
             return Response(
                 {'error': '1분 후에 다시 시도해주세요.'},
@@ -441,7 +450,7 @@ class PendingSocialEmailSendView(APIView):
 
         pending_social.email = email
         pending_social.verification_code = code
-        pending_social.verification_expires_at = timezone.now() + timezone.timedelta(minutes=10)
+        pending_social.verification_expires_at = timezone.now() + timedelta(minutes=10)
         pending_social.save(update_fields=[
             'email', 'verification_code', 'verification_expires_at', 'updated_at',
         ])
@@ -465,9 +474,11 @@ class EmailVerifyView(APIView):
     """POST /api/v1/auth/email/verify/ — verify email with code."""
     permission_classes = [IsAuthenticated]
 
-    def post(self, request):
-        code = request.data.get('code', '').strip()
-        email_updates_opt_in = parse_checkbox_value(request.data.get('email_updates_opt_in'))
+    def post(self, request: Request) -> Response:
+        user = cast(User, request.user)
+        data = cast(dict[str, Any], request.data)
+        code = data.get('code', '').strip()
+        email_updates_opt_in = parse_checkbox_value(data.get('email_updates_opt_in'))
         if not code or len(code) != 6:
             return Response(
                 {'errors': {'code': ['6자리 인증 코드를 입력해주세요.']}},
@@ -475,7 +486,7 @@ class EmailVerifyView(APIView):
             )
 
         verification = EmailVerification.objects.filter(
-            user=request.user,
+            user=user,
             code=code,
             is_used=False,
             expires_at__gte=timezone.now(),
@@ -491,7 +502,7 @@ class EmailVerifyView(APIView):
         verification.save(update_fields=['is_used'])
 
         # Mark profile as verified
-        profile = UserProfile.objects.get(user=request.user)
+        profile = UserProfile.objects.get(user=user)
         updated_fields = ['updated_at']
         if not profile.email_verified:
             profile.email_verified = True
@@ -511,16 +522,17 @@ class EmailVerifyView(APIView):
 class PendingSocialEmailVerifyView(APIView):
     """POST /api/v1/auth/pending/email/verify/ — finish social signup after email verification."""
 
-    def post(self, request):
+    def post(self, request: Request) -> Response:
         pending_social = get_pending_social_login(request)
-        email_updates_opt_in = parse_checkbox_value(request.data.get('email_updates_opt_in'))
+        data = cast(dict[str, Any], request.data)
+        email_updates_opt_in = parse_checkbox_value(data.get('email_updates_opt_in'))
         if not pending_social:
             return Response(
                 {'error': '진행 중인 소셜 로그인 정보를 찾을 수 없습니다. 다시 로그인해주세요.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        code = request.data.get('code', '').strip()
+        code = data.get('code', '').strip()
         if not code or len(code) != 6:
             return Response(
                 {'errors': {'code': ['6자리 인증 코드를 입력해주세요.']}},
@@ -604,7 +616,7 @@ class PendingSocialEmailVerifyView(APIView):
 class MeView(APIView):
     """GET /api/v1/auth/me/ — current user info (optional auth)."""
 
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         if not request.user or not request.user.is_authenticated:
             return Response({'user': None})
 
@@ -622,7 +634,7 @@ class ProfilePreferencesView(APIView):
     """POST /api/v1/auth/preferences/ — update profile preferences."""
     permission_classes = [IsAuthenticated]
 
-    def post(self, request):
+    def post(self, request: Request) -> Response:
         serializer = ProfilePreferencesSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(
@@ -631,7 +643,7 @@ class ProfilePreferencesView(APIView):
             )
 
         try:
-            profile = request.user.profile
+            profile = cast(User, request.user).profile
         except UserProfile.DoesNotExist:
             return Response(
                 {'errors': {'profile': ['프로필 정보를 찾을 수 없습니다. 다시 로그인해주세요.']}},
@@ -653,7 +665,7 @@ class OnboardingView(APIView):
     """POST /api/v1/auth/onboarding/ — save preferences and trigger welcome email."""
     permission_classes = [IsAuthenticated]
 
-    def post(self, request):
+    def post(self, request: Request) -> Response:
         serializer = OnboardingSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(
@@ -662,7 +674,7 @@ class OnboardingView(APIView):
             )
 
         try:
-            profile = request.user.profile
+            profile = cast(User, request.user).profile
         except UserProfile.DoesNotExist:
             return Response(
                 {'errors': {'profile': ['프로필 정보를 찾을 수 없습니다.']}},
@@ -707,18 +719,20 @@ class RaceRecordListCreateView(APIView):
 
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        records = RaceRecord.objects.filter(user=request.user)
+    def get(self, request: Request) -> Response:
+        user = cast(User, request.user)
+        records = RaceRecord.objects.filter(user=user)
         return Response({'records': RaceRecordSerializer(records, many=True).data})
 
-    def post(self, request):
+    def post(self, request: Request) -> Response:
+        user = cast(User, request.user)
         payload = request.data
         items = payload if isinstance(payload, list) else [payload]
 
         created: list[RaceRecord] = []
-        first_error = None
+        first_error: Any = None
         for item in items:
-            serializer = RaceRecordCreateSerializer(data=item, context={'user': request.user})
+            serializer = RaceRecordCreateSerializer(data=item, context={'user': user})
             if not serializer.is_valid():
                 if first_error is None:
                     first_error = serializer.errors
@@ -742,8 +756,8 @@ class RaceRecordDetailView(APIView):
 
     permission_classes = [IsAuthenticated]
 
-    def delete(self, request, pk):
-        deleted, _ = RaceRecord.objects.filter(user=request.user, pk=pk).delete()
+    def delete(self, request: Request, pk: str) -> Response:
+        deleted, _ = RaceRecord.objects.filter(user=cast(User, request.user), pk=pk).delete()
         if not deleted:
             return Response(
                 {'error': '기록을 찾을 수 없습니다.'},
@@ -755,7 +769,7 @@ class RaceRecordDetailView(APIView):
 class LogoutView(APIView):
     """POST /api/v1/auth/logout/ — placeholder for future token blacklist."""
 
-    def post(self, request):
+    def post(self, request: Request) -> Response:
         return Response({'success': True, 'message': '로그아웃되었습니다.'})
 
 
@@ -764,13 +778,13 @@ class MyFavoriteRacesView(APIView):
 
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         from core.pagination import LaravelStylePagination
         from races.models import Race, RaceFavorite
         from races.serializers import RaceSerializer
 
         favorite_race_ids_qs = RaceFavorite.objects.filter(
-            user=request.user,
+            user=cast(User, request.user),
         ).order_by('-created_at').values_list('race_id', flat=True)
 
         favorite_ids = list(favorite_race_ids_qs)
@@ -802,7 +816,7 @@ class MySeasonView(APIView):
 
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         from races.models import Race, RaceFavorite, RaceParticipation
         from races.serializers import RaceSerializer
 
@@ -812,7 +826,7 @@ class MySeasonView(APIView):
         except (TypeError, ValueError):
             year = today.year
 
-        user = request.user
+        user = cast(User, request.user)
         favorite_ids = set(
             RaceFavorite.objects.filter(user=user).values_list('race_id', flat=True)
         )
@@ -824,7 +838,9 @@ class MySeasonView(APIView):
             for r in RaceRecord.objects.filter(user=user, race__isnull=False)
         }
 
-        race_ids = favorite_ids | set(parts) | set(records)
+        race_ids: set[int] = {
+            rid for rid in (favorite_ids | set(parts) | set(records)) if rid is not None
+        }
         races = list(
             Race.objects.filter(id__in=race_ids, race_date__year=year).order_by('race_date')
         )
@@ -840,7 +856,13 @@ class MySeasonView(APIView):
         return Response({'year': year, 'races': out, 'stats': self._stats(out, today)})
 
     # ── overlay helpers ──────────────────────────────────────────────────
-    def _overlay(self, race, part, record, today):
+    def _overlay(
+        self,
+        race: "Race",
+        part: "RaceParticipation | None",
+        record: RaceRecord | None,
+        today: date,
+    ) -> dict[str, Any]:
         if record is not None:
             return {
                 'user_status': 'logged',
@@ -867,16 +889,16 @@ class MySeasonView(APIView):
             'result': None,
         }
 
-    def _course_km(self, race, code):
+    def _course_km(self, race: "Race", code: str) -> float | None:
         from .serializers import course_code_for
         for d in race.distances or []:
             if isinstance(d, dict) and course_code_for(d) == code:
-                meters = d.get('distance_meter')
+                meters: int | float | None = d.get('distance_meter')
                 if meters and meters > 0:
                     return meters / 1000
         return None
 
-    def _result(self, race, record):
+    def _result(self, race: "Race", record: RaceRecord) -> dict[str, Any]:
         total = record.duration_seconds or 0
         hours, rem = divmod(total, 3600)
         minutes, seconds = divmod(rem, 60)
@@ -894,7 +916,7 @@ class MySeasonView(APIView):
             'public': record.is_public,
         }
 
-    def _stats(self, races, today):
+    def _stats(self, races: list[dict[str, Any]], today: date) -> dict[str, Any]:
         from datetime import date
 
         iso = today.isoformat()
@@ -904,7 +926,7 @@ class MySeasonView(APIView):
             upcoming[-1] if upcoming else None
         )
 
-        def dday(r):
+        def dday(r: dict[str, Any]) -> int:
             return max(0, (date.fromisoformat(r['race_date']) - today).days)
 
         return {
@@ -923,7 +945,7 @@ class RaceParticipationView(APIView):
 
     permission_classes = [IsAuthenticated]
 
-    def put(self, request, slug):
+    def put(self, request: Request, slug: str) -> Response:
         from races.models import Race, RaceParticipation
         from races.serializers import RaceParticipationWriteSerializer
 
@@ -934,7 +956,7 @@ class RaceParticipationView(APIView):
         serializer = RaceParticipationWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         part, _ = RaceParticipation.objects.update_or_create(
-            user=request.user, race=race, defaults=serializer.validated_data,
+            user=cast(User, request.user), race=race, defaults=serializer.validated_data,
         )
         return Response({
             'success': True,
@@ -947,11 +969,11 @@ class RaceParticipationView(APIView):
             },
         })
 
-    def delete(self, request, slug):
+    def delete(self, request: Request, slug: str) -> Response:
         from races.models import RaceParticipation
 
         deleted, _ = RaceParticipation.objects.filter(
-            user=request.user, race__slug=slug,
+            user=cast(User, request.user), race__slug=slug,
         ).delete()
         if not deleted:
             return Response(
@@ -965,7 +987,7 @@ class RaceResultCreateView(APIView):
 
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, slug):
+    def post(self, request: Request, slug: str) -> Response:
         from races.models import Race
 
         race = Race.objects.filter(slug=slug).first()
@@ -973,7 +995,7 @@ class RaceResultCreateView(APIView):
             return Response({'error': '대회를 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = RaceResultCreateSerializer(
-            data=request.data, context={'race': race, 'user': request.user},
+            data=request.data, context={'race': race, 'user': cast(User, request.user)},
         )
         serializer.is_valid(raise_exception=True)
         record = serializer.save()
@@ -982,9 +1004,9 @@ class RaceResultCreateView(APIView):
             status=status.HTTP_201_CREATED,
         )
 
-    def delete(self, request, slug):
+    def delete(self, request: Request, slug: str) -> Response:
         deleted, _ = RaceRecord.objects.filter(
-            user=request.user, race__slug=slug,
+            user=cast(User, request.user), race__slug=slug,
         ).delete()
         if not deleted:
             return Response(

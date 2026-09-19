@@ -48,37 +48,40 @@ class Post(models.Model):
         db_table = 'posts'
         ordering = ['-created_at']
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.title
 
     @property
-    def display_nickname(self):
+    def display_nickname(self) -> str:
         if self.user_id:
             try:
-                return self.user.profile.nickname or self.nickname or '익명'
+                user = self.user
+                if user is None:
+                    return self.nickname or '익명'
+                return user.profile.nickname or self.nickname or '익명'
             except Exception:
                 return self.nickname or '익명'
         return self.nickname or '익명'
 
     @property
-    def image_srcs(self):
+    def image_srcs(self) -> list[str]:
         if not self.images or not isinstance(self.images, list):
             return []
         return [f'{settings.STORAGE_URL}{path}' for path in self.images]
 
     @property
-    def comment_count(self):
+    def comment_count(self) -> int:
         return self.comments.count()
 
     @property
-    def like_count(self):
+    def like_count(self) -> int:
         return self.likes.count()
 
-    def check_password(self, raw_password):
+    def check_password(self, raw_password: str) -> bool:
         """Verify password against bcrypt hash (PHP compatible)."""
         return check_password(raw_password, self.password)
 
-    def increment_view_count(self):
+    def increment_view_count(self) -> None:
         Post.objects.filter(pk=self.pk).update(
             view_count=models.F('view_count') + 1
         )
@@ -123,23 +126,26 @@ class PostComment(models.Model):
         db_table = 'post_comments'
         ordering = ['-created_at']
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'{self.display_nickname}: {self.content[:30]}'
 
     @property
-    def display_nickname(self):
+    def display_nickname(self) -> str:
         if self.user_id:
             try:
-                return self.user.profile.nickname or self.nickname or '익명'
+                user = self.user
+                if user is None:
+                    return self.nickname or '익명'
+                return user.profile.nickname or self.nickname or '익명'
             except Exception:
                 return self.nickname or '익명'
         return self.nickname or '익명'
 
     @property
-    def is_reply(self):
+    def is_reply(self) -> bool:
         return self.parent_id is not None
 
-    def check_password(self, raw_password):
+    def check_password(self, raw_password: str) -> bool:
         """Verify password against bcrypt hash (PHP compatible)."""
         return check_password(raw_password, self.password)
 
@@ -155,5 +161,5 @@ class PostLike(models.Model):
         db_table = 'post_likes'
         unique_together = [('post', 'ip_hash')]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'Like on Post#{self.post_id} by {self.ip_hash[:8]}...'

@@ -2,8 +2,10 @@ import json
 import logging
 import re
 import time
+from collections.abc import Callable
 from datetime import date, datetime, time as dt_time, timedelta
 from decimal import Decimal
+from typing import Any
 
 import httpx
 from django.utils import timezone
@@ -24,7 +26,7 @@ class MarathonCrawlerService:
         'registration_end',
     ]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.region_map = {
             '서울': '서울',
             '경기': '경기',
@@ -76,7 +78,7 @@ class MarathonCrawlerService:
             '하남': '경기',
         }
 
-    def crawl(self, year=None, month=None, dry_run=False):
+    def crawl(self, year: int | None = None, month: int | None = None, dry_run: bool = False) -> dict[str, Any]:
         year = year or timezone.now().year
         html = self._fetch_list_html(year, month)
         races = self.parse_html(html, year)
@@ -93,7 +95,7 @@ class MarathonCrawlerService:
 
         return self._persist_races(races, self.save_race, 'Marathon crawl completed')
 
-    def crawl_with_details(self, year=None, month=None, dry_run=False):
+    def crawl_with_details(self, year: int | None = None, month: int | None = None, dry_run: bool = False) -> dict[str, Any]:
         year = year or timezone.now().year
         html = self._fetch_list_html(year, month)
         races = self.parse_html(html, year)
@@ -125,7 +127,7 @@ class MarathonCrawlerService:
             'Marathon detailed crawl completed',
         )
 
-    def crawl_detail(self, race_no):
+    def crawl_detail(self, race_no: int) -> dict[str, Any] | None:
         response = httpx.get(
             f'{self.DETAIL_URL}{race_no}',
             timeout=30,
@@ -137,8 +139,8 @@ class MarathonCrawlerService:
         html = self._decode_body(response.content)
         return self.parse_detail_html(html, race_no)
 
-    def parse_html(self, html, year):
-        races = []
+    def parse_html(self, html: str, year: int) -> list[dict[str, Any]]:
+        races: list[dict[str, Any]] = []
         pattern = re.compile(
             r'<tr>\s*<td[^>]*>\s*<div[^>]*><b><font[^>]*>(\d{1,2})\/(\d{1,2})<\/font><\/b>'
             r'<br><font[^>]*>\(([일월화수목금토])\)<\/font>.*?<\/div>\s*<\/td>\s*'
@@ -182,8 +184,8 @@ class MarathonCrawlerService:
 
         return self._dedupe_by_title(races)
 
-    def parse_detail_html(self, html, race_no):
-        data = {
+    def parse_detail_html(self, html: str, race_no: int) -> dict[str, Any]:
+        data: dict[str, Any] = {
             'external_id': str(race_no),
             'source_url': f'{self.DETAIL_URL}{race_no}',
         }
@@ -320,13 +322,13 @@ class MarathonCrawlerService:
 
         return data
 
-    def parse_distances(self, distance_string):
+    def parse_distances(self, distance_string: str) -> list[dict[str, Any]]:
         distance_string = self._clean_html_text(distance_string)
         if not distance_string:
             return []
 
-        distances = []
-        seen_names = set()
+        distances: list[dict[str, Any]] = []
+        seen_names: set[str] = set()
         for part in re.split(r'[,\s]+', distance_string):
             part = part.strip()
             if not part:
@@ -351,13 +353,13 @@ class MarathonCrawlerService:
             if normalized not in seen_names:
                 seen_names.add(normalized)
                 km = Race.parse_distance_km(normalized)
-                item = {'name': normalized}
+                item: dict[str, Any] = {'name': normalized}
                 if km is not None:
                     item['distance_meter'] = round(km * 1000)
                 distances.append(item)
         return distances
 
-    def detect_region(self, location):
+    def detect_region(self, location: str) -> str:
         for keyword, region in self.region_map.items():
             if keyword in location:
                 return region
@@ -366,12 +368,12 @@ class MarathonCrawlerService:
                 return region
         return '기타'
 
-    def normalize_date(self, year, month, day):
+    def normalize_date(self, year: int, month: int, day: int) -> date:
         last_day = (date(year + (month // 12), (month % 12) + 1, 1) - timedelta(days=1)).day if month != 12 else 31
         day = min(day, last_day)
         return date(year, month, day)
 
-    def build_description(self, data):
+    def build_description(self, data: dict[str, Any]) -> str:
         parts = []
         if data.get('organizer'):
             parts.append(f"주최: {data['organizer']}")
@@ -379,11 +381,11 @@ class MarathonCrawlerService:
             parts.append(f"연락처: {data['phone']}")
         return '\n'.join(parts)
 
-    def save_race(self, data):
+    def save_race(self, data: dict[str, Any]) -> dict[str, Any]:
         existing = Race.objects.filter(source_url=data['source_url']).first()
         if not existing:
             existing = self._find_by_title(data.get('title'))
-        race_data = {
+        race_data: dict[str, Any] = {
             'title': data['title'],
             'sport': 'running',
             'race_date': data['race_date'],
@@ -397,7 +399,7 @@ class MarathonCrawlerService:
         }
         return self._save_race_record(existing, race_data, detailed=False)
 
-    def save_detailed_race(self, data):
+    def save_detailed_race(self, data: dict[str, Any]) -> dict[str, Any]:
         external_id = data.get('external_id') or data.get('race_no')
         existing = None
         if external_id:
@@ -410,7 +412,7 @@ class MarathonCrawlerService:
         if data.get('_detail_failed') and existing:
             return {'status': 'skipped', 'race': existing, 'reason': 'detail_crawl_failed'}
 
-        race_data = {
+        race_data: dict[str, Any] = {
             'title': data.get('title', ''),
             'sport': 'running',
             'race_date': data.get('race_date'),
@@ -434,7 +436,7 @@ class MarathonCrawlerService:
         }
         return self._save_race_record(existing, race_data, detailed=True)
 
-    def _save_race_record(self, existing, race_data, detailed):
+    def _save_race_record(self, existing: Race | None, race_data: dict[str, Any], detailed: bool) -> dict[str, Any]:
         if existing:
             if not existing.auto_update_enabled:
                 return {'status': 'skipped', 'race': existing, 'reason': 'auto_update_disabled'}
@@ -445,8 +447,8 @@ class MarathonCrawlerService:
 
             locked_fields = existing.locked_fields or []
             auto_apply_fields = {'description'}
-            allowed_changes = {}
-            pending_changes = {}
+            allowed_changes: dict[str, Any] = {}
+            pending_changes: dict[str, Any] = {}
 
             for field, change in changes.items():
                 if field in locked_fields:
@@ -477,15 +479,15 @@ class MarathonCrawlerService:
                 'pending_changes': pending_changes,
             }
 
-        create_data = {
+        create_data: dict[str, Any] = {
             **race_data,
             'slug': Race.generate_unique_slug(race_data['title']),
         }
         race = Race.objects.create(**create_data)
         return {'status': 'created', 'race': race}
 
-    def _get_changes(self, existing, new_data, detailed=False):
-        changes = {}
+    def _get_changes(self, existing: Race, new_data: dict[str, Any], detailed: bool = False) -> dict[str, Any]:
+        changes: dict[str, Any] = {}
         compare_fields = [
             'title',
             'race_date',
@@ -526,7 +528,7 @@ class MarathonCrawlerService:
 
         return changes
 
-    def _upsert_pending_change(self, race, field_name, old_value, new_value):
+    def _upsert_pending_change(self, race: Race, field_name: str, old_value: Any, new_value: Any) -> None:
         new_value_text = self._serialize_pending_value(new_value)
         existing_pending = RacePendingChange.objects.filter(
             race_id=race.id,
@@ -556,7 +558,12 @@ class MarathonCrawlerService:
             source='crawler',
         )
 
-    def _persist_races(self, races, save_func, log_message):
+    def _persist_races(
+        self,
+        races: list[dict[str, Any]],
+        save_func: Callable[[dict[str, Any]], dict[str, Any]],
+        log_message: str,
+    ) -> dict[str, Any]:
         created = 0
         updated = 0
         skipped = 0
@@ -588,7 +595,7 @@ class MarathonCrawlerService:
             'updatedRaces': updated_races,
         }
 
-    def _fetch_list_html(self, year, month):
+    def _fetch_list_html(self, year: int, month: int | None) -> str:
         response = httpx.post(
             self.SOURCE_URL,
             data={
@@ -609,16 +616,16 @@ class MarathonCrawlerService:
             raise RuntimeError('HTTP request failed')
         return self._decode_body(response.content)
 
-    def _decode_body(self, content):
+    def _decode_body(self, content: bytes) -> str:
         return content.decode('cp949', errors='replace')
 
-    def _clean_html_text(self, value):
+    def _clean_html_text(self, value: str) -> str:
         text = re.sub(r'<br\s*/?>', ' ', value, flags=re.IGNORECASE)
         text = re.sub(r'<[^>]+>', '', text)
         text = text.replace('&nbsp;', ' ')
         return re.sub(r'\s+', ' ', text).strip()
 
-    def _dedupe_by_title(self, races):
+    def _dedupe_by_title(self, races: list[dict[str, Any]]) -> list[dict[str, Any]]:
         last_index_by_title = {}
         for idx, race in enumerate(races):
             norm = self._normalize_title(race.get('title'))
@@ -637,7 +644,7 @@ class MarathonCrawlerService:
                 )
         return deduped
 
-    def _find_by_title(self, title):
+    def _find_by_title(self, title: Any) -> Race | None:
         norm = self._normalize_title(title)
         if not norm:
             return None
@@ -647,12 +654,12 @@ class MarathonCrawlerService:
         return None
 
     @staticmethod
-    def _normalize_title(title):
+    def _normalize_title(title: Any) -> str:
         if not title:
             return ''
         return re.sub(r'\s+', '', str(title)).lower()
 
-    def _normalize_for_compare(self, value):
+    def _normalize_for_compare(self, value: Any) -> Any:
         if isinstance(value, datetime):
             return value.isoformat()
         if isinstance(value, date):
@@ -663,7 +670,7 @@ class MarathonCrawlerService:
             return str(value.normalize())
         return value
 
-    def _serialize_pending_value(self, value):
+    def _serialize_pending_value(self, value: Any) -> Any:
         if isinstance(value, (list, dict)):
             return json.dumps(value, ensure_ascii=False)
         if isinstance(value, datetime):

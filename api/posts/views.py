@@ -1,14 +1,18 @@
 import os
 import secrets
 import uuid
+from typing import Any, cast
 
 from django.conf import settings
 from django.contrib.auth.hashers import make_password
+from django.contrib.auth.models import User
 from django.core.cache import cache
+from django.core.files.uploadedfile import UploadedFile
 from django.db.models import Count, F, Q
 from core.utils import post_count_subqueries
 from django.utils import timezone
 from rest_framework import status
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -34,7 +38,7 @@ from .serializers import (
 class PostListCreateView(APIView):
     """GET /api/v1/posts/ + POST /api/v1/posts/"""
 
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         search = request.query_params.get('search')
         category = request.query_params.get('category')
         sort = request.query_params.get('sort', 'latest')
@@ -90,7 +94,7 @@ class PostListCreateView(APIView):
 
         return Response(response_data)
 
-    def post(self, request):
+    def post(self, request: Request) -> Response:
         ip_hash = hash_ip(request)
 
         # Rate limit: 10/hour
@@ -101,7 +105,9 @@ class PostListCreateView(APIView):
                 status=status.HTTP_429_TOO_MANY_REQUESTS,
             )
 
-        is_authenticated = request.user and request.user.is_authenticated
+        user: User | None = None
+        if request.user.is_authenticated:
+            user = request.user
         serializer = PostCreateSerializer(data=request.data, context={'request': request})
         if not serializer.is_valid():
             return Response(
@@ -124,7 +130,7 @@ class PostListCreateView(APIView):
         password_hash = make_password(data['password']) if data.get('password') else ''
 
         post = Post.objects.create(
-            user=request.user if is_authenticated else None,
+            user=user,
             nickname=data.get('nickname') or None,
             title=data['title'],
             content=data['content'],
@@ -146,7 +152,7 @@ class PostListCreateView(APIView):
 
         track('post_create', request, {
             'category': post.category,
-        }, item_id=post.pk, item_type='post')
+        }, item_id=str(post.pk), item_type='post')
 
         post.refresh_from_db()
         return Response({
@@ -159,7 +165,7 @@ class PostListCreateView(APIView):
             'redirect': f'/posts/{post.id}',
         }, status=status.HTTP_201_CREATED)
 
-    def _validate_images(self, files):
+    def _validate_images(self, files: list[UploadedFile]) -> str | None:
         if len(files) > 5:
             return '이미지는 최대 5개까지 첨부 가능합니다.'
         allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
@@ -167,16 +173,16 @@ class PostListCreateView(APIView):
         for f in files:
             if f.content_type not in allowed_types:
                 return '지원되는 이미지 형식: jpeg, png, gif, webp'
-            if f.size > max_size:
+            if f.size is not None and f.size > max_size:
                 return '이미지 크기는 최대 5MB까지 가능합니다.'
         return None
 
-    def _save_images(self, files, post_id):
+    def _save_images(self, files: list[UploadedFile], post_id: int) -> list[str]:
         save_dir = os.path.join(str(settings.MEDIA_ROOT), 'posts', str(post_id))
         os.makedirs(save_dir, exist_ok=True)
         paths = []
         for f in files:
-            ext = os.path.splitext(f.name)[1] or '.jpg'
+            ext = os.path.splitext(f.name or '')[1] or '.jpg'
             filename = f'{uuid.uuid4().hex[:12]}{ext}'
             filepath = os.path.join(save_dir, filename)
             with open(filepath, 'wb') as dest:
@@ -192,7 +198,7 @@ class PostInlineImageUploadView(APIView):
     ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
     MAX_SIZE = 5 * 1024 * 1024  # 5MB
 
-    def post(self, request):
+    def post(self, request: Request) -> Response:
         ip_hash = hash_ip(request)
 
         # Rate limit: 30/hour
@@ -243,7 +249,7 @@ class PostInlineImageUploadView(APIView):
 class PostAvailableRacesView(APIView):
     """GET /api/v1/posts/races/"""
 
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         races = Race.objects.upcoming()[:100]
         return Response({
             'races': UpcomingRaceSerializer(races, many=True).data,
@@ -253,7 +259,7 @@ class PostAvailableRacesView(APIView):
 class PostDetailUpdateDeleteView(APIView):
     """GET/PUT/DELETE /api/v1/posts/{id}/"""
 
-    def get(self, request, pk):
+    def get(self, request: Request, pk: int) -> Response:
         try:
             post = Post.objects.prefetch_related(
                 'races',
@@ -266,7 +272,7 @@ class PostDetailUpdateDeleteView(APIView):
 
         track('post_view', request, {
             'category': post.category,
-        }, item_id=post.pk, item_type='post')
+        }, item_id=str(post.pk), item_type='post')
 
         # Check like status
         ip_hash = hash_ip(request)
@@ -292,7 +298,7 @@ class PostDetailUpdateDeleteView(APIView):
 
         # Other community posts tagged to the same race(s) as this post.
         race_ids = list(post.races.values_list('id', flat=True))
-        same_race_posts = []
+        same_race_posts: Any = []
         if race_ids:
             same_race_qs = Post.objects.prefetch_related('races').annotate(
                 _comment_count=comment_count_sq,
@@ -327,7 +333,7 @@ class PostDetailUpdateDeleteView(APIView):
             }
         })
 
-    def put(self, request, pk):
+    def put(self, request: Request, pk: int) -> Response:
         try:
             post = Post.objects.get(pk=pk)
         except Post.DoesNotExist:
@@ -426,7 +432,7 @@ class PostDetailUpdateDeleteView(APIView):
             'redirect': f'/posts/{post.id}',
         })
 
-    def delete(self, request, pk):
+    def delete(self, request: Request, pk: int) -> Response:
         try:
             post = Post.objects.get(pk=pk)
         except Post.DoesNotExist:
@@ -438,7 +444,7 @@ class PostDetailUpdateDeleteView(APIView):
         )
 
         if not is_owner:
-            password = request.data.get('password', '')
+            password = cast(dict[str, Any], request.data).get('password', '')
             if not post.check_password(password):
                 return Response(
                     {'errors': {'password': ['비밀번호가 일치하지 않습니다.']}},
@@ -468,7 +474,7 @@ class PostDetailUpdateDeleteView(APIView):
 class PostVerifyPasswordView(APIView):
     """POST /api/v1/posts/{id}/verify-password/"""
 
-    def post(self, request, pk):
+    def post(self, request: Request, pk: int) -> Response:
         try:
             post = Post.objects.prefetch_related('races').get(pk=pk)
         except Post.DoesNotExist:
@@ -480,7 +486,7 @@ class PostVerifyPasswordView(APIView):
         )
 
         if not is_owner:
-            password = request.data.get('password', '')
+            password = cast(dict[str, Any], request.data).get('password', '')
             if not post.check_password(password):
                 return Response(
                     {'errors': {'password': ['비밀번호가 일치하지 않습니다.']}},
@@ -513,7 +519,7 @@ class PostVerifyPasswordView(APIView):
 class CommentCreateView(APIView):
     """POST /api/v1/posts/{id}/comments/"""
 
-    def post(self, request, post_id):
+    def post(self, request: Request, post_id: int) -> Response:
         try:
             post = Post.objects.get(pk=post_id)
         except Post.DoesNotExist:
@@ -529,7 +535,9 @@ class CommentCreateView(APIView):
                 status=status.HTTP_429_TOO_MANY_REQUESTS,
             )
 
-        is_authenticated = request.user and request.user.is_authenticated
+        user: User | None = None
+        if request.user.is_authenticated:
+            user = request.user
         serializer = CommentCreateSerializer(data=request.data, context={'request': request})
         if not serializer.is_valid():
             return Response(
@@ -566,7 +574,7 @@ class CommentCreateView(APIView):
         comment = PostComment.objects.create(
             post=post,
             parent=parent,
-            user=request.user if is_authenticated else None,
+            user=user,
             nickname=data.get('nickname') or None,
             content=data['content'],
             password=password_hash,
@@ -583,7 +591,7 @@ class CommentCreateView(APIView):
 class CommentUpdateDeleteView(APIView):
     """PUT/DELETE /api/v1/posts/{id}/comments/{commentId}/"""
 
-    def put(self, request, post_id, comment_id):
+    def put(self, request: Request, post_id: int, comment_id: int) -> Response:
         try:
             comment = PostComment.objects.get(pk=comment_id, post_id=post_id)
         except PostComment.DoesNotExist:
@@ -619,7 +627,7 @@ class CommentUpdateDeleteView(APIView):
             'comment': PostCommentSerializer(comment, context={'request': request}).data,
         })
 
-    def delete(self, request, post_id, comment_id):
+    def delete(self, request: Request, post_id: int, comment_id: int) -> Response:
         try:
             comment = PostComment.objects.get(pk=comment_id, post_id=post_id)
         except PostComment.DoesNotExist:
@@ -654,7 +662,7 @@ class CommentUpdateDeleteView(APIView):
 class PostLikeToggleView(APIView):
     """POST /api/v1/posts/{id}/like/"""
 
-    def post(self, request, post_id):
+    def post(self, request: Request, post_id: int) -> Response:
         try:
             post = Post.objects.get(pk=post_id)
         except Post.DoesNotExist:

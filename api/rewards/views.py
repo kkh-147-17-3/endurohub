@@ -1,8 +1,11 @@
 from datetime import datetime
+from typing import cast
 
+from django.contrib.auth.models import User
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -15,18 +18,19 @@ class CoffeeCouponEventStatusView(APIView):
 
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
+    def get(self, request: Request) -> Response:
+        user = cast(User, request.user)
         tz = timezone.get_current_timezone()
         starts_at = timezone.make_aware(datetime(2026, 9, 3), tz)
         ends_at = timezone.make_aware(datetime(2026, 10, 1), tz)
 
         reviews = Review.objects.filter(
-            user=request.user,
+            user=user,
             created_at__gte=starts_at,
             created_at__lt=ends_at,
         )
         records = RaceRecord.objects.filter(
-            user=request.user,
+            user=user,
             race_id__in=reviews.values('race_id'),
         ).filter(
             Q(created_at__gte=starts_at, created_at__lt=ends_at)

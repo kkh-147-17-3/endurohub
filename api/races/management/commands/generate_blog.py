@@ -1,4 +1,6 @@
-from django.core.management.base import BaseCommand
+from typing import Any
+
+from django.core.management.base import BaseCommand, CommandParser
 
 from races.models import Race
 
@@ -6,7 +8,7 @@ from races.models import Race
 class Command(BaseCommand):
     help = '월별 대회 정보를 네이버 블로그 포스트 HTML로 생성합니다'
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument(
             'year', type=int,
             help='대상 연도 (예: 2026)',
@@ -48,7 +50,7 @@ class Command(BaseCommand):
             help='출력 파일 경로',
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> str | None:
         year = options['year']
         month = options['month']
 
@@ -73,7 +75,7 @@ class Command(BaseCommand):
 
         if not races:
             self.stdout.write('해당 조건의 대회가 없습니다.')
-            return
+            return None
 
         # Group by sport
         sport_order = ['running', 'trail_running', 'triathlon', 'cycling', 'swimming']
@@ -81,7 +83,7 @@ class Command(BaseCommand):
             'running': '마라톤', 'trail_running': '트레일러닝',
             'triathlon': '철인3종', 'cycling': '자전거', 'swimming': '수영',
         }
-        grouped = {}
+        grouped: dict[str, list[Race]] = {}
         for race in races:
             grouped.setdefault(race.sport, []).append(race)
 
@@ -96,7 +98,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(
                 '\n--dry-run 모드: 파일을 저장하지 않습니다.'
             ))
-            return
+            return None
 
         # Image generation
         if options['image'] or options['instagram']:
@@ -124,3 +126,4 @@ class Command(BaseCommand):
         ))
 
         self.stdout.write(self.style.SUCCESS('완료.'))
+        return None

@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from django.contrib.auth import get_user_model
+from django.contrib.auth.models import User
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -10,17 +10,14 @@ from races.models import Race
 from .models import RaceRecord
 
 
-User = get_user_model()
-
-
 class RaceRecordDefaultsTests(APITestCase):
-    def make_user(self):
+    def make_user(self) -> User:
         return User.objects.create_user(
             username='runner@example.com',
             email='runner@example.com',
         )
 
-    def make_race(self):
+    def make_race(self) -> Race:
         return Race.objects.create(
             title='공개 설정 테스트 대회',
             slug='record-visibility-test',
@@ -29,7 +26,7 @@ class RaceRecordDefaultsTests(APITestCase):
             distances=[{'name': '10km', 'distance_meter': 10000}],
         )
 
-    def test_free_form_record_is_private_by_default(self):
+    def test_free_form_record_is_private_by_default(self) -> None:
         user = self.make_user()
         self.client.force_authenticate(user=user)
 
@@ -44,7 +41,7 @@ class RaceRecordDefaultsTests(APITestCase):
         self.assertFalse(record.is_public)
         self.assertFalse(response.data['records'][0]['is_public'])
 
-    def test_linked_record_visibility_requires_an_explicit_public_choice(self):
+    def test_linked_record_visibility_requires_an_explicit_public_choice(self) -> None:
         user = self.make_user()
         race = self.make_race()
         self.client.force_authenticate(user=user)

@@ -8,15 +8,18 @@ ai_summary 가 비어 있는 대회만 대상으로 한다. 기존 요약을 덮
 관리자가 손댄 요약이 조용히 사라지는 게 이 잡의 가장 나쁜 실패라서다.
 """
 
-from django.core.management.base import BaseCommand
+from typing import Any
 
+from django.core.management.base import BaseCommand, CommandParser
+
+from races.models import Race
 from races.services.ai_recap import FINISHED_DAYS, generate_race_recaps
 
 
 class Command(BaseCommand):
     help = '끝난 대회의 참가 후기를 웹에서 찾아 ai_summary 를 채운다'
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument('--limit', type=int, default=None, help='처리할 최대 건수')
         parser.add_argument('--dry-run', action='store_true', help='저장하지 않고 결과만 출력')
         parser.add_argument('--slug', type=str, default='', help='특정 대회만 처리')
@@ -29,11 +32,11 @@ class Command(BaseCommand):
             help='호출 간 대기(초). 레이트리밋 회피용',
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> str | None:
         if options['dry_run']:
             self.stdout.write('dry-run — 저장하지 않음')
 
-        def report(race, text, reason):
+        def report(race: Race, text: str | None, reason: str) -> None:
             if text:
                 self.stdout.write(f'  OK    {race.slug}')
                 self.stdout.write('        ' + text.replace('\n', '\n        '))
@@ -54,3 +57,4 @@ class Command(BaseCommand):
             f"오류 {summary['errors']}건 / 최근시도 제외 {summary['skipped_tried']}건 / "
             f"기존요약 보존 {summary['skipped_existing']}건"
         ))
+        return None

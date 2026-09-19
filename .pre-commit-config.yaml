@@ -1,0 +1,12 @@
+# 로컬 git 훅. 설치: pip install -r api/requirements-dev.txt && pre-commit install
+# mypy는 전체 프로그램 컨텍스트가 필요하므로 스테이징 파일이 아니라 api/ 전체를 검사한다.
+# (Windows 콘솔에서 한국어 출력 깨짐 방지를 위해 UTF-8 모드 필수)
+repos:
+  - repo: local
+    hooks:
+      - id: mypy-api
+        name: mypy (Django API, strict)
+        entry: bash -c "cd api && PYTHONUTF8=1 PYTHONIOENCODING=utf-8 venv/Scripts/python -m mypy ."
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

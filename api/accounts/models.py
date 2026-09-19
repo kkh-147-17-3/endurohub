@@ -22,11 +22,11 @@ class UserProfile(models.Model):
     class Meta:
         db_table = 'user_profiles'
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.nickname or f'user:{self.user_id}'
 
     @property
-    def needs_onboarding(self):
+    def needs_onboarding(self) -> bool:
         return (
             bool(self.nickname)
             and self.email_verified
@@ -89,7 +89,7 @@ class RaceRecord(models.Model):
             ),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'{self.sport}:{self.distance} ({self.duration_seconds}s)'
 
 
@@ -118,7 +118,7 @@ class SocialAccount(models.Model):
         db_table = 'social_accounts'
         unique_together = [('provider', 'provider_uid')]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'{self.provider}:{self.provider_uid}'
 
 
@@ -141,7 +141,7 @@ class PendingSocialLogin(models.Model):
         db_table = 'pending_social_logins'
         unique_together = [('provider', 'provider_uid')]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'pending:{self.provider}:{self.provider_uid}'
 
 
@@ -160,5 +160,5 @@ class EmailVerification(models.Model):
     class Meta:
         db_table = 'email_verifications'
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'{self.email} ({self.code})'

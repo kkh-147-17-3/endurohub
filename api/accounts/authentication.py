@@ -1,5 +1,8 @@
+from typing import Any
+
 from django.contrib.auth import get_user_model
 from rest_framework.authentication import BaseAuthentication
+from rest_framework.request import Request
 
 from .tokens import decode_access_token
 
@@ -11,7 +14,7 @@ class JWTAuthentication(BaseAuthentication):
     Custom JWT authentication via Authorization header or auth_token cookie.
     """
 
-    def authenticate(self, request):
+    def authenticate(self, request: Request) -> tuple[Any, str] | None:
         token = self._get_token(request)
         if not token:
             return None
@@ -31,9 +34,9 @@ class JWTAuthentication(BaseAuthentication):
 
         return (user, token)
 
-    def _get_token(self, request):
+    def _get_token(self, request: Request) -> str | None:
         # 1. Check Authorization header
-        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+        auth_header: str = request.META.get('HTTP_AUTHORIZATION', '')
         if auth_header.startswith('Bearer '):
             return auth_header[7:]
 

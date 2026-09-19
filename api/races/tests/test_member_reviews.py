@@ -1,8 +1,10 @@
 from copy import deepcopy
 from datetime import timedelta
+from datetime import timedelta
+from typing import Any, Callable
 from unittest.mock import patch
 
-from django.contrib.auth import get_user_model
+from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.test import override_settings
 from django.urls import reverse
@@ -11,9 +13,6 @@ from rest_framework.test import APITestCase, APITransactionTestCase
 
 from accounts.models import RaceRecord, UserProfile
 from races.models import Race, Review
-
-User = get_user_model()
-
 
 TEST_CACHES = {
     'default': {
@@ -24,7 +23,13 @@ TEST_CACHES = {
 
 
 class MemberReviewTestDataMixin:
-    def set_up_review_data(self):
+    addCleanup: Callable[..., None]
+    track_patcher: Any
+    race: Race
+    url: str
+    payload: dict[str, Any]
+
+    def set_up_review_data(self) -> None:
         cache.clear()
         self.track_patcher = patch('races.views.track')
         self.track_patcher.start()
@@ -57,7 +62,7 @@ class MemberReviewTestDataMixin:
             },
         }
 
-    def make_user(self, email='runner@example.com', verified=True):
+    def make_user(self, email: str = 'runner@example.com', verified: bool = True) -> User:
         user = User.objects.create_user(username=email, email=email)
         UserProfile.objects.create(
             user=user,
@@ -71,16 +76,16 @@ class MemberReviewTestDataMixin:
 class MemberReviewTests(MemberReviewTestDataMixin, APITestCase):
     """Review + curated RaceRecord API contract and validation regressions."""
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.set_up_review_data()
 
-    def test_anonymous_member_cannot_create_review(self):
+    def test_anonymous_member_cannot_create_review(self) -> None:
         response = self.client.post(self.url, self.payload, format='json')
         self.assertEqual(response.status_code, 403)
         self.assertFalse(Review.objects.exists())
         self.assertFalse(RaceRecord.objects.exists())
 
-    def test_email_verification_is_required(self):
+    def test_email_verification_is_required(self) -> None:
         user = self.make_user(verified=False)
         self.client.force_authenticate(user=user)
 
@@ -90,7 +95,7 @@ class MemberReviewTests(MemberReviewTestDataMixin, APITestCase):
         self.assertFalse(Review.objects.exists())
         self.assertFalse(RaceRecord.objects.exists())
 
-    def test_review_is_owned_by_member_and_uses_profile_nickname(self):
+    def test_review_is_owned_by_member_and_uses_profile_nickname(self) -> None:
         user = self.make_user()
         self.client.force_authenticate(user=user)
 
@@ -110,7 +115,7 @@ class MemberReviewTests(MemberReviewTestDataMixin, APITestCase):
         self.assertTrue(record.is_public)
         self.assertEqual(response.data['race_record']['id'], record.pk)
 
-    def test_race_detail_season_record_date_is_record_created_date(self):
+    def test_race_detail_season_record_date_is_record_created_date(self) -> None:
         user = self.make_user()
         record = RaceRecord.objects.create(
             user=user,
@@ -131,7 +136,7 @@ class MemberReviewTests(MemberReviewTestDataMixin, APITestCase):
         self.assertEqual(season_record['date'], timezone.localdate(record.created_at).isoformat())
         self.assertNotEqual(season_record['date'], record.record_date)
 
-    def test_race_record_payload_is_required(self):
+    def test_race_record_payload_is_required(self) -> None:
         user = self.make_user()
         self.client.force_authenticate(user=user)
         payload = deepcopy(self.payload)
@@ -143,7 +148,7 @@ class MemberReviewTests(MemberReviewTestDataMixin, APITestCase):
         self.assertFalse(Review.objects.exists())
         self.assertFalse(RaceRecord.objects.exists())
 
-    def test_public_record_consent_is_required(self):
+    def test_public_record_consent_is_required(self) -> None:
         user = self.make_user()
         self.client.force_authenticate(user=user)
         payload = deepcopy(self.payload)
@@ -155,7 +160,7 @@ class MemberReviewTests(MemberReviewTestDataMixin, APITestCase):
         self.assertFalse(Review.objects.exists())
         self.assertFalse(RaceRecord.objects.exists())
 
-    def test_invalid_review_does_not_create_race_record(self):
+    def test_invalid_review_does_not_create_race_record(self) -> None:
         user = self.make_user()
         self.client.force_authenticate(user=user)
         payload = deepcopy(self.payload)
@@ -167,7 +172,7 @@ class MemberReviewTests(MemberReviewTestDataMixin, APITestCase):
         self.assertFalse(Review.objects.exists())
         self.assertFalse(RaceRecord.objects.exists())
 
-    def test_unknown_course_does_not_create_review_or_record(self):
+    def test_unknown_course_does_not_create_review_or_record(self) -> None:
         user = self.make_user()
         self.client.force_authenticate(user=user)
         payload = deepcopy(self.payload)
@@ -179,7 +184,7 @@ class MemberReviewTests(MemberReviewTestDataMixin, APITestCase):
         self.assertFalse(Review.objects.exists())
         self.assertFalse(RaceRecord.objects.exists())
 
-    def test_distance_less_cycling_race_normalizes_legacy_fallback_code(self):
+    def test_distance_less_cycling_race_normalizes_legacy_fallback_code(self) -> None:
         self.race.sport = 'cycling'
         self.race.distances = []
         self.race.save(update_fields=['sport', 'distances'])
@@ -195,7 +200,7 @@ class MemberReviewTests(MemberReviewTestDataMixin, APITestCase):
         self.assertEqual(record.course_code, 'CYC')
         self.assertEqual(record.distance, '자전거')
 
-    def test_zero_duration_does_not_create_review_or_record(self):
+    def test_zero_duration_does_not_create_review_or_record(self) -> None:
         user = self.make_user()
         self.client.force_authenticate(user=user)
         payload = deepcopy(self.payload)
@@ -207,7 +212,7 @@ class MemberReviewTests(MemberReviewTestDataMixin, APITestCase):
         self.assertFalse(Review.objects.exists())
         self.assertFalse(RaceRecord.objects.exists())
 
-    def test_record_time_component_ranges_are_validated_without_partial_write(self):
+    def test_record_time_component_ranges_are_validated_without_partial_write(self) -> None:
         user = self.make_user()
         self.client.force_authenticate(user=user)
 
@@ -223,7 +228,7 @@ class MemberReviewTests(MemberReviewTestDataMixin, APITestCase):
                 self.assertFalse(Review.objects.exists())
                 self.assertFalse(RaceRecord.objects.exists())
 
-    def test_completion_time_is_derived_from_record_instead_of_legacy_input(self):
+    def test_completion_time_is_derived_from_record_instead_of_legacy_input(self) -> None:
         user = self.make_user()
         self.client.force_authenticate(user=user)
         payload = deepcopy(self.payload)
@@ -236,7 +241,7 @@ class MemberReviewTests(MemberReviewTestDataMixin, APITestCase):
         self.assertEqual(Review.objects.get().completion_time, '0:42:05')
         self.assertEqual(RaceRecord.objects.get().duration_seconds, 42 * 60 + 5)
 
-    def test_existing_record_is_upserted_in_place_and_preserves_user_flags(self):
+    def test_existing_record_is_upserted_in_place_and_preserves_user_flags(self) -> None:
         user = self.make_user()
         existing = RaceRecord.objects.create(
             user=user,
@@ -267,7 +272,7 @@ class MemberReviewTests(MemberReviewTestDataMixin, APITestCase):
         self.assertGreater(existing.updated_at, previous_updated_at)
         self.assertEqual(Review.objects.filter(user=user, race=self.race).count(), 1)
 
-    def test_member_can_review_same_race_only_once(self):
+    def test_member_can_review_same_race_only_once(self) -> None:
         user = self.make_user()
         self.client.force_authenticate(user=user)
 
@@ -279,7 +284,7 @@ class MemberReviewTests(MemberReviewTestDataMixin, APITestCase):
         self.assertEqual(Review.objects.filter(user=user, race=self.race).count(), 1)
         self.assertEqual(RaceRecord.objects.filter(user=user, race=self.race).count(), 1)
 
-    def test_duplicate_review_does_not_mutate_race_record(self):
+    def test_duplicate_review_does_not_mutate_race_record(self) -> None:
         user = self.make_user()
         self.client.force_authenticate(user=user)
         first = self.client.post(self.url, self.payload, format='json')
@@ -297,7 +302,7 @@ class MemberReviewTests(MemberReviewTestDataMixin, APITestCase):
         self.assertEqual(record.pk, original_pk)
         self.assertEqual(record.duration_seconds, original_duration)
 
-    def test_future_race_cannot_be_reviewed_through_api(self):
+    def test_future_race_cannot_be_reviewed_through_api(self) -> None:
         self.race.race_date = timezone.localdate() + timedelta(days=1)
         self.race.save(update_fields=['race_date'])
         user = self.make_user()
@@ -316,15 +321,15 @@ class MemberReviewTransactionTests(MemberReviewTestDataMixin, APITransactionTest
 
     reset_sequences = True
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.set_up_review_data()
         self.user = self.make_user()
         self.client.force_authenticate(user=self.user)
 
-    def post_while_upsert_raises_after_write(self):
+    def post_while_upsert_raises_after_write(self) -> None:
         real_update_or_create = RaceRecord.objects.update_or_create
 
-        def update_then_raise(*args, **kwargs):
+        def update_then_raise(*args: Any, **kwargs: Any) -> None:
             real_update_or_create(*args, **kwargs)
             raise RuntimeError('injected RaceRecord upsert failure')
 
@@ -336,13 +341,13 @@ class MemberReviewTransactionTests(MemberReviewTestDataMixin, APITransactionTest
             with self.assertRaisesMessage(RuntimeError, 'injected RaceRecord upsert failure'):
                 self.client.post(self.url, self.payload, format='json')
 
-    def test_record_create_exception_rolls_back_review_and_record(self):
+    def test_record_create_exception_rolls_back_review_and_record(self) -> None:
         self.post_while_upsert_raises_after_write()
 
         self.assertFalse(Review.objects.exists())
         self.assertFalse(RaceRecord.objects.exists())
 
-    def test_record_update_exception_rolls_back_review_and_existing_record_changes(self):
+    def test_record_update_exception_rolls_back_review_and_existing_record_changes(self) -> None:
         existing = RaceRecord.objects.create(
             user=self.user,
             race=self.race,

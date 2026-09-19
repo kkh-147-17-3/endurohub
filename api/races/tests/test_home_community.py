@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from django.contrib.auth import get_user_model
+from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.test import override_settings
 from django.urls import reverse
@@ -10,8 +10,6 @@ from rest_framework.test import APITestCase
 from accounts.models import RaceRecord, UserProfile
 from races.models import Race, Review
 
-
-User = get_user_model()
 
 TEST_CACHES = {
     'default': {
@@ -23,7 +21,7 @@ TEST_CACHES = {
 
 @override_settings(CACHES=TEST_CACHES)
 class HomeCommunityTests(APITestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         cache.clear()
         self.addCleanup(cache.clear)
         self.url = reverse('home-community')
@@ -37,7 +35,7 @@ class HomeCommunityTests(APITestCase):
             distances=[{'name': '10km', 'distance_meter': 10000}],
         )
 
-    def make_user(self, index):
+    def make_user(self, index: int) -> User:
         user = User.objects.create_user(
             username=f'runner{index}@example.com',
             email=f'runner{index}@example.com',
@@ -45,13 +43,13 @@ class HomeCommunityTests(APITestCase):
         UserProfile.objects.create(user=user, nickname=f'러너{index}', email_verified=True)
         return user
 
-    def test_empty_feed(self):
+    def test_empty_feed(self) -> None:
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {'recentReviews': [], 'recentRecords': []})
 
-    def test_returns_only_five_latest_reviews_with_race_context(self):
+    def test_returns_only_five_latest_reviews_with_race_context(self) -> None:
         base = timezone.now() - timedelta(hours=1)
         reviews = []
         for index in range(6):
@@ -78,7 +76,7 @@ class HomeCommunityTests(APITestCase):
         self.assertEqual(items[0]['race']['raceDate'], self.race.race_date.isoformat())
         self.assertNotIn('ipHash', items[0])
 
-    def test_records_are_latest_public_catalogue_finishes_only(self):
+    def test_records_are_latest_public_catalogue_finishes_only(self) -> None:
         base = timezone.now() - timedelta(hours=1)
         public_records = []
         for index in range(6):
@@ -135,7 +133,7 @@ class HomeCommunityTests(APITestCase):
         signed_in_items = self.client.get(self.url).json()['recentRecords']
         self.assertTrue(signed_in_items[0]['me'])
 
-    def test_record_metric_matches_the_race_sport(self):
+    def test_record_metric_matches_the_race_sport(self) -> None:
         cases = [
             ('running', 21097.5, '21.1K', '21.0975km', 1 * 3600 + 50 * 60, '평균 페이스', '5′13″/km'),
             ('trail_running', 40000, '40K', '40km', 5 * 3600 + 24 * 60 + 16, '평균 페이스', '8′06″/km'),
@@ -171,7 +169,7 @@ class HomeCommunityTests(APITestCase):
             self.assertEqual(items_by_sport[sport]['metricLabel'], metric_label)
             self.assertEqual(items_by_sport[sport]['metricValue'], metric_value)
 
-    def test_review_like_state_is_scoped_to_the_request_ip(self):
+    def test_review_like_state_is_scoped_to_the_request_ip(self) -> None:
         review = Review.objects.create(
             race=self.race,
             nickname='공감 러너',

@@ -17,6 +17,7 @@ import json
 import logging
 import re
 from datetime import date
+from typing import Any, cast
 
 import httpx
 from django.conf import settings
@@ -28,9 +29,13 @@ logger = logging.getLogger(__name__)
 VALID_SPORTS = set(SPORT_LABELS.keys())
 VALID_REGIONS = set(REGIONS)
 VALID_STATUSES = {'registration_open', 'registration_closed', 'upcoming'}
+# constants 의 DISTANCE_CATEGORIES 는 값 타입이 object 로 추론된다 — 우리가 쓰는 형태로 좁혀 쓴다.
+_DISTANCE_CATEGORY_MAP: dict[str, list[dict[str, Any]]] = cast(
+    'dict[str, list[dict[str, Any]]]', DISTANCE_CATEGORIES
+)
 # 종목별 허용 거리 카테고리 value 집합
 VALID_DISTANCE_CATEGORIES = {
-    sport: {c['value'] for c in cats} for sport, cats in DISTANCE_CATEGORIES.items()
+    sport: {c['value'] for c in cats} for sport, cats in _DISTANCE_CATEGORY_MAP.items()
 }
 # 모든 종목의 거리 카테고리 value (종목 미상일 때도 일단 받아두고 뷰에서 종목과 교차 검증)
 ALL_DISTANCE_VALUES = {v for vs in VALID_DISTANCE_CATEGORIES.values() for v in vs}
@@ -42,7 +47,7 @@ def _build_system_prompt(today: date) -> str:
     sports_desc = ', '.join(f'{k}({v})' for k, v in SPORT_LABELS.items())
     regions_desc = ', '.join(REGIONS)
     cat_lines = []
-    for sport, cats in DISTANCE_CATEGORIES.items():
+    for sport, cats in _DISTANCE_CATEGORY_MAP.items():
         labels = ', '.join(f"{c['value']}={c['label']}" for c in cats)
         cat_lines.append(f'  - {sport}: {labels}')
     cats_desc = '\n'.join(cat_lines)
@@ -117,7 +122,7 @@ def _anthropic_schema() -> dict:
     """
     str_array = {'type': 'array', 'items': {'type': 'string'}}
 
-    def enum_array(values):
+    def enum_array(values: Any) -> dict[str, Any]:
         return {'type': 'array', 'items': {'type': 'string', 'enum': sorted(values)}}
 
     schema = {
@@ -163,18 +168,21 @@ def _call_anthropic(system_prompt: str, user_message: str) -> str | None:
         logger.warning('NL search Anthropic client init failed: %s', exc)
         return None
 
-    base = {
+    base: dict[str, Any] = {
         'model': model,
         'max_tokens': 600,
         'system': system_prompt,
         'messages': [{'role': 'user', 'content': user_message}],
     }
-    for extra in ({'output_config': {'format': _anthropic_schema()}}, {}):
+    variants: tuple[dict[str, Any], ...] = ({'output_config': {'format': _anthropic_schema()}}, {})
+    for extra in variants:
         try:
             resp = client.messages.create(**base, **extra)
             for block in resp.content:
-                if getattr(block, 'type', None) == 'text' and getattr(block, 'text', None):
-                    return block.text
+                if getattr(block, 'type', None) == 'text':
+                    block_text: str | None = getattr(block, 'text', None)
+                    if block_text:
+                        return block_text
             return None
         except Exception as exc:  # noqa: BLE001 — structured 실패 시 프롬프트-온리로 폴백
             logger.warning('NL search Anthropic call failed (structured=%s): %s', bool(extra), exc)
@@ -211,7 +219,8 @@ def _call_llm(system_prompt: str, user_message: str) -> str | None:
         resp = httpx.post(url, json=payload, headers=headers, timeout=settings.LLM_TIMEOUT)
         resp.raise_for_status()
         data = resp.json()
-        return data['choices'][0]['message']['content']
+        content: str = data['choices'][0]['message']['content']
+        return content
     except (httpx.HTTPError, KeyError, IndexError, ValueError) as exc:
         logger.warning('NL search LLM call failed: %s', exc)
         return None
@@ -232,7 +241,7 @@ def _parse_json(raw: str) -> dict | None:
         return None
 
 
-def _as_str_list(value) -> list[str]:
+def _as_str_list(value: Any) -> list[str]:
     if isinstance(value, list):
         return [str(x) for x in value if isinstance(x, (str, int, float))]
     if isinstance(value, str) and value:

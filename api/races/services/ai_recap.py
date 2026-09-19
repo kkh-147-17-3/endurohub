@@ -20,12 +20,14 @@ ai_summary.py 와 목적은 같지만(같은 필드를 채운다) 재료가 다�
 import logging
 import re
 import time
+from collections.abc import Callable
 from datetime import timedelta
+from typing import Any
 
 import httpx
 from django.conf import settings
 from django.core.cache import cache
-from django.db.models import Q
+from django.db.models import Q, QuerySet
 from django.utils import timezone
 
 from races.models import Race
@@ -98,11 +100,11 @@ _META_PHRASES = (
 )
 
 
-def _tried_key(slug):
+def _tried_key(slug: str) -> str:
     return f'{TRIED_CACHE_PREFIX}{slug}'
 
 
-def _strip_citations(text):
+def _strip_citations(text: str) -> str:
     """본문에 섞여 들어온 마크다운 인용·맨 URL 을 제거한다."""
     text = _MD_LINK.sub('', text)
     text = _BARE_URL.sub('', text)
@@ -111,12 +113,12 @@ def _strip_citations(text):
     return '\n'.join(line.rstrip() for line in text.split('\n'))
 
 
-def _looks_like_meta(text):
+def _looks_like_meta(text: str) -> bool:
     """'후기를 못 찾았다'는 설명문인지."""
     return any(p in text for p in _META_PHRASES)
 
 
-def _target_races(days=FINISHED_DAYS):
+def _target_races(days: int = FINISHED_DAYS) -> QuerySet[Race]:
     """끝난 지 days 일 넘은 + 요약이 비어 있는 + 자동갱신이 켜진 대회들.
 
     race_end_date 가 있으면 그걸, 없으면 race_date 를 기준으로 삼는다 —
@@ -137,7 +139,7 @@ def _target_races(days=FINISHED_DAYS):
     )
 
 
-def _build_query(race):
+def _build_query(race: Race) -> str:
     """모델에 넘길 지시문. 검색어를 직접 주지 않고 대회를 특정할 정보를 준다."""
     year = race.race_date.year if race.race_date else None
     lines = [f'대회명: {race.title}']
@@ -164,7 +166,7 @@ def _build_query(race):
     )
 
 
-def _call_responses(user_message):
+def _call_responses(user_message: str) -> dict[str, Any] | None:
     """Responses API 를 web_search 툴과 함께 호출한다. 실패하면 None.
 
     reg_status._call_openai 와 달리 /chat/completions 가 아니라 /responses 다 —
@@ -197,7 +199,8 @@ def _call_responses(user_message):
             timeout=max(settings.LLM_TIMEOUT, 90),
         )
         resp.raise_for_status()
-        return resp.json()
+        data: dict[str, Any] = resp.json()
+        return data
     except httpx.HTTPStatusError as exc:
         logger.warning(
             'ai_recap: Responses API returned %s: %s',
@@ -209,14 +212,14 @@ def _call_responses(user_message):
         return None
 
 
-def _extract(data):
+def _extract(data: dict[str, Any]) -> tuple[str, list[str], bool]:
     """(text, citations, searched) 를 돌려준다.
 
     searched 는 모델이 실제로 web_search 를 호출했는지다 — 검색 없이 나온 답은
     사전지식으로 지어낸 것이므로 호출부에서 기각한다.
     """
-    text_parts = []
-    citations = []
+    text_parts: list[str] = []
+    citations: list[str] = []
     searched = False
 
     for item in (data.get('output') or []):
@@ -236,7 +239,7 @@ def _extract(data):
     return '\n'.join(text_parts).strip(), citations, searched
 
 
-def generate_recap(race):
+def generate_recap(race: Race) -> tuple[str | None, str]:
     """대회 하나의 후기 요약을 생성한다.
 
     (summary, reason) 을 돌려준다. summary 가 None 이면 reason 이 이유다 —
@@ -287,24 +290,26 @@ def generate_recap(race):
     return summary, 'ok'
 
 
-def generate_race_recaps(dry_run=False, limit=None, days=FINISHED_DAYS, slug=None,
-                         sleep=0.0, on_result=None):
+def generate_race_recaps(dry_run: bool = False, limit: int | None = None,
+                         days: int = FINISHED_DAYS, slug: str | None = None,
+                         sleep: float = 0.0,
+                         on_result: Callable[[Race, str | None, str], None] | None = None) -> dict[str, int]:
     """잡 1회 실행. 요약 카운트를 반환한다.
 
     on_result(race, text, reason) 가 주어지면 대회마다 호출한다 — 관리 명령이
     dry-run 으로 프롬프트를 다듬을 때 생성된 문장을 봐야 하기 때문이다.
     """
-    summary_counts = {
+    summary_counts: dict[str, int] = {
         'total': 0, 'generated': 0, 'no_material': 0,
         'rejected': 0, 'errors': 0, 'skipped_tried': 0, 'skipped_existing': 0,
     }
 
     if slug:
-        races = Race.objects.filter(slug=slug)
+        races: QuerySet[Race] = Race.objects.filter(slug=slug)
     else:
         races = _target_races(days=days)
 
-    targets = []
+    targets: list[Race] = []
     for race in races.iterator():
         # 직접 지정한 slug 는 시도 기록을 무시한다 — 수동 재시도가 막히면 안 된다.
         if not slug and cache.get(_tried_key(race.slug)):

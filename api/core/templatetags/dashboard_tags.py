@@ -4,7 +4,8 @@ Renders a "registered user × day" analytics-event matrix on the unfold
 admin home (`/dj-admin/`). Kept as an inclusion tag so it works with the
 default admin site without swapping in UnfoldAdminSite.
 """
-from datetime import timedelta
+from datetime import date, timedelta
+from typing import Any
 
 from django import template
 from django.contrib.auth import get_user_model
@@ -21,7 +22,7 @@ WINDOW_DAYS = 14
 ACCENT = (67, 165, 100)  # #43a564
 
 
-def _cell(count, max_count):
+def _cell(count: int, max_count: int) -> dict[str, Any]:
     """Build a heatmap cell (count + background color)."""
     if not count:
         return {'count': 0, 'bg': 'transparent', 'fg': '#9ca3af'}
@@ -36,7 +37,7 @@ def _cell(count, max_count):
 
 
 @register.inclusion_tag('admin/analytics_user_matrix.html')
-def analytics_user_matrix():
+def analytics_user_matrix() -> dict[str, Any]:
     tz = timezone.get_current_timezone()
     today = timezone.localdate()
     start_date = today - timedelta(days=WINDOW_DAYS - 1)
@@ -51,8 +52,8 @@ def analytics_user_matrix():
         .annotate(c=Count('id'))
     )
 
-    counts = {}   # user_id -> {day: count}
-    totals = {}   # user_id -> total
+    counts: dict[int, dict[date, int]] = {}   # user_id -> {day: count}
+    totals: dict[int, int] = {}   # user_id -> total
     max_count = 0
     for r in agg:
         counts.setdefault(r['user_id'], {})[r['day']] = r['c']

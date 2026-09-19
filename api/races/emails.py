@@ -1,23 +1,25 @@
 import logging
+from collections.abc import Iterable
+from typing import Any
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 
 from races.constants import SPORT_CODES
-from races.models import RacePendingChange
+from races.models import Race, RacePendingChange
 
 logger = logging.getLogger(__name__)
 
 
-def _inject_sport_code(races):
+def _inject_sport_code(races: Iterable[Race]) -> Iterable[Race]:
     for race in races:
-        sport = getattr(race, 'sport', None)
-        race.sport_code = SPORT_CODES.get(sport, sport[:3].upper() if sport else '')
+        sport = race.sport
+        setattr(race, 'sport_code', SPORT_CODES.get(sport, sport[:3].upper()))
     return races
 
 
-def send_crawl_report_email(result, crawl_type='detailed'):
+def send_crawl_report_email(result: dict[str, Any], crawl_type: str = 'detailed') -> bool:
     created = result.get('created', 0)
     updated = result.get('updated', 0)
     has_changes = created > 0 or updated > 0
@@ -56,8 +58,8 @@ def send_crawl_report_email(result, crawl_type='detailed'):
     return True
 
 
-def _build_updated_items(updated_races):
-    items = []
+def _build_updated_items(updated_races: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
     for item in updated_races:
         items.append({
             'race': item['race'],
@@ -67,7 +69,7 @@ def _build_updated_items(updated_races):
     return items
 
 
-def _build_change_list(changes):
+def _build_change_list(changes: dict[str, Any]) -> list[dict[str, str]]:
     field_labels = RacePendingChange.FIELD_LABELS
     rows = []
     for field_name, change in changes.items():
@@ -80,7 +82,7 @@ def _build_change_list(changes):
     return rows
 
 
-def _format_display_value(value):
+def _format_display_value(value: Any) -> str:
     if value is None or value == '':
         return '-'
     if isinstance(value, list):
@@ -90,7 +92,7 @@ def _format_display_value(value):
     return str(value)
 
 
-def _build_text_body(result):
+def _build_text_body(result: dict[str, Any]) -> str:
     lines = [
         '마라톤 대회 크롤링 리포트',
         '',

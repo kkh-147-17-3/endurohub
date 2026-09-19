@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task(ignore_result=True)
-def crawl_marathon_task(year=None, month=None, with_details=True):
+def crawl_marathon_task(year: int | None = None, month: int | None = None, with_details: bool = True) -> None:
     service = MarathonCrawlerService()
     crawl_func = service.crawl_with_details if with_details else service.crawl
     result = crawl_func(year=year, month=month, dry_run=False)
@@ -33,13 +33,13 @@ def crawl_marathon_task(year=None, month=None, with_details=True):
 
 
 @shared_task(ignore_result=True)
-def fetch_weather_task(days=16):
+def fetch_weather_task(days: int = 16) -> None:
     call_command('fetch_weather', days=days)
     logger.info('Fetch weather task completed', extra={'days': days})
 
 
 @shared_task(ignore_result=True)
-def update_registration_status_task():
+def update_registration_status_task() -> None:
     from races.services.reg_status import update_registration_status
 
     summary = update_registration_status()
@@ -47,7 +47,7 @@ def update_registration_status_task():
 
 
 @shared_task(ignore_result=True)
-def generate_ai_recap_task(limit=20):
+def generate_ai_recap_task(limit: int = 20) -> None:
     from races.services.ai_recap import generate_race_recaps
 
     summary = generate_race_recaps(limit=limit, sleep=1.0)

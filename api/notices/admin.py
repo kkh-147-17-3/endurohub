@@ -1,5 +1,8 @@
+from typing import Any
+
 from django.contrib import admin
 from django.db import models
+from django.http import HttpRequest
 from django.utils.html import format_html
 from unfold.admin import ModelAdmin
 from unfold.contrib.forms.widgets import WysiwygWidget
@@ -36,12 +39,12 @@ class NoticeAdmin(ModelAdmin):
         }),
     )
 
-    def save_model(self, request, obj, form, change):
+    def save_model(self, request: HttpRequest, obj: Notice, form: Any, change: bool) -> None:
         obj.content = sanitize_notice_html(obj.content or '')
         super().save_model(request, obj, form, change)
 
     @admin.display(description='제목')
-    def title_short(self, obj):
+    def title_short(self, obj: Notice) -> str:
         return obj.title[:40] + ('...' if len(obj.title) > 40 else '')
 
 
@@ -54,15 +57,15 @@ class NoticeCommentAdmin(ModelAdmin):
     readonly_fields = ['notice', 'parent', 'ip_hash', 'created_at', 'updated_at']
 
     @admin.display(description='닉네임')
-    def display_nickname_col(self, obj):
+    def display_nickname_col(self, obj: NoticeComment) -> str:
         return obj.display_nickname
 
     @admin.display(description='내용')
-    def content_short(self, obj):
+    def content_short(self, obj: NoticeComment) -> str:
         return obj.content[:40] + ('...' if len(obj.content) > 40 else '')
 
     @admin.display(description='대댓글', boolean=True)
-    def is_reply_col(self, obj):
+    def is_reply_col(self, obj: NoticeComment) -> bool:
         return obj.is_reply
 
 
@@ -104,11 +107,11 @@ class PopupAdmin(ModelAdmin):
     )
 
     @admin.display(description='상태', boolean=True)
-    def live_badge(self, obj):
+    def live_badge(self, obj: Popup) -> bool:
         return obj.is_live
 
     @admin.display(description='이미지')
-    def thumb(self, obj):
+    def thumb(self, obj: Popup) -> str:
         if not obj.image:
             return '—'
         return format_html(
@@ -117,7 +120,7 @@ class PopupAdmin(ModelAdmin):
         )
 
     @admin.display(description='미리보기 (모달 폭 640px 기준)')
-    def preview(self, obj):
+    def preview(self, obj: Popup) -> str:
         if not obj.image:
             return '이미지를 올리고 저장하면 여기에 표시됩니다.'
         return format_html(
@@ -130,6 +133,6 @@ class PopupAdmin(ModelAdmin):
             obj.cta_label or '(버튼 없음 — 이미지 클릭만)',
         )
 
-    def save_related(self, request, form, formsets, change):
+    def save_related(self, request: HttpRequest, form: Any, formsets: Any, change: bool) -> None:
         super().save_related(request, form, formsets, change)
         invalidate_popup_cache()

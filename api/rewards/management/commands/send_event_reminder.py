@@ -2,10 +2,12 @@ import time
 from datetime import date
 from email.mime.image import MIMEImage
 from pathlib import Path
+from typing import Any
 
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives, get_connection
-from django.core.management.base import BaseCommand, CommandError
+from django.core.mail.backends.base import BaseEmailBackend
+from django.core.management.base import BaseCommand, CommandError, CommandParser
 from django.template.loader import render_to_string
 
 from accounts.models import UserProfile
@@ -18,14 +20,19 @@ HERO_IMAGE_PATH = Path(settings.BASE_DIR) / 'rewards' / 'assets' / 'endurohub-mu
 HERO_CONTENT_ID = 'endurohub-multisport-event'
 
 
-def mask_email(email):
+def mask_email(email: str) -> str:
     local, separator, domain = email.rpartition('@')
     if not separator:
         return '***'
     return f'{local[:2]}***@{domain}'
 
 
-def build_message(*, to, test=False, connection=None):
+def build_message(
+    *,
+    to: str,
+    test: bool = False,
+    connection: BaseEmailBackend | None = None,
+) -> EmailMultiAlternatives:
     subject = f'[TEST] {SUBJECT}' if test else SUBJECT
     context = {'app_url': 'https://www.endurohub.kr'}
     text_body = render_to_string('emails/coffee_coupon_event.txt', context).strip()
@@ -46,7 +53,7 @@ def build_message(*, to, test=False, connection=None):
         'inline',
         filename=HERO_IMAGE_PATH.name,
     )
-    message.mixed_subtype = 'related'
+    message.mixed_subtype = 'related'  # type: ignore[attr-defined]  # django-stubs에 누락된 EmailMessage.mixed_subtype (Django 5.2 런타임에는 존재)
     message.attach(hero_image)
     return message
 
@@ -54,7 +61,7 @@ def build_message(*, to, test=False, connection=None):
 class Command(BaseCommand):
     help = '2026 커피 쿠폰 이벤트 독려 메일을 테스트 주소 또는 수신 동의 회원에게 발송합니다.'
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: CommandParser) -> None:
         mode = parser.add_mutually_exclusive_group(required=True)
         mode.add_argument('--to', help='테스트 메일을 받을 단일 이메일 주소')
         mode.add_argument('--send-all', action='store_true', help='수신 동의 회원 전체에게 발송')
@@ -69,7 +76,7 @@ class Command(BaseCommand):
             help='전체 발송 시 메일 사이의 대기 시간(초, 기본 0.15)',
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> str | None:
         if options['delay'] < 0:
             raise CommandError('--delay는 0 이상이어야 합니다.')
 
@@ -83,7 +90,7 @@ class Command(BaseCommand):
                     f'테스트 메일 발송 완료: {mask_email(options["to"])}'
                 )
             )
-            return
+            return None
 
         if options['confirm'] != CONFIRMATION:
             raise CommandError(
@@ -124,3 +131,4 @@ class Command(BaseCommand):
         if failures:
             raise CommandError('일부 메일 발송에 실패했습니다. 위 실패 목록을 확인하세요.')
         self.stdout.write(self.style.SUCCESS('이벤트 독려 메일 전체 발송 완료'))
+        return None

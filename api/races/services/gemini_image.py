@@ -2,6 +2,7 @@ import base64
 import logging
 import re
 from pathlib import Path
+from typing import Any
 
 import httpx
 from django.conf import settings
@@ -33,19 +34,19 @@ SPORT_SCENES = {
 
 
 class GeminiImageService:
-    def __init__(self):
+    def __init__(self) -> None:
         self.api_key = getattr(settings, 'GEMINI_API_KEY', '')
         self.model = getattr(settings, 'GEMINI_IMAGE_MODEL', 'gemini-2.0-flash-exp-image-generation')
 
-    def generate_blog_image(self, year, month, sports, image_type='monthly'):
+    def generate_blog_image(self, year: int, month: int, sports: list[str], image_type: str = 'monthly') -> str | None:
         """Generate 16:9 featured blog image."""
         return self._generate(year, month, sports, image_type, '16:9', 'featured')
 
-    def generate_instagram_image(self, year, month, sports, image_type='monthly'):
+    def generate_instagram_image(self, year: int, month: int, sports: list[str], image_type: str = 'monthly') -> str | None:
         """Generate 1:1 square Instagram image."""
         return self._generate(year, month, sports, image_type, '1:1', 'instagram')
 
-    def _generate(self, year, month, sports, image_type, aspect, suffix):
+    def _generate(self, year: int, month: int, sports: list[str], image_type: str, aspect: str, suffix: str) -> str | None:
         if not self.api_key:
             logger.warning('GEMINI_API_KEY not configured')
             return None
@@ -59,7 +60,7 @@ class GeminiImageService:
         filename = f'{year}년_{month}월_{prefix}대회일정_{suffix}.png'
         return self._save_image(image_data, filename)
 
-    def _build_prompt(self, month, sports, aspect):
+    def _build_prompt(self, month: int, sports: list[str], aspect: str) -> str:
         season = SEASON_THEMES.get(month, 'neutral atmosphere')
         sport_list = [SPORT_SCENES.get(s, '') for s in sports if s in SPORT_SCENES]
         sport_desc = '; '.join(sport_list[:2]) if sport_list else SPORT_SCENES['running']
@@ -74,7 +75,7 @@ class GeminiImageService:
             f'Muted, desaturated color palette with one warm accent color.'
         )
 
-    def _call_api(self, prompt):
+    def _call_api(self, prompt: str) -> str | None:
         url = f'https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent'
         headers = {'Content-Type': 'application/json'}
         params = {'key': self.api_key}
@@ -87,15 +88,20 @@ class GeminiImageService:
             resp = httpx.post(url, json=body, headers=headers, params=params, timeout=120)
             resp.raise_for_status()
             data = resp.json()
-            for candidate in data.get('candidates', []):
-                for part in candidate.get('content', {}).get('parts', []):
-                    if 'inlineData' in part:
-                        return part['inlineData']['data']
+            candidates: list[dict[str, Any]] = data.get('candidates', [])
+            for candidate in candidates:
+                content: dict[str, Any] = candidate.get('content', {})
+                parts: list[dict[str, Any]] = content.get('parts', [])
+                for part in parts:
+                    inline_data = part.get('inlineData')
+                    if isinstance(inline_data, dict) and 'data' in inline_data:
+                        image_data: str = inline_data['data']
+                        return image_data
         except Exception as e:
             logger.error('Gemini API error', extra={'error': str(e)})
         return None
 
-    def _save_image(self, base64_data, filename):
+    def _save_image(self, base64_data: str, filename: str) -> str:
         output_dir = Path(settings.BASE_DIR) / 'storage' / 'blog-posts'
         output_dir.mkdir(parents=True, exist_ok=True)
         path = output_dir / filename

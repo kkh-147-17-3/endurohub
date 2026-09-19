@@ -8,6 +8,7 @@ import sys
 from datetime import date, timedelta
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 from dotenv import load_dotenv
 
@@ -29,8 +30,11 @@ TO = sys.argv[1] if len(sys.argv) > 1 else 'kterry0002@gmail.com'
 APP_URL = getattr(settings, 'APP_URL', 'https://www.endurohub.kr')
 
 
-def mk_race(*, title, sport, region, location, race_date_, slug,
-            registration_end_=None, distances=None, image=None, race_end=None):
+def mk_race(*, title: str, sport: str, region: str, location: str,
+            race_date_: date, slug: str,
+            registration_end_: date | None = None,
+            distances: list[dict[str, Any]] | None = None,
+            image: str | None = None, race_end: date | None = None) -> SimpleNamespace:
     days_left = None
     if registration_end_:
         days_left = (registration_end_ - date.today()).days
@@ -126,7 +130,7 @@ CLOSING_SOON = [
 ]
 
 
-def send_html(subject, template, context, text_body):
+def send_html(subject: str, template: str, context: dict[str, Any], text_body: str) -> None:
     html = render_to_string(template, context)
     msg = EmailMultiAlternatives(
         subject=subject,
@@ -139,7 +143,7 @@ def send_html(subject, template, context, text_body):
     print(f'  ✓ sent {subject}')
 
 
-def send_welcome():
+def send_welcome() -> None:
     print('1) welcome')
     ctx = {
         'nickname': '테리',
@@ -157,7 +161,7 @@ def send_welcome():
     )
 
 
-def send_weekly():
+def send_weekly() -> None:
     print('2) weekly_digest')
     ctx = {
         'nickname': '테리',
@@ -178,7 +182,7 @@ def send_weekly():
     )
 
 
-def send_new_alert():
+def send_new_alert() -> None:
     print('3) new_races_alert')
     ctx = {
         'nickname': '테리',
@@ -194,7 +198,7 @@ def send_new_alert():
     )
 
 
-def send_crawl():
+def send_crawl() -> None:
     print('4) crawl_report')
     created = SAMPLE_RACES[:3]
     updated_items = [
@@ -233,7 +237,7 @@ def send_crawl():
     )
 
 
-def send_verify():
+def send_verify() -> None:
     print('5) verification_code')
     html = render_to_string('emails/verification_code.html', {'code': '584092'})
     send_mail(

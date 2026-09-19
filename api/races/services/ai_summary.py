@@ -25,9 +25,13 @@ gpt-5.4-nano / gpt-5.4-mini 로 표본을 dry-run 해 본 결과 품질이 기�
 
 import json
 import logging
+from datetime import date
+from typing import Any, cast
 
 import httpx
 from django.conf import settings
+
+from races.models import Race
 
 from ..constants import SPORT_LABELS
 
@@ -76,7 +80,7 @@ SYSTEM_PROMPT = """너는 국내 지구력 스포츠 대회 정보를 정리하�
 - 문장 사이는 줄바꿈 하나로 구분한다. 머리말, 목록 기호, 따옴표 없이 본문만 출력한다."""
 
 
-def build_user_message(race):
+def build_user_message(race: Race) -> tuple[str, list[str]]:
     """모델 입력을 만든다.
 
     입력을 두 덩이로 나눈다. '표에 이미 있는 값'은 상세 페이지가 그대로 보여주는
@@ -85,10 +89,10 @@ def build_user_message(race):
 
     (context, material) 을 돌려준다 — material 이 비면 쓸 말이 없다는 뜻이다.
     """
-    context = []
-    material = []
+    context: list[str] = []
+    material: list[str] = []
 
-    def add(bucket, key, value):
+    def add(bucket: list[str], key: str, value: Any) -> None:
         if value:
             bucket.append(f'{key}: {value}')
 
@@ -139,14 +143,14 @@ def build_user_message(race):
     return message, material
 
 
-def _format_date(value):
+def _format_date(value: date | None) -> str | None:
     """ISO 대신 한국어 표기 — 모델이 날짜를 인용할 때 그대로 쓰게 한다."""
     if not value:
         return None
     return f'{value.year}년 {value.month}월 {value.day}일'
 
 
-def _call_anthropic(system_prompt, user_message):
+def _call_anthropic(system_prompt: str, user_message: str) -> str | None:
     try:
         import anthropic
     except ImportError:
@@ -163,15 +167,17 @@ def _call_anthropic(system_prompt, user_message):
             messages=[{'role': 'user', 'content': user_message}],
         )
         for block in resp.content:
-            if getattr(block, 'type', None) == 'text' and getattr(block, 'text', None):
-                return block.text
+            # SDK 의 블록 유니온에서 getattr 으로 덕타이핑 — text 는 Any 라 좁혀서 돌려준다.
+            text = getattr(block, 'text', None)
+            if getattr(block, 'type', None) == 'text' and text:
+                return cast(str, text)
         return None
     except Exception as exc:  # noqa: BLE001
         logger.warning('ai_summary Anthropic call failed: %s', exc)
         return None
 
 
-def _call_openai(system_prompt, user_message):
+def _call_openai(system_prompt: str, user_message: str) -> str | None:
     # reg_status 와 같은 이유로 max_completion_tokens 를 쓴다 — gpt-5 계열은 max_tokens 를
     # 거부하고, reasoning 토큰이 완성 한도를 잠식하므로 여유 있게 잡는다.
     payload = {
@@ -194,14 +200,15 @@ def _call_openai(system_prompt, user_message):
             timeout=max(settings.LLM_TIMEOUT, 60),
         )
         resp.raise_for_status()
-        data = resp.json()
-        return data['choices'][0]['message']['content']
+        data: dict[str, Any] = resp.json()
+        content = cast(str, data['choices'][0]['message']['content'])
+        return content
     except (httpx.HTTPError, KeyError, IndexError, json.JSONDecodeError) as exc:
         logger.warning('ai_summary OpenAI call failed: %s', exc)
         return None
 
 
-def _clean(text):
+def _clean(text: str | None) -> str | None:
     """모델 출력에서 머리말·목록 기호·빈 줄을 걷어낸다."""
     if not text:
         return None
@@ -216,7 +223,7 @@ def _clean(text):
     return '\n'.join(lines)
 
 
-def generate_summary(race):
+def generate_summary(race: Race) -> str | None:
     """대회 하나의 요약을 생성한다. 실패하면 None."""
     if not settings.LLM_API_KEY:
         logger.warning('ai_summary: LLM_API_KEY 미설정')

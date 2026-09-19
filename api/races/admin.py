@@ -1,11 +1,15 @@
 import os
 import uuid
+from collections.abc import Iterator
+from typing import Any, cast
 
 from django.conf import settings
 from django.contrib import admin, messages
-from django.db.models import IntegerField, OuterRef, Subquery, Value
+from django.contrib.admin.views.main import ChangeList
+from django.core.files.uploadedfile import UploadedFile
+from django.db.models import IntegerField, OuterRef, QuerySet, Subquery, Value
 from django.db.models.functions import Coalesce
-from django.http import HttpResponseRedirect
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
@@ -19,14 +23,15 @@ from .models import (
     RaceFavorite,
     RaceParticipation,
     RacePendingChange,
+    RaceQuerySet,
     Review,
     ReviewLike,
 )
 
 
-def _save_upload(f, subdir='races'):
+def _save_upload(f: UploadedFile, subdir: str = 'races') -> str:
     """Save an uploaded file and return the relative path."""
-    ext = os.path.splitext(f.name)[1].lower()
+    ext = os.path.splitext(cast(str, f.name))[1].lower()
     filename = f'{uuid.uuid4().hex}{ext}'
     rel_path = f'{subdir}/{filename}'
     abs_path = os.path.join(settings.MEDIA_ROOT, rel_path)
@@ -207,7 +212,7 @@ class StatusFilter(admin.SimpleListFilter):
     title = '상태'
     parameter_name = 'computed_status'
 
-    def lookups(self, request, model_admin):
+    def lookups(self, request: HttpRequest, model_admin: admin.ModelAdmin) -> list[tuple[str, str]]:
         return [
             ('upcoming', '예정'),
             ('registration_open', '접수중'),
@@ -215,9 +220,12 @@ class StatusFilter(admin.SimpleListFilter):
             ('finished', '종료'),
         ]
 
-    def queryset(self, request, queryset):
-        if self.value():
-            return queryset.by_status(self.value())
+    def queryset(self, request: HttpRequest, queryset: QuerySet[Any]) -> QuerySet[Any]:
+        value = self.value()
+        if value:
+            race_qs = cast("RaceQuerySet", queryset)
+            result: QuerySet[Any] = race_qs.by_status(value)
+            return result
         return queryset
 
 
@@ -226,7 +234,7 @@ class PendingStatusDefaultFilter(admin.SimpleListFilter):
     title = '상태'
     parameter_name = 'status'
 
-    def lookups(self, request, model_admin):
+    def lookups(self, request: HttpRequest, model_admin: admin.ModelAdmin) -> list[tuple[str, str]]:
         return [
             ('all', '전체'),
             ('pending', '대기중'),
@@ -234,7 +242,7 @@ class PendingStatusDefaultFilter(admin.SimpleListFilter):
             ('rejected', '거부됨'),
         ]
 
-    def choices(self, changelist):
+    def choices(self, changelist: ChangeList) -> Iterator[Any]:
         """Override to set default selection to 'pending' instead of 'All'."""
         for lookup, title in self.lookup_choices:
             yield {
@@ -243,7 +251,7 @@ class PendingStatusDefaultFilter(admin.SimpleListFilter):
                 'display': title,
             }
 
-    def queryset(self, request, queryset):
+    def queryset(self, request: HttpRequest, queryset: QuerySet[Any]) -> QuerySet[Any]:
         value = self.value()
         if value == 'all':
             return queryset
@@ -335,7 +343,7 @@ class RaceAdmin(ModelAdmin):
         }),
     )
 
-    def get_queryset(self, request):
+    def get_queryset(self, request: HttpRequest) -> QuerySet[Race]:
         from django.db.models import Count as DjangoCount
         pending_count = Coalesce(
             Subquery(
@@ -351,14 +359,15 @@ class RaceAdmin(ModelAdmin):
             ),
             Value(0),
         )
-        return super().get_queryset(request).annotate(
+        qs: QuerySet[Race] = super().get_queryset(request)
+        return qs.annotate(
             _pending_changes_count=pending_count,
         )
 
     # --- Image previews ---
 
     @admin.display(description='현재 이미지')
-    def image_preview(self, obj):
+    def image_preview(self, obj: Race) -> str:
         if not obj.pk:
             return format_html('이미지 없음{}', FILE_PREVIEW_SCRIPT)
         src = obj.image_src
@@ -375,14 +384,14 @@ class RaceAdmin(ModelAdmin):
         return format_html('이미지 없음{}', FILE_PREVIEW_SCRIPT)
 
     @admin.display(description='코스 이미지 미리보기')
-    def course_images_preview(self, obj):
+    def course_images_preview(self, obj: Race) -> str:
         return self._image_gallery(obj, 'course')
 
     @admin.display(description='기념품 이미지 미리보기')
-    def giveaway_images_preview(self, obj):
+    def giveaway_images_preview(self, obj: Race) -> str:
         return self._image_gallery(obj, 'giveaway')
 
-    def _image_gallery(self, obj, kind):
+    def _image_gallery(self, obj: Race, kind: str) -> str:
         if not obj.pk:
             return '-'
 
@@ -447,7 +456,7 @@ class RaceAdmin(ModelAdmin):
     # --- Pending changes link (readonly field in form) ---
 
     @admin.display(description='대기 중인 변경')
-    def pending_changes_link(self, obj):
+    def pending_changes_link(self, obj: Race) -> str:
         if not obj.pk:
             return '-'
         count = getattr(obj, '_pending_changes_count', None)
@@ -463,14 +472,15 @@ class RaceAdmin(ModelAdmin):
             url, obj.pk, count,
         )
 
-    def response_change(self, request, obj):
+    def response_change(self, request: HttpRequest, obj: Race) -> HttpResponse:
         if '_continue' not in request.POST and '_addanother' not in request.POST:
             return HttpResponseRedirect(request.path)
-        return super().response_change(request, obj)
+        response: HttpResponse = super().response_change(request, obj)
+        return response
 
     # --- File upload / delete / reorder handling ---
 
-    def save_model(self, request, obj, form, change):
+    def save_model(self, request: HttpRequest, obj: Race, form: RaceAdminForm, change: bool) -> None:
         # Main image: delete / upload
         if request.POST.get('_delete_image'):
             obj.image_path = None
@@ -508,7 +518,7 @@ class RaceAdmin(ModelAdmin):
 
         super().save_model(request, obj, form, change)
 
-    def _auto_lock_edited_fields(self, request, obj, form, change):
+    def _auto_lock_edited_fields(self, request: HttpRequest, obj: Race, form: RaceAdminForm, change: bool) -> None:
         """편집된 크롤러 추적 필드를 locked_fields 에 자동 추가.
 
         - 신규 생성(change=False)에는 적용하지 않는다 (어차피 처음 만드는 값).
@@ -534,11 +544,11 @@ class RaceAdmin(ModelAdmin):
     # --- List display ---
 
     @admin.display(description='대회명')
-    def title_short(self, obj):
+    def title_short(self, obj: Race) -> str:
         return obj.title[:30] + ('...' if len(obj.title) > 30 else '')
 
     @admin.display(description='종목')
-    def sport_badge(self, obj):
+    def sport_badge(self, obj: Race) -> str:
         colors = {
             'running': '#22c55e',
             'swimming': '#3b82f6',
@@ -554,7 +564,7 @@ class RaceAdmin(ModelAdmin):
         )
 
     @admin.display(description='상태')
-    def status_badge(self, obj):
+    def status_badge(self, obj: Race) -> str:
         status = obj.computed_status
         colors = {
             'upcoming': '#6b7280',
@@ -570,7 +580,7 @@ class RaceAdmin(ModelAdmin):
         )
 
     @admin.display(description='출처')
-    def source_badge(self, obj):
+    def source_badge(self, obj: Race) -> str:
         label = '크롤링' if obj.source == 'crawl' else '수동'
         return format_html(
             '<span style="padding:2px 6px; border-radius:4px; '
@@ -579,11 +589,11 @@ class RaceAdmin(ModelAdmin):
         )
 
     @admin.display(description='검증', boolean=True)
-    def verified_icon(self, obj):
+    def verified_icon(self, obj: Race) -> bool:
         return obj.verified_at is not None
 
     @admin.display(description='대기')
-    def pending_changes_badge(self, obj):
+    def pending_changes_badge(self, obj: Race) -> str:
         count = getattr(obj, '_pending_changes_count', 0)
         if not count:
             return '-'
@@ -594,16 +604,19 @@ class RaceAdmin(ModelAdmin):
         )
 
     @admin.action(description='선택된 대회 검증 완료 처리')
-    def verify_races(self, request, queryset):
+    def verify_races(self, request: HttpRequest, queryset: QuerySet[Race]) -> None:
         now = timezone.now()
-        user = request.user.get_username() or 'admin'
+        if request.user.is_authenticated:
+            user = request.user.get_username() or 'admin'
+        else:
+            user = 'admin'
         queryset.filter(verified_at__isnull=True).update(
             verified_at=now,
             verified_by=user,
         )
 
     @admin.action(description='선택된 대회 접수마감 처리')
-    def close_registration(self, request, queryset):
+    def close_registration(self, request: HttpRequest, queryset: QuerySet[Race]) -> None:
         queryset.update(status='registration_closed')
 
     actions = ['verify_races', 'close_registration']
@@ -640,12 +653,12 @@ class RacePendingChangeAdmin(ModelAdmin):
         }),
     )
 
-    def get_model_count(self, request):
+    def get_model_count(self, request: HttpRequest) -> int | None:
         """Show pending count as navigation badge (unfold feature)."""
         return RacePendingChange.objects.filter(status='pending').count() or None
 
     @admin.display(description='대회명')
-    def race_link(self, obj):
+    def race_link(self, obj: RacePendingChange) -> str:
         if obj.race:
             url = reverse('admin:races_race_change', args=[obj.race_id])
             return format_html(
@@ -655,11 +668,11 @@ class RacePendingChangeAdmin(ModelAdmin):
         return '-'
 
     @admin.display(description='필드')
-    def field_label_display(self, obj):
+    def field_label_display(self, obj: RacePendingChange) -> str:
         return obj.field_label
 
     @admin.display(description='변경 내용')
-    def value_comparison(self, obj):
+    def value_comparison(self, obj: RacePendingChange) -> str:
         old_val = (obj.old_value or '-')[:40]
         new_val = (obj.new_value or '-')[:40]
         return format_html(
@@ -670,7 +683,7 @@ class RacePendingChangeAdmin(ModelAdmin):
         )
 
     @admin.display(description='값 비교 (상세)')
-    def value_comparison_detail(self, obj):
+    def value_comparison_detail(self, obj: RacePendingChange) -> str:
         old_val = obj.old_value or '(없음)'
         new_val = obj.new_value or '(없음)'
         return format_html(
@@ -690,7 +703,7 @@ class RacePendingChangeAdmin(ModelAdmin):
         )
 
     @admin.display(description='상태')
-    def status_badge(self, obj):
+    def status_badge(self, obj: RacePendingChange) -> str:
         colors = {
             'pending': '#f59e0b',
             'approved': '#22c55e',
@@ -704,8 +717,11 @@ class RacePendingChangeAdmin(ModelAdmin):
         )
 
     @admin.action(description='선택된 변경사항 일괄 승인')
-    def bulk_approve(self, request, queryset):
-        user = request.user.get_username() or 'admin'
+    def bulk_approve(self, request: HttpRequest, queryset: QuerySet[RacePendingChange]) -> None:
+        if request.user.is_authenticated:
+            user = request.user.get_username() or 'admin'
+        else:
+            user = 'admin'
         count = 0
         for change in queryset.filter(status='pending'):
             change.approve(reviewed_by=user)
@@ -713,8 +729,11 @@ class RacePendingChangeAdmin(ModelAdmin):
         self.message_user(request, f'{count}건의 변경이 승인되었습니다.')
 
     @admin.action(description='선택된 변경사항 일괄 거부')
-    def bulk_reject(self, request, queryset):
-        user = request.user.get_username() or 'admin'
+    def bulk_reject(self, request: HttpRequest, queryset: QuerySet[RacePendingChange]) -> None:
+        if request.user.is_authenticated:
+            user = request.user.get_username() or 'admin'
+        else:
+            user = 'admin'
         count = 0
         for change in queryset.filter(status='pending'):
             change.reject(reviewed_by=user)
@@ -746,7 +765,7 @@ class ReviewAdmin(ModelAdmin):
     )
 
     @admin.display(description='대회명')
-    def race_link(self, obj):
+    def race_link(self, obj: Review) -> str:
         if obj.race:
             url = reverse('admin:races_race_change', args=[obj.race_id])
             return format_html(
@@ -756,19 +775,20 @@ class ReviewAdmin(ModelAdmin):
         return '-'
 
     @admin.display(description='닉네임')
-    def display_nickname_col(self, obj):
+    def display_nickname_col(self, obj: Review) -> str:
         return obj.display_nickname
 
     @admin.display(description='회원 이메일')
-    def member_email(self, obj):
-        return obj.user.email if obj.user_id else '(기존 익명 리뷰)'
+    def member_email(self, obj: Review) -> str:
+        user = obj.user
+        return user.email if user is not None else '(기존 익명 리뷰)'
 
     @admin.display(description='공감')
-    def like_count_col(self, obj):
+    def like_count_col(self, obj: Review) -> int:
         return obj.like_count
 
     @admin.display(description='평점')
-    def rating_stars(self, obj):
+    def rating_stars(self, obj: Review) -> str:
         stars = '\u2605' * obj.rating + '\u2606' * (5 - obj.rating)
         if obj.rating >= 4:
             color = '#22c55e'
@@ -782,7 +802,7 @@ class ReviewAdmin(ModelAdmin):
         )
 
     @admin.display(description='내용')
-    def comment_short(self, obj):
+    def comment_short(self, obj: Review) -> str:
         return obj.comment[:40] + ('...' if len(obj.comment) > 40 else '')
 
 
@@ -798,7 +818,7 @@ class DeviceTokenAdmin(ModelAdmin):
     ordering = ['-created_at']
 
     @admin.display(description='토큰')
-    def token_short(self, obj):
+    def token_short(self, obj: DeviceToken) -> str:
         return obj.token[:20] + '...'
 
 
@@ -815,7 +835,7 @@ class RaceFavoriteAdmin(ModelAdmin):
     autocomplete_fields = ['race']
 
     @admin.display(description='대회명')
-    def race_link(self, obj):
+    def race_link(self, obj: RaceFavorite) -> str:
         if obj.race:
             url = reverse('admin:races_race_change', args=[obj.race_id])
             return format_html('<a href="{}">{}</a>', url, obj.race.title[:30])
@@ -839,14 +859,14 @@ class RaceParticipationAdmin(ModelAdmin):
     autocomplete_fields = ['race']
 
     @admin.display(description='대회명')
-    def race_link(self, obj):
+    def race_link(self, obj: RaceParticipation) -> str:
         if obj.race:
             url = reverse('admin:races_race_change', args=[obj.race_id])
             return format_html('<a href="{}">{}</a>', url, obj.race.title[:30])
         return '-'
 
     @admin.display(description='상태')
-    def status_badge(self, obj):
+    def status_badge(self, obj: RaceParticipation) -> str:
         colors = {
             RaceParticipation.STATUS_MAYBE: '#6b7280',
             RaceParticipation.STATUS_GOING: '#22c55e',
@@ -870,5 +890,5 @@ class ReviewLikeAdmin(ModelAdmin):
     readonly_fields = ['review', 'ip_hash', 'created_at']
 
     @admin.display(description='IP Hash')
-    def ip_hash_short(self, obj):
+    def ip_hash_short(self, obj: ReviewLike) -> str:
         return obj.ip_hash[:16] + '...'

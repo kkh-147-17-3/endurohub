@@ -1,8 +1,10 @@
 import hashlib
 import logging
 import time
+from collections.abc import Callable
 
 from django.conf import settings
+from django.http import HttpRequest, HttpResponse
 
 from core.notifications import notify_server_error
 
@@ -14,10 +16,10 @@ IGNORED_PATHS = frozenset({'/health', '/favicon.ico'})
 class RequestLoggingMiddleware:
     """모든 API 요청을 JSON 구조화 로그로 기록한다."""
 
-    def __init__(self, get_response):
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
 
-    def __call__(self, request):
+    def __call__(self, request: HttpRequest) -> HttpResponse:
         if request.path in IGNORED_PATHS:
             return self.get_response(request)
 
@@ -41,16 +43,16 @@ class RequestLoggingMiddleware:
 class ErrorNotificationMiddleware:
     """500 에러 발생 시 Telegram으로 알림을 보낸다. 동일 에러는 60초간 중복 전송하지 않는다."""
 
-    _recent_errors = {}
+    _recent_errors: dict[str, float] = {}
     COOLDOWN = 60  # seconds
 
-    def __init__(self, get_response):
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
 
-    def __call__(self, request):
+    def __call__(self, request: HttpRequest) -> HttpResponse:
         return self.get_response(request)
 
-    def process_exception(self, request, exception):
+    def process_exception(self, request: HttpRequest, exception: Exception) -> HttpResponse | None:
         # 중복 알림 방지: 같은 에러 타입+경로는 60초간 1번만
         key = hashlib.md5(
             f'{type(exception).__name__}:{request.path}'.encode()
@@ -82,10 +84,10 @@ class AdminTokenCookieMiddleware:
     그래서 dj-admin 을 주기적으로 쓰면 SvelteKit /admin 접근이 중간에 끊기지 않는다.
     """
 
-    def __init__(self, get_response):
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
 
-    def __call__(self, request):
+    def __call__(self, request: HttpRequest) -> HttpResponse:
         response = self.get_response(request)
 
         admin_secret = getattr(settings, 'ADMIN_SECRET', '')

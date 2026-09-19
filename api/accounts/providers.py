@@ -1,3 +1,4 @@
+from typing import Any
 from urllib.parse import urlencode
 
 import httpx
@@ -23,7 +24,7 @@ class KakaoOAuth:
         return f'{cls.AUTHORIZE_URL}?{urlencode(params)}'
 
     @classmethod
-    def exchange_code(cls, code: str, redirect_uri: str) -> dict:
+    def exchange_code(cls, code: str, redirect_uri: str) -> dict[str, Any]:
         resp = httpx.post(cls.TOKEN_URL, data={
             'grant_type': 'authorization_code',
             'client_id': settings.KAKAO_CLIENT_ID,
@@ -33,16 +34,17 @@ class KakaoOAuth:
         })
         if resp.status_code != 200:
             raise OAuthError(f'Kakao token exchange failed: {resp.text}')
-        return resp.json()
+        data: dict[str, Any] = resp.json()
+        return data
 
     @classmethod
-    def get_user_info(cls, access_token: str) -> dict:
+    def get_user_info(cls, access_token: str) -> dict[str, Any]:
         resp = httpx.get(cls.USER_INFO_URL, headers={
             'Authorization': f'Bearer {access_token}',
         })
         if resp.status_code != 200:
             raise OAuthError(f'Kakao user info failed: {resp.text}')
-        data = resp.json()
+        data: dict[str, Any] = resp.json()
         account = data.get('kakao_account', {})
         profile = account.get('profile', {}) or data.get('properties', {})
         return {
@@ -70,7 +72,7 @@ class NaverOAuth:
         return f'{cls.AUTHORIZE_URL}?{urlencode(params)}'
 
     @classmethod
-    def exchange_code(cls, code: str, redirect_uri: str, state: str = '') -> dict:
+    def exchange_code(cls, code: str, redirect_uri: str, state: str = '') -> dict[str, Any]:
         resp = httpx.post(cls.TOKEN_URL, data={
             'grant_type': 'authorization_code',
             'client_id': settings.NAVER_CLIENT_ID,
@@ -81,16 +83,17 @@ class NaverOAuth:
         })
         if resp.status_code != 200:
             raise OAuthError(f'Naver token exchange failed: {resp.text}')
-        return resp.json()
+        data: dict[str, Any] = resp.json()
+        return data
 
     @classmethod
-    def get_user_info(cls, access_token: str) -> dict:
+    def get_user_info(cls, access_token: str) -> dict[str, Any]:
         resp = httpx.get(cls.USER_INFO_URL, headers={
             'Authorization': f'Bearer {access_token}',
         })
         if resp.status_code != 200:
             raise OAuthError(f'Naver user info failed: {resp.text}')
-        data = resp.json().get('response', {})
+        data: dict[str, Any] = resp.json().get('response', {})
         return {
             'provider': 'naver',
             'provider_uid': data.get('id', ''),
@@ -118,7 +121,7 @@ class GoogleOAuth:
         return f'{cls.AUTHORIZE_URL}?{urlencode(params)}'
 
     @classmethod
-    def exchange_code(cls, code: str, redirect_uri: str) -> dict:
+    def exchange_code(cls, code: str, redirect_uri: str) -> dict[str, Any]:
         resp = httpx.post(cls.TOKEN_URL, data={
             'grant_type': 'authorization_code',
             'client_id': settings.GOOGLE_CLIENT_ID,
@@ -128,16 +131,17 @@ class GoogleOAuth:
         })
         if resp.status_code != 200:
             raise OAuthError(f'Google token exchange failed: {resp.text}')
-        return resp.json()
+        data: dict[str, Any] = resp.json()
+        return data
 
     @classmethod
-    def get_user_info(cls, access_token: str) -> dict:
+    def get_user_info(cls, access_token: str) -> dict[str, Any]:
         resp = httpx.get(cls.USER_INFO_URL, headers={
             'Authorization': f'Bearer {access_token}',
         })
         if resp.status_code != 200:
             raise OAuthError(f'Google user info failed: {resp.text}')
-        data = resp.json()
+        data: dict[str, Any] = resp.json()
         return {
             'provider': 'google',
             'provider_uid': data.get('id', ''),
@@ -147,14 +151,14 @@ class GoogleOAuth:
         }
 
 
-PROVIDERS = {
+PROVIDERS: dict[str, type[KakaoOAuth | NaverOAuth | GoogleOAuth]] = {
     'kakao': KakaoOAuth,
     'naver': NaverOAuth,
     'google': GoogleOAuth,
 }
 
 
-def get_provider(name: str):
+def get_provider(name: str) -> type[KakaoOAuth | NaverOAuth | GoogleOAuth]:
     provider = PROVIDERS.get(name)
     if not provider:
         raise OAuthError(f'Unknown provider: {name}')

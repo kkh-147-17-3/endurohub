@@ -1,5 +1,9 @@
 import logging
 import threading
+from typing import Any
+
+from django.contrib.auth.models import User
+from django.http import HttpRequest
 
 from .models import AnalyticsEvent
 from .utils import hash_ip, is_bot_request
@@ -9,7 +13,7 @@ logger = logging.getLogger(__name__)
 SESSION_COOKIE = 'ehub_sid'
 
 
-def _get_session_id(request):
+def _get_session_id(request: HttpRequest | None) -> str:
     if request is None:
         return ''
     # Try cookie first, then X-Session-Id header (from SvelteKit SSR)
@@ -19,8 +23,9 @@ def _get_session_id(request):
     )
 
 
-def track(event_type, request=None, properties=None, user=None,
-          item_id='', item_type=''):
+def track(event_type: str, request: HttpRequest | None = None,
+          properties: dict[str, Any] | None = None, user: User | None = None,
+          item_id: str = '', item_type: str = '') -> None:
     """비즈니스 이벤트를 비동기로 기록한다. 뷰 응답 속도에 영향을 주지 않는다.
 
     크롤러/봇 요청은 기록하지 않는다. 봇은 쿠키를 유지하지 않아 매 요청마다
@@ -40,7 +45,7 @@ def track(event_type, request=None, properties=None, user=None,
     _item_id = str(item_id) if item_id else ''
     _item_type = str(item_type) if item_type else ''
 
-    def _save():
+    def _save() -> None:
         try:
             AnalyticsEvent.objects.create(
                 event_type=event_type,

@@ -1,8 +1,9 @@
 import os
 from pathlib import Path
+from typing import Any
 
 from django.conf import settings
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandParser
 
 from races.image_utils import process_image
 from races.models import Race
@@ -11,18 +12,18 @@ from races.models import Race
 class Command(BaseCommand):
     help = 'Convert existing race images to WebP and generate thumbnails.'
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument(
             '--dry-run', action='store_true',
             help='Show what would be converted without actually doing it.',
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> str | None:
         dry_run = options['dry_run']
         media_root = Path(settings.MEDIA_ROOT)
 
         # Collect all image paths from races
-        image_paths = set()
+        image_paths: set[str] = set()
 
         for race in Race.objects.only(
             'id', 'image_path', 'course_image_uploads', 'giveaway_image_uploads'
@@ -34,7 +35,7 @@ class Command(BaseCommand):
                     image_paths.update(uploads_field)
 
         # Filter to existing non-webp files that don't already have a webp counterpart
-        to_convert = []
+        to_convert: list[str] = []
         for rel_path in sorted(image_paths):
             abs_path = media_root / rel_path
             if not abs_path.exists():
@@ -52,7 +53,7 @@ class Command(BaseCommand):
         if dry_run:
             for p in to_convert:
                 self.stdout.write(f'  Would convert: {p}')
-            return
+            return None
 
         converted = 0
         failed = 0
@@ -68,3 +69,4 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f'Done. Converted: {converted}, Failed: {failed}, Skipped: {len(image_paths) - len(to_convert)}'
         ))
+        return None

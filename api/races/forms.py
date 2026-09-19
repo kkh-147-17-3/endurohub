@@ -1,6 +1,8 @@
+from typing import Any
+
 from django import forms
 from django.utils.html import format_html
-from django.utils.safestring import mark_safe
+from django.utils.safestring import SafeString, mark_safe
 
 from .models import Race
 
@@ -17,11 +19,11 @@ class TagInputWidget(forms.Widget):
     Backspace on empty input removes the last tag.
     """
 
-    def __init__(self, attrs=None, placeholder='입력 후 Enter'):
+    def __init__(self, attrs: dict[str, Any] | None = None, placeholder: str = '입력 후 Enter'):
         self.placeholder = placeholder
         super().__init__(attrs)
 
-    def render(self, name, value, attrs=None, renderer=None):
+    def render(self, name: str, value: Any, attrs: dict[str, Any] | None = None, renderer: Any = None) -> SafeString:
         if value is None or value == '' or value == 'null':
             value = '[]'
 
@@ -102,7 +104,7 @@ class TagInputWidget(forms.Widget):
 
         return mark_safe(str(html) + js)
 
-    def value_from_datadict(self, data, files, name):
+    def value_from_datadict(self, data: Any, files: Any, name: str) -> Any:
         return data.get(name)
 
 
@@ -113,7 +115,7 @@ class DistancesWidget(forms.Widget):
     distance_meter is auto-calculated on model save.
     """
 
-    def render(self, name, value, attrs=None, renderer=None):
+    def render(self, name: str, value: Any, attrs: dict[str, Any] | None = None, renderer: Any = None) -> SafeString:
         if value is None or value == '' or value == 'null':
             value = '[]'
 
@@ -208,7 +210,7 @@ class DistancesWidget(forms.Widget):
 
         return mark_safe(str(html) + js)
 
-    def value_from_datadict(self, data, files, name):
+    def value_from_datadict(self, data: Any, files: Any, name: str) -> Any:
         return data.get(name)
 
 
@@ -218,7 +220,7 @@ class RepeaterWidget(forms.Widget):
     Renders a table with distance + fee columns, add/remove row buttons.
     """
 
-    def render(self, name, value, attrs=None, renderer=None):
+    def render(self, name: str, value: Any, attrs: dict[str, Any] | None = None, renderer: Any = None) -> SafeString:
         if value is None or value == '' or value == 'null':
             value = '[]'
 
@@ -302,7 +304,7 @@ class RepeaterWidget(forms.Widget):
 
         return mark_safe(str(html) + js)
 
-    def value_from_datadict(self, data, files, name):
+    def value_from_datadict(self, data: Any, files: Any, name: str) -> Any:
         return data.get(name)
 
 
@@ -310,11 +312,11 @@ class MultiFileInput(forms.ClearableFileInput):
     """FileInput that allows multiple file selection."""
     allow_multiple_selected = True
 
-    def __init__(self, attrs=None):
+    def __init__(self, attrs: dict[str, Any] | None = None):
         super().__init__(attrs)
         self.attrs.setdefault('multiple', True)
 
-    def value_from_datadict(self, data, files, name):
+    def value_from_datadict(self, data: Any, files: Any, name: str) -> Any:
         if hasattr(files, 'getlist'):
             return files.getlist(name)
         return files.get(name)
@@ -327,7 +329,7 @@ class MultipleFileField(forms.FileField):
     so this field only needs to pass validation without breaking.
     """
 
-    def clean(self, data, initial=None):
+    def clean(self, data: Any, initial: Any | None = None) -> Any:
         if not data or data == []:
             if self.required:
                 raise forms.ValidationError(self.error_messages['required'])

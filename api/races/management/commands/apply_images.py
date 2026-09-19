@@ -1,10 +1,12 @@
-from django.core.management.base import BaseCommand
+from typing import Any
+
+from django.core.management.base import BaseCommand, CommandParser
 
 
 class Command(BaseCommand):
     help = 'AI 검토 후 선별된 이미지를 DB에 반영'
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument(
             'race_id', type=int,
             help='대회 ID',
@@ -30,7 +32,7 @@ class Command(BaseCommand):
             help='실제 저장하지 않고 미리보기만',
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> str | None:
         from races.models import Race
 
         race_id = options['race_id']
@@ -38,7 +40,7 @@ class Command(BaseCommand):
             race = Race.objects.get(id=race_id)
         except Race.DoesNotExist:
             self.stdout.write(self.style.ERROR(f'대회를 찾을 수 없습니다: {race_id}'))
-            return
+            return None
 
         self.stdout.write(f'대회: [{race.id}] {race.title}')
 
@@ -59,13 +61,13 @@ class Command(BaseCommand):
             self.stdout.write('  --course URL1 URL2 : 코스 이미지')
             self.stdout.write('  --giveaway URL : 사은품 이미지')
             self.stdout.write('  --from-review : review 파일에서 로드')
-            return
+            return None
 
         if options['dry_run']:
             self.stdout.write(self.style.WARNING('--dry-run 모드: 실제 저장하지 않음'))
-            return
+            return None
 
-        update_data = {}
+        update_data: dict[str, Any] = {}
         if main_image:
             update_data['image_url'] = main_image
         if course_images:
@@ -75,3 +77,4 @@ class Command(BaseCommand):
 
         Race.objects.filter(pk=race.pk).update(**update_data)
         self.stdout.write(self.style.SUCCESS('DB 저장 완료!'))
+        return None

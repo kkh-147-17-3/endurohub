@@ -1,14 +1,19 @@
 import re
+from typing import TYPE_CHECKING, Any
 
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from .models import RaceRecord, SocialAccount, UserProfile
 
+if TYPE_CHECKING:
+    from django.contrib.auth.models import User as AuthUser
+    from races.models import Race
+
 User = get_user_model()
 
 
-class UserMeSerializer(serializers.Serializer):
+class UserMeSerializer(serializers.Serializer[UserProfile]):
     id = serializers.IntegerField(source='user.id')
     email = serializers.CharField(source='user.email', allow_blank=True)
     nickname = serializers.CharField(allow_null=True, allow_blank=True)
@@ -22,17 +27,17 @@ class UserMeSerializer(serializers.Serializer):
     needs_email_verification = serializers.SerializerMethodField()
     needs_onboarding = serializers.BooleanField()
 
-    def get_needs_nickname(self, obj):
+    def get_needs_nickname(self, obj: UserProfile) -> bool:
         return not obj.nickname
 
-    def get_needs_email_verification(self, obj):
+    def get_needs_email_verification(self, obj: UserProfile) -> bool:
         return bool(obj.user.email) and bool(obj.nickname) and not obj.email_verified
 
 
-class NicknameSetupSerializer(serializers.Serializer):
+class NicknameSetupSerializer(serializers.Serializer[dict[str, Any]]):
     nickname = serializers.CharField(max_length=50, min_length=2)
 
-    def validate_nickname(self, value):
+    def validate_nickname(self, value: str) -> str:
         value = value.strip()
         if not value:
             raise serializers.ValidationError('닉네임을 입력해주세요.')
@@ -47,10 +52,10 @@ class NicknameSetupSerializer(serializers.Serializer):
         return value
 
 
-class EmailSendSerializer(serializers.Serializer):
+class EmailSendSerializer(serializers.Serializer[dict[str, Any]]):
     email = serializers.EmailField(required=False, allow_blank=True)
 
-    def validate(self, attrs):
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         user = self.context.get('user')
         email = (attrs.get('email') or (user.email if user else '') or '').strip().lower()
 
@@ -78,11 +83,11 @@ class EmailSendSerializer(serializers.Serializer):
         return attrs
 
 
-class ProfilePreferencesSerializer(serializers.Serializer):
+class ProfilePreferencesSerializer(serializers.Serializer[dict[str, Any]]):
     email_updates_opt_in = serializers.BooleanField()
 
 
-class OnboardingSerializer(serializers.Serializer):
+class OnboardingSerializer(serializers.Serializer[dict[str, Any]]):
     preferred_sports = serializers.ListField(
         child=serializers.CharField(max_length=20),
         required=False,
@@ -96,7 +101,7 @@ class OnboardingSerializer(serializers.Serializer):
         default=list,
     )
 
-    def validate_preferred_sports(self, value):
+    def validate_preferred_sports(self, value: list[str]) -> list[str]:
         from races.constants import SPORT_LABELS
         valid = set(SPORT_LABELS.keys())
         for sport in value:
@@ -104,7 +109,7 @@ class OnboardingSerializer(serializers.Serializer):
                 raise serializers.ValidationError(f'유효하지 않은 종목입니다: {sport}')
         return value
 
-    def validate_preferred_regions(self, value):
+    def validate_preferred_regions(self, value: list[str]) -> list[str]:
         from races.constants import REGIONS
         for region in value:
             if region not in REGIONS:
@@ -112,7 +117,7 @@ class OnboardingSerializer(serializers.Serializer):
         return value
 
 
-class RaceRecordSerializer(serializers.ModelSerializer):
+class RaceRecordSerializer(serializers.ModelSerializer[RaceRecord]):
     """Read serializer for a stored race record."""
 
     sport_label = serializers.SerializerMethodField()
@@ -126,18 +131,18 @@ class RaceRecordSerializer(serializers.ModelSerializer):
             'is_personal_best', 'is_public', 'created_at',
         ]
 
-    def get_sport_label(self, obj):
+    def get_sport_label(self, obj: RaceRecord) -> str:
         from races.constants import SPORT_LABELS
         return SPORT_LABELS.get(obj.sport, obj.sport)
 
-    def get_time(self, obj):
+    def get_time(self, obj: RaceRecord) -> str:
         total = obj.duration_seconds or 0
         hours, remainder = divmod(total, 3600)
         minutes, seconds = divmod(remainder, 60)
         return f'{hours:02d}:{minutes:02d}:{seconds:02d}'
 
 
-class RaceRecordCreateSerializer(serializers.Serializer):
+class RaceRecordCreateSerializer(serializers.Serializer[RaceRecord]):
     """Write serializer accepting a sport, distance, and HH/MM/SS time parts."""
 
     sport = serializers.CharField(max_length=20)
@@ -149,26 +154,26 @@ class RaceRecordCreateSerializer(serializers.Serializer):
     seconds = serializers.IntegerField(required=False, min_value=0, max_value=59, default=0)
     is_public = serializers.BooleanField(required=False, default=False)
 
-    def validate_sport(self, value):
+    def validate_sport(self, value: str) -> str:
         from races.constants import SPORT_LABELS
         if value not in SPORT_LABELS:
             raise serializers.ValidationError(f'유효하지 않은 종목입니다: {value}')
         return value
 
-    def validate_distance(self, value):
+    def validate_distance(self, value: str) -> str:
         value = value.strip()
         if not value:
             raise serializers.ValidationError('거리 / 종목 카테고리를 입력해주세요.')
         return value
 
-    def validate(self, attrs):
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         total = attrs.get('hours', 0) * 3600 + attrs.get('minutes', 0) * 60 + attrs.get('seconds', 0)
         if total <= 0:
             raise serializers.ValidationError({'time': ['기록 시간을 입력해주세요.']})
         attrs['duration_seconds'] = total
         return attrs
 
-    def create(self, validated_data):
+    def create(self, validated_data: dict[str, Any]) -> RaceRecord:
         return RaceRecord.objects.create(
             user=self.context['user'],
             sport=validated_data['sport'],
@@ -186,19 +191,19 @@ def course_code_for(distance: dict) -> str:
     if meters and meters > 0:
         km = meters / 1000
         return f'{int(km)}K' if float(km).is_integer() else f'{km:.1f}K'
-    name = (distance.get('name') if isinstance(distance, dict) else '') or ''
+    name: str = (distance.get('name') if isinstance(distance, dict) else '') or ''
     return name[:4].upper()
 
 
-def race_course_options(race) -> list[tuple[str, str]]:
+def race_course_options(race: Race) -> list[tuple[str, str]]:
     """Return the valid ``(code, label)`` pairs for a curated race.
 
     Races without a usable distance entry use the canonical backend sport code.
     Empty derived codes are deliberately ignored so malformed distance data cannot
     turn an empty string into a valid course choice.
     """
-    options = []
-    seen_codes = set()
+    options: list[tuple[str, str]] = []
+    seen_codes: set[str] = set()
     for distance in race.distances or []:
         if not isinstance(distance, dict):
             continue
@@ -206,7 +211,8 @@ def race_course_options(race) -> list[tuple[str, str]]:
         if not code or code in seen_codes:
             continue
         seen_codes.add(code)
-        options.append((code, distance.get('name') or code))
+        label: str = distance.get('name') or code
+        options.append((code, label))
 
     if options:
         return options
@@ -214,10 +220,11 @@ def race_course_options(race) -> list[tuple[str, str]]:
     from races.constants import SPORT_CODES
 
     fallback = SPORT_CODES.get(race.sport, '')
-    return [(fallback, race.sport_label)] if fallback else []
+    sport_label: str = race.sport_label
+    return [(fallback, sport_label)] if fallback else []
 
 
-def upsert_linked_race_record(*, user, race, result_data):
+def upsert_linked_race_record(*, user: AuthUser, race: Race, result_data: dict[str, Any]) -> RaceRecord:
     """Create or update the user's result for a curated race.
 
     Only explicitly supplied visibility/PB flags are updated. This lets callers
@@ -249,7 +256,7 @@ def upsert_linked_race_record(*, user, race, result_data):
     return record
 
 
-class RaceResultInputSerializer(serializers.Serializer):
+class RaceResultInputSerializer(serializers.Serializer[RaceRecord]):
     """Validate a course choice and finish time for a curated race.
 
     Requires the target Race in ``context['race']``. Persistence is intentionally
@@ -262,7 +269,7 @@ class RaceResultInputSerializer(serializers.Serializer):
     seconds = serializers.IntegerField(required=False, min_value=0, max_value=59, default=0)
     is_public = serializers.BooleanField(required=False)
 
-    def validate_course_code(self, value):
+    def validate_course_code(self, value: str) -> str:
         value = value.strip()
         if not value:
             raise serializers.ValidationError('완주한 종목을 선택해주세요.')
@@ -277,7 +284,7 @@ class RaceResultInputSerializer(serializers.Serializer):
             raise serializers.ValidationError(f'이 대회에 없는 종목입니다: {value}')
         return value
 
-    def validate(self, attrs):
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         total = attrs.get('hours', 0) * 3600 + attrs.get('minutes', 0) * 60 + attrs.get('seconds', 0)
         if total <= 0:
             raise serializers.ValidationError({'time': ['기록 시간을 입력해주세요.']})
@@ -291,7 +298,7 @@ class RaceResultCreateSerializer(RaceResultInputSerializer):
     is_personal_best = serializers.BooleanField(required=False)
     is_public = serializers.BooleanField(required=False)
 
-    def create(self, validated_data):
+    def create(self, validated_data: dict[str, Any]) -> RaceRecord:
         return upsert_linked_race_record(
             user=self.context['user'],
             race=self.context['race'],

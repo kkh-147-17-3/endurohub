@@ -1,6 +1,5 @@
 from django.contrib import admin
-from django.db.models import Count
-from django.utils import timezone
+from django.http import HttpRequest
 from unfold.admin import ModelAdmin
 
 from .models import AnalyticsEvent
@@ -16,13 +15,13 @@ class AnalyticsEventAdmin(ModelAdmin):
     date_hierarchy = 'created_at'
     list_per_page = 50
 
-    def has_add_permission(self, request):
+    def has_add_permission(self, request: HttpRequest) -> bool:
         return False
 
-    def has_change_permission(self, request, obj=None):
+    def has_change_permission(self, request: HttpRequest, obj: AnalyticsEvent | None = None) -> bool:
         return False
 
     @admin.display(description='속성')
-    def properties_short(self, obj):
+    def properties_short(self, obj: AnalyticsEvent) -> str:
         text = str(obj.properties)
         return text[:80] + ('...' if len(text) > 80 else '')

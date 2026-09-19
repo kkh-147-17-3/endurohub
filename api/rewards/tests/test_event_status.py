@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from django.contrib.auth import get_user_model
+from django.contrib.auth.models import User
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
@@ -8,11 +8,8 @@ from accounts.models import RaceRecord, UserProfile
 from races.models import Race, Review
 
 
-User = get_user_model()
-
-
 class CoffeeCouponEventStatusTests(APITestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.user = User.objects.create_user(username='runner', email='runner@example.com')
         self.race = Race.objects.create(
             title='이벤트 테스트 대회',
@@ -24,19 +21,19 @@ class CoffeeCouponEventStatusTests(APITestCase):
         )
         self.client.force_authenticate(user=self.user)
 
-    def event_time(self, day):
+    def event_time(self, day: int) -> datetime:
         return timezone.make_aware(
             datetime(2026, 9, day, 12),
             timezone.get_current_timezone(),
         )
 
-    def set_record_times(self, record, value):
+    def set_record_times(self, record: RaceRecord, value: datetime) -> None:
         RaceRecord.objects.filter(pk=record.pk).update(
             created_at=value,
             updated_at=value,
         )
 
-    def test_reports_review_and_linked_record_created_during_event(self):
+    def test_reports_review_and_linked_record_created_during_event(self) -> None:
         review = Review.objects.create(
             race=self.race,
             user=self.user,
@@ -63,7 +60,7 @@ class CoffeeCouponEventStatusTests(APITestCase):
         self.assertTrue(response.data['record']['completed'])
         self.assertTrue(response.data['completed'])
 
-    def test_marketing_opt_out_does_not_block_event_completion(self):
+    def test_marketing_opt_out_does_not_block_event_completion(self) -> None:
         UserProfile.objects.create(user=self.user, email_updates_opt_in=False)
         review = Review.objects.create(
             race=self.race, user=self.user, nickname='runner', rating=5,
@@ -81,7 +78,7 @@ class CoffeeCouponEventStatusTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data['completed'])
 
-    def test_excludes_free_form_and_out_of_period_records(self):
+    def test_excludes_free_form_and_out_of_period_records(self) -> None:
         review = Review.objects.create(
             race=self.race, user=self.user, nickname='runner', rating=5,
             comment='기간 밖 기록과 함께 남긴 리뷰', ip_hash='e' * 64,
@@ -115,7 +112,7 @@ class CoffeeCouponEventStatusTests(APITestCase):
         self.assertFalse(response.data['record']['completed'])
         self.assertFalse(response.data['completed'])
 
-    def test_counts_existing_record_updated_with_event_review(self):
+    def test_counts_existing_record_updated_with_event_review(self) -> None:
         review = Review.objects.create(
             race=self.race, user=self.user, nickname='runner', rating=5,
             comment='기존 기록과 함께 남기는 리뷰', ip_hash='c' * 64,
@@ -137,7 +134,7 @@ class CoffeeCouponEventStatusTests(APITestCase):
         self.assertTrue(response.data['record']['completed'])
         self.assertTrue(response.data['completed'])
 
-    def test_record_for_another_race_does_not_complete_same_race_condition(self):
+    def test_record_for_another_race_does_not_complete_same_race_condition(self) -> None:
         other_race = Race.objects.create(
             title='다른 이벤트 테스트 대회',
             slug='another-coffee-event-test-race',
