@@ -1,0 +1,6 @@
+apiVersion: v2
+name: endurohub
+description: EnduroHub full stack (Django API + SvelteKit SSR + Celery + nginx + PostgreSQL + Redis)
+type: application
+version: 0.1.0
+appVersion: "1.0"

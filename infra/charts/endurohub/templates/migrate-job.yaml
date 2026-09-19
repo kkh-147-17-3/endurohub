@@ -1,0 +1,35 @@
+# Django 마이그레이션 — 설치 직후·업그레이드 직전에 1회 실행 (deploy.yml 의 migrate 스텝 대체)
+# post-install: 최초 설치 시 postgres 가 뜬 뒤 실행돼야 하므로 (pre-install 이면 DB 가 없어 실패)
+# pre-upgrade: 새 코드 배포 전에 스키마를 먼저 맞춘다
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate
+  annotations:
+    "helm.sh/hook": post-install,pre-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  # postgres 기동 대기 등으로 실패할 수 있으므로 넉넉히 재시도
+  backoffLimit: 10
+  template:
+    metadata:
+      labels:
+        app: migrate
+    spec:
+      restartPolicy: OnFailure
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: migrate
+          image: "{{ .Values.images.api.repository }}:{{ .Values.images.api.tag }}"
+          imagePullPolicy: {{ .Values.images.api.pullPolicy }}
+          # --fake-initial: 서버 이전 시 기존 테이블(pg_restore 복원분)에 대한 초기 마이그레이션 등록
+          command: ["python", "manage.py", "migrate", "--noinput", "--fake-initial"]
+          envFrom:
+            - configMapRef:
+                name: app-env
+            - secretRef:
+                name: app-secrets

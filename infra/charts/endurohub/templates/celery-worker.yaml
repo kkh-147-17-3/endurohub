@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-worker
+  labels:
+    app: celery-worker
+spec:
+  replicas: {{ .Values.celeryWorker.replicas }}
+  selector:
+    matchLabels:
+      app: celery-worker
+  template:
+    metadata:
+      labels:
+        app: celery-worker
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: celery-worker
+          image: "{{ .Values.images.api.repository }}:{{ .Values.images.api.tag }}"
+          imagePullPolicy: {{ .Values.images.api.pullPolicy }}
+          command: ["opentelemetry-instrument", "celery", "-A", "config", "worker", "-l", "info"]
+          envFrom:
+            - configMapRef:
+                name: app-env
+            - secretRef:
+                name: app-secrets
+          volumeMounts:
+            - name: media
+              mountPath: /app/storage
+          # 워커 프로세스가 브로커에 응답하는지 확인
+          livenessProbe:
+            exec:
+              # $HOSTNAME 은 셸이 확장해야 하므로 sh -c 경유 (K8s $() 치환은 spec.env 만 지원)
+              command: ["sh", "-c", "celery -A config inspect ping -d celery@$HOSTNAME --timeout 10"]
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            timeoutSeconds: 15
+          resources:
+            {{- toYaml .Values.celeryWorker.resources | nindent 12 }}
+      volumes:
+        - name: media
+          persistentVolumeClaim:
+            claimName: media-pvc

@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-beat
+  labels:
+    app: celery-beat
+spec:
+  # beat 는 스케줄 발행자 — 2개가 동시에 뜨면 태스크가 중복 발행되므로
+  # replicas 는 0/1 만 허용하고, 업데이트 시에도 겹치지 않게 Recreate 전략을 쓴다.
+  replicas: {{ .Values.celeryBeat.replicas }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: celery-beat
+  template:
+    metadata:
+      labels:
+        app: celery-beat
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: celery-beat
+          image: "{{ .Values.images.api.repository }}:{{ .Values.images.api.tag }}"
+          imagePullPolicy: {{ .Values.images.api.pullPolicy }}
+          command: ["opentelemetry-instrument", "celery", "-A", "config", "beat", "-l", "info"]
+          envFrom:
+            - configMapRef:
+                name: app-env
+            - secretRef:
+                name: app-secrets
+          resources:
+            {{- toYaml .Values.celeryBeat.resources | nindent 12 }}

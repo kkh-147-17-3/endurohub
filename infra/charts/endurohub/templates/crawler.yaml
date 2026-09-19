@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crawler
+  labels:
+    app: crawler
+spec:
+  replicas: {{ .Values.crawler.replicas }}
+  selector:
+    matchLabels:
+      app: crawler
+  template:
+    metadata:
+      labels:
+        app: crawler
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: crawler
+          image: "{{ .Values.images.crawler.repository }}:{{ .Values.images.crawler.tag }}"
+          imagePullPolicy: {{ .Values.images.crawler.pullPolicy }}
+          # DB 직접 접근 없음 — admin API(HTTP) 로만 통신 (compose 와 동일)
+          env:
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: app-env
+                  key: REDIS_HOST
+            - name: REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-env
+                  key: REDIS_PORT
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: REDIS_PASSWORD
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: OPENAI_API_KEY
+            - name: ADMIN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: ADMIN_SECRET
+            - name: CRAWLER_MODEL
+              value: "gpt-5.4-nano"
+            - name: CRAWLER_API_BASE
+              value: "http://api:8000"
+          resources:
+            {{- toYaml .Values.crawler.resources | nindent 12 }}

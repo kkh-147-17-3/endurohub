@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  labels:
+    app: nginx
+spec:
+  replicas: {{ .Values.nginx.replicas }}
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+      annotations:
+        # ConfigMap 변경 시 파드 재생성 유도 (nginx 는 conf 를 기동 시에만 읽음)
+        checksum/nginx-conf: {{ include (print $.Template.BasePath "/nginx-configmap.yaml") . | sha256sum }}
+    spec:
+      containers:
+        - name: nginx
+          image: "{{ .Values.images.nginx.repository }}:{{ .Values.images.nginx.tag }}"
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: conf
+              mountPath: /etc/nginx/conf.d
+              readOnly: true
+            - name: static
+              mountPath: /var/www/static
+              readOnly: true
+            - name: media
+              mountPath: /var/www/media
+              readOnly: true
+            # JSON access log (Phase 5 에서 수집기 연결 전까지는 파드 내부에만 기록)
+            - name: logs
+              mountPath: /var/log/nginx
+            {{- if .Values.cdn.enabled }}
+            - name: cdn
+              mountPath: /var/www/cdn
+              readOnly: true
+            {{- end }}
+          readinessProbe:
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.nginx.resources | nindent 12 }}
+      volumes:
+        - name: conf
+          configMap:
+            name: nginx-conf
+        - name: static
+          persistentVolumeClaim:
+            claimName: static-pvc
+        - name: media
+          persistentVolumeClaim:
+            claimName: media-pvc
+        - name: logs
+          emptyDir: {}
+        {{- if .Values.cdn.enabled }}
+        # 결정사항: CDN 디렉터리는 hostPath 유지 (계획서 "CDN 디렉터리 처리" 참고)
+        - name: cdn
+          hostPath:
+            path: {{ .Values.cdn.hostPath }}
+            type: Directory
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+spec:
+  type: {{ .Values.nginx.service.type }}
+  selector:
+    app: nginx
+  ports:
+    - port: 80
+      targetPort: 80

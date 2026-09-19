@@ -1,0 +1,155 @@
+# 공통 기본값. 환경별 차이는 values.local.yaml / values.prod.yaml 로 덮어쓴다.
+# docker-compose.yml 의 서비스 구성을 1:1 로 옮긴 것이 기준선이다.
+
+images:
+  api:
+    repository: endurohub-api
+    tag: dev
+    pullPolicy: IfNotPresent
+  web:
+    repository: endurohub-web
+    tag: dev
+    pullPolicy: IfNotPresent
+  crawler:
+    repository: endurohub-crawler
+    tag: dev
+    pullPolicy: IfNotPresent
+  nginx:
+    repository: nginx
+    tag: alpine
+  postgres:
+    repository: postgres
+    tag: 16-alpine
+  redis:
+    repository: redis
+    tag: 7-alpine
+
+imagePullSecrets: []
+
+# ── api / celery-worker / celery-beat 가 공유하는 비밀 아닌 환경변수 (ConfigMap app-env) ──
+# 비밀값(DATABASE_PASSWORD 등)은 secrets.data 로 — Secret app-secrets 에 들어간다.
+appEnv:
+  DJANGO_DEBUG: "false"
+  # api(k8s 서비스명)는 probe 의 Host 헤더, nginx 프록시 경유 접근에 필요
+  DJANGO_ALLOWED_HOSTS: "localhost,api"
+  DATABASE_HOST: "postgres"   # 클러스터 내 서비스명 (compose 의 host.docker.internal 대체)
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: "endurohub"
+  DATABASE_USER: "enduro"
+  REDIS_HOST: "redis"         # 클러스터 내 서비스명
+  REDIS_PORT: "6379"
+  DEFAULT_FROM_EMAIL: "contact@endurohub.kr"
+  CRAWL_REPORT_EMAIL: "kkh147.17.3@gmail.com"
+  CRAWL_SEND_EMPTY_REPORT: "false"
+  LLM_PROVIDER: "openai"
+  LLM_BASE_URL: "https://api.openai.com/v1"
+  LLM_MODEL: ""
+  LLM_JSON_MODE: ""
+  # OTEL 은 Phase 5 전까지 비활성 (opentelemetry-instrument 가 no-op 이 됨)
+  OTEL_SDK_DISABLED: "true"
+
+# ── web (SvelteKit) 전용 비밀 아닌 환경변수 (ConfigMap web-env) ──
+webEnv:
+  API_URL_INTERNAL: "http://api:8000"
+  PUBLIC_API_URL: "/api"
+  PUBLIC_APP_URL: "http://localhost:8080"
+  PUBLIC_KAKAO_JAVASCRIPT_KEY: ""
+  PUBLIC_NAVER_MAP_CLIENT_ID: ""
+  PUBLIC_GOOGLE_ANALYTICS_ID: ""
+  PUBLIC_POSTHOG_KEY: ""
+  PUBLIC_POSTHOG_HOST: "https://us.i.posthog.com"
+  PUBLIC_FEEDBACK_FORM_URL: ""
+  # adapter-node 바디 제한 20MB — nginx client_max_body_size 와 일치
+  BODY_SIZE_LIMIT: "20971520"
+  OTEL_SDK_DISABLED: "true"
+
+# ── Secret app-secrets ──
+# create: true 면 secrets.data 로 Secret 을 렌더링한다 (로컬 리허설용).
+# 프로덕션은 create: false 로 두고 kubectl 로 동일 이름의 Secret 을 별도 생성한다
+# (비밀값을 values 파일/git 에 남기지 않기 위함).
+secrets:
+  create: false
+  data: {}
+
+api:
+  replicas: 1
+  # compose 의 command 와 동일 (OTEL_SDK_DISABLED=true 면 instrument 는 통과만 한다)
+  command:
+    - opentelemetry-instrument
+    - gunicorn
+    - config.wsgi:application
+    - --bind
+    - 0.0.0.0:8000
+    - --workers
+    - "4"
+    - --threads
+    - "2"
+    - --timeout
+    - "30"
+    - --keep-alive
+    - "5"
+  resources:
+    limits:
+      memory: 1536Mi
+
+web:
+  replicas: 1
+  resources:
+    limits:
+      memory: 1Gi
+
+celeryWorker:
+  replicas: 1
+  resources:
+    limits:
+      memory: 1Gi
+
+celeryBeat:
+  # 중복 스케줄 발행 금지 — 반드시 0 또는 1. (B-3 병행 검증 단계에서는 0)
+  replicas: 1
+  resources:
+    limits:
+      memory: 256Mi
+
+crawler:
+  replicas: 1
+  resources:
+    limits:
+      memory: 1536Mi
+
+nginx:
+  replicas: 1
+  resources:
+    limits:
+      memory: 128Mi
+  # NodePort 등 노출 방식은 로컬/서버가 다르므로 values 로 제어
+  service:
+    type: ClusterIP
+
+# cdn.endurohub.kr 정적 호스트 — 서버에서만 hostPath 로 활성화 (결정: hostPath 유지)
+cdn:
+  enabled: false
+  hostPath: /home/kkh/public
+
+postgres:
+  storage: 10Gi
+  resources:
+    limits:
+      memory: 1Gi
+
+redis:
+  storage: 1Gi
+  resources:
+    limits:
+      memory: 256Mi
+
+# 정적/미디어/백업 PVC (단일 노드 RWO — 같은 노드의 여러 파드가 공유 마운트 가능)
+storage:
+  static: 1Gi
+  media: 5Gi
+  backup: 5Gi
+
+backup:
+  # KST 04:00 = UTC 19:00. 14일 지난 덤프는 삭제.
+  schedule: "0 19 * * *"
+  retentionDays: 14

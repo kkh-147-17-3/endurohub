@@ -1,0 +1,65 @@
+# 홈서버(k3s) 프로덕션 오버라이드 — Part B 에서 사용
+# 비밀값은 이 파일에 절대 넣지 않는다. 배포 전 1회:
+#   kubectl create secret generic app-secrets -n endurohub --from-env-file=<(.env 에서 추출)
+
+images:
+  api:
+    repository: ghcr.io/kkh-147-17-3/endurohub-api
+    tag: latest            # 실제 배포는 --set images.api.tag=<git sha>
+    pullPolicy: IfNotPresent
+  web:
+    repository: ghcr.io/kkh-147-17-3/endurohub-web
+    tag: latest
+    pullPolicy: IfNotPresent
+  crawler:
+    repository: ghcr.io/kkh-147-17-3/endurohub-crawler
+    tag: latest
+    pullPolicy: IfNotPresent
+
+# private 이미지일 경우: kubectl create secret docker-registry ghcr ... 후 주석 해제
+# imagePullSecrets:
+#   - name: ghcr
+
+appEnv:
+  DJANGO_DEBUG: "false"
+  DJANGO_ALLOWED_HOSTS: "www.endurohub.kr,endurohub.kr,localhost,api"
+  # B-3 병행 검증 단계: 호스트 DB 를 보려면 노드 IP 로 임시 변경
+  DATABASE_HOST: "postgres"
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: "endurohub"
+  DATABASE_USER: "enduro"
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  DEFAULT_FROM_EMAIL: "contact@endurohub.kr"
+  CRAWL_REPORT_EMAIL: "kkh147.17.3@gmail.com"
+  CRAWL_SEND_EMPTY_REPORT: "false"
+  LLM_PROVIDER: "openai"
+  LLM_BASE_URL: "https://api.openai.com/v1"
+  LLM_MODEL: ""
+  LLM_JSON_MODE: ""
+  OTEL_SDK_DISABLED: "true"   # Phase 5 에서 OTEL 변수로 교체
+
+webEnv:
+  API_URL_INTERNAL: "http://api:8000"
+  PUBLIC_API_URL: "/api"
+  PUBLIC_APP_URL: "https://www.endurohub.kr"
+  # PUBLIC_* 키는 서버 .env 값으로 배포 시 --set webEnv.PUBLIC_...=... 주입 또는 여기에 직접 기입 (비밀 아님)
+  PUBLIC_KAKAO_JAVASCRIPT_KEY: ""
+  PUBLIC_NAVER_MAP_CLIENT_ID: ""
+  PUBLIC_GOOGLE_ANALYTICS_ID: ""
+  PUBLIC_POSTHOG_KEY: ""
+  PUBLIC_POSTHOG_HOST: "https://us.i.posthog.com"
+  PUBLIC_FEEDBACK_FORM_URL: ""
+  BODY_SIZE_LIMIT: "20971520"
+  OTEL_SDK_DISABLED: "true"
+
+secrets:
+  create: false   # 프로덕션 Secret 은 kubectl 로 직접 관리
+
+# B-3 병행 검증 단계에서는 celeryBeat.replicas=0 (구 스택 beat 와 중복 금지)
+celeryBeat:
+  replicas: 1
+
+cdn:
+  enabled: true
+  hostPath: /home/kkh/public   # 결정: hostPath 유지
