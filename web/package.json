@@ -12,9 +12,9 @@
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "test:seo": "node --experimental-strip-types --test tests/seo-*.test.mjs",
     "test:calendar": "node --experimental-strip-types --test tests/calendar-*.test.mjs",
-    "build:geo": "node scripts/build-korea-geo.mjs",
     "test:tools": "node --experimental-strip-types --test tests/tools-*.test.mjs",
-    "test:tools:integration": "node --experimental-strip-types --test tests/tools-pages.integration.mjs"
+    "test:tools:integration": "node --experimental-strip-types --test tests/tools-pages.integration.mjs",
+    "build:geo": "node scripts/build-korea-geo.mjs"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",

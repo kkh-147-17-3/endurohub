@@ -88,7 +88,6 @@
         <div class="auth-form">
             <a class="form-brand" href="/">ENDURO<span class="slash">/</span>HUB</a>
 
-            <div class="eh-micro sign-eyebrow"><span class="acc">SIGN IN</span></div>
             <h2 class="auth-title">로그인</h2>
             <p class="auth-sub">대회 일정, 시즌 플랜, 기록이 계정에 저장됩니다.</p>
 
@@ -199,7 +198,6 @@
         text-decoration: none;
     }
 
-    .sign-eyebrow { margin-bottom: 10px; }
     .auth-title {
         font-size: clamp(30px, 4vw, 38px);
         font-weight: var(--w-display);

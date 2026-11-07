@@ -30,6 +30,10 @@ jobs:
             set -euo pipefail
             cd "$DEPLOY_PATH"
 
+            # 운영 PostgreSQL/Redis는 이 Compose 프로젝트의 orphan으로 보일 수 있다.
+            # 서버 환경이나 .env에서도 자동 orphan 삭제가 켜지지 않도록 강제한다.
+            export COMPOSE_REMOVE_ORPHANS=0
+
             # 1) 커밋 상태 그대로 반영 (untracked .env 등은 보존)
             if ! git diff --quiet || ! git diff --cached --quiet; then
               echo "Tracked server changes found; deployment stopped without resetting them." >&2
@@ -71,7 +75,8 @@ jobs:
             echo "$CHANGED" | grep -q "^web/" && WEB=true || true
             echo "$CHANGED" | grep -q "^crawler/" && CRAWLER=true || true
             echo "$CHANGED" | grep -qE "^(nginx/|docker-compose\.yml)" && INFRA=true || true
-            echo "$CHANGED" | grep -qE "^(monitoring/|docker-compose\.observability\.yml)" && OBS=true || true
+            # 운영 문서만 수정한 경우에는 수집기 컨테이너를 재생성하지 않는다.
+            printf '%s\n' "$CHANGED" | grep -E '^(monitoring/|docker-compose\.observability\.yml$)' | grep -v '^monitoring/README\.md$' > /dev/null && OBS=true || true
             # 배포 절차 수정 후 재시도는 checkout이 이미 앞섰을 수 있으므로 앱도 교체한다.
             if printf '%s\n' "$CHANGED" | grep -E '^(\.github/workflows/|scripts/deploy-db-backup\.sh$)' > /dev/null; then
               API=true
@@ -120,7 +125,7 @@ jobs:
             # 6) 빌드와 DB 준비가 모두 성공한 뒤 관련 서비스만 교체한다.
             # celery-worker/beat 도 api 코드가 바뀌면 반드시 새 이미지로 시작한다.
             if [ "$INFRA" = true ]; then
-              docker compose up -d --no-build --remove-orphans
+              docker compose up -d --no-build
             elif [ "${#SERVICES[@]}" -gt 0 ]; then
               docker compose up -d --no-build --no-deps "${SERVICES[@]}"
             fi

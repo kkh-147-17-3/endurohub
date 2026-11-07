@@ -62,26 +62,23 @@
         status === 404 ? '404' : status === 403 ? '403' : status === 503 ? 'maint' : '500'
     );
 
-    type Copy = { label: string; title: string; sub: string };
+    type Copy = { label?: string; title: string; sub: string };
 
     const COPY: Record<Kind, Copy> = {
         '404': {
-            label: 'PAGE NOT FOUND',
             title: '페이지를 찾을 수 없습니다',
             sub: '주소가 바뀌었거나 삭제된 페이지입니다. 입력하신 주소를 다시 확인해 주세요.'
         },
         '403': {
-            label: 'FORBIDDEN',
             title: '접근 권한이 없습니다',
             sub: '이 페이지를 볼 수 있는 권한이 없습니다. 로그인이 필요한 페이지일 수 있습니다.'
         },
         '500': {
-            label: 'SERVER ERROR',
+            label: '서버 오류',
             title: '일시적인 오류가 발생했습니다',
             sub: '서버에서 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요. 문제가 계속되면 공지를 확인해 주세요.'
         },
         maint: {
-            label: 'MAINTENANCE',
             title: '서비스 점검 중입니다',
             sub: '더 나은 서비스를 위해 시스템 점검을 진행하고 있습니다. 점검 중에는 접속이 제한됩니다.'
         }
@@ -112,7 +109,6 @@
     <section class="err-hero err-hero--photo">
         <img src="/images/error-404.jpg" alt="안개 낀 산길을 달리는 러너" />
         <div class="err-hero-overlay">
-            <span class="hero-micro eh-micro"><span class="acc">{c.label}</span></span>
             <div class="hero-code eh-data">{status}</div>
             <h1 class="hero-title">{c.title}</h1>
             <p class="hero-sub">{c.sub}</p>
@@ -148,8 +144,8 @@
         </div>
 
         <div class="err-label-row">
-            <span class="eh-micro"><span class="acc">{c.label}</span></span>
-            <span class="eh-micro eh-data" style="color: var(--text-faint);">{stamp}</span>
+            {#if c.label}<span class="eh-micro"><span class="acc">{c.label}</span></span>{/if}
+            <span class="eh-micro eh-data err-stamp">{stamp}</span>
         </div>
 
         <h1 class="err-title">{c.title}</h1>
@@ -219,6 +215,10 @@
         align-items: baseline;
         padding: 12px 2px 0;
         gap: 12px;
+    }
+    .err-stamp {
+        margin-left: auto;
+        color: var(--text-faint);
     }
 
     .err-title {
@@ -339,20 +339,12 @@
     }
     /* No tint panel behind the text — only the dark text itself carries a soft
        shadow so it stays legible directly on the photo. */
-    .hero-micro,
     .hero-code,
     .hero-title,
     .hero-sub,
     .hero-link,
     .hero-cap {
         text-shadow: 0 1px 20px rgba(0, 0, 0, 0.55);
-    }
-    .hero-micro {
-        display: block;
-        margin-bottom: 14px;
-    }
-    .hero-micro .acc {
-        color: var(--signal-200);
     }
     .hero-code {
         font-size: clamp(72px, 12vw, 156px);

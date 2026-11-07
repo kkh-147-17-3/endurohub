@@ -39,6 +39,7 @@
         /** Rich body copy. */
         description: Snippet;
         reqs: ActionReq[];
+        /** Optional category or state absent from the title. */
         eyebrow?: string;
         primaryLabel?: string;
         /** Secondary text button; hidden when not provided. */
@@ -51,7 +52,7 @@
         title,
         description,
         reqs,
-        eyebrow = 'New Feature · 기능 추가',
+        eyebrow = '',
         primaryLabel = '정보 등록하고 시작하기',
         secondaryLabel = '나중에 할게요',
         onPrimary,
@@ -62,7 +63,9 @@
 </script>
 
 <Modal {onClose} labelledby={titleId}>
-    <div class="m-eyebrow"><span class="dot"></span>{eyebrow}</div>
+    {#if eyebrow}
+        <div class="m-eyebrow"><span class="dot"></span>{eyebrow}</div>
+    {/if}
     <h2 class="m-title pre" id={titleId}>{title}</h2>
     <p class="m-sub">{@render description()}</p>
     <div class="req-list">

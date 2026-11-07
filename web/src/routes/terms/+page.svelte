@@ -7,7 +7,6 @@
 <div class="page-wrap">
     <article class="page-shell">
         <header>
-            <div class="kicker">ENDUROHUB · TERMS</div>
             <div class="head-row"><h1>서비스 이용약관</h1><span>시행 2026.09.03</span></div>
             <p>엔듀로허브 서비스 이용에 필요한 권리와 책임을 안내합니다.</p>
         </header>
@@ -30,10 +29,9 @@
     .page-wrap { background: var(--arena-paper); padding: 56px 24px 80px; }
     .page-shell { max-width: 760px; margin: 0 auto; color: var(--text-body); }
     header { padding-bottom: 32px; border-bottom: 1px solid var(--arena-line); margin-bottom: 8px; }
-    .kicker { color: var(--text-faint); font-size: 12px; font-weight: 700; letter-spacing: .12em; }
     .head-row { display: flex; align-items: end; justify-content: space-between; gap: 20px; }
     .head-row span { flex: none; padding-bottom: 9px; color: var(--text-faint); font-size: 12px; }
-    h1 { margin: 14px 0 12px; color: var(--text-strong); font-size: clamp(36px, 7vw, 64px); line-height: 1.05; letter-spacing: -.04em; }
+    h1 { margin: 0 0 12px; color: var(--text-strong); font-size: clamp(36px, 7vw, 64px); line-height: 1.05; letter-spacing: -.04em; }
     header p { margin: 0; color: var(--text-muted); }
     section { padding: 28px 0; border-bottom: 1px solid var(--arena-line); }
     h2 { margin: 0 0 12px; color: var(--text-strong); font-size: 18px; }

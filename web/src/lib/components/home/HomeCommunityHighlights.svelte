@@ -79,9 +79,7 @@
     <div class="home-community__inner">
         <div class="home-community__head">
             <div>
-                <div class="eh-micro">
-                    <span class="home-community__accent">RUNNER REVIEW</span> · 실제 참가자 후기
-                </div>
+                <div class="eh-micro">실제 참가자 후기</div>
                 <h2 id="home-reviews-title" class="home-community__title">
                     다녀온 러너의 경험이 다음 대회의 기준이 됩니다.
                 </h2>
@@ -188,9 +186,6 @@
     <div class="home-community__inner">
         <div class="home-community__head home-community__head--records">
             <div>
-                <div class="eh-micro">
-                    <span class="home-community__accent">MEMBER FINISHES</span> · 회원 완주 기록
-                </div>
                 <h2
                     id="home-records-title"
                     class="home-community__title home-community__title--records"
@@ -232,7 +227,7 @@
                                 </span>
                                 <strong>@{record.nickname}</strong>
                                 {#if record.me}
-                                    <span class="home-member-record__mine">MY RECORD</span>
+                                    <span class="home-member-record__mine">내 기록</span>
                                 {/if}
                             </div>
                             <div class="home-member-record__race">
@@ -280,9 +275,6 @@
         grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
         gap: clamp(32px, 5vw, 72px);
         align-items: end;
-    }
-    .home-community__accent {
-        color: var(--text-accent);
     }
     .home-community__title {
         max-width: 790px;
@@ -526,6 +518,7 @@
     }
     .home-community__title--records {
         max-width: 720px;
+        margin-top: 0;
         font-size: clamp(30px, 2.8vw, 42px);
         letter-spacing: -0.035em;
         line-height: 1.08;

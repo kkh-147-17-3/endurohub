@@ -42,7 +42,6 @@
 <div class="tools-shell">
 <div class="v-container">
 	<div class="hd">
-		<div class="eh-micro"><span class="acc">TOOLS</span> · 페이스 / VO₂ / 예측 / 플랜</div>
 		<h1>{tool?.h1 ?? '러닝 도구'}</h1>
 		{#if tool}<p class="intro">{tool.intro}</p>{/if}
 	</div>
@@ -63,7 +62,7 @@
 		letter-spacing: var(--track-display);
 		line-height: var(--leading-heading);
 		color: var(--text-strong);
-		margin: 8px 0 0;
+		margin: 0;
 	}
 	.intro { margin: var(--sp-3) 0 0; max-width: 68ch; font-size: var(--text-body-sm); color: var(--text-muted); line-height: var(--leading-body); }
 	.tabs-wrap { margin-top: 22px; }

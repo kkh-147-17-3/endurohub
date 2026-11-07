@@ -1120,9 +1120,7 @@
         <div class="rd-community__inner">
             <div class="rd-community__head">
                 <div>
-                    <div class="eh-micro">
-                        <span class="rd-community__accent">RUNNER REVIEW</span> · 실제 참가자 후기
-                    </div>
+                    <div class="eh-micro">실제 참가자 후기</div>
                     <h2 id="race-reviews-title" class="rd-community__title">
                         다녀온 러너의 경험이 다음 대회의 기준이 됩니다.
                     </h2>
@@ -1227,9 +1225,6 @@
         <div class="rd-community__inner">
             <div class="rd-community__head rd-community__head--records">
                 <div>
-                    <div class="eh-micro">
-                        <span class="rd-community__accent">MEMBER FINISHES</span> · 회원 완주 기록
-                    </div>
                     <h2 id="race-records-title" class="rd-community__title rd-community__title--records">
                         회원이 직접 남긴 완주 기록.
                     </h2>
@@ -1295,7 +1290,7 @@
                                         {String(recRows.indexOf(record) + 1).padStart(2, '0')}
                                     </span>
                                     <strong>@{record.nickname}</strong>
-                                    {#if record.me}<span class="rd-member-record__mine">MY RECORD</span>{/if}
+                                    {#if record.me}<span class="rd-member-record__mine">내 기록</span>{/if}
                                     {#if record.isMergeHistory}<span class="rd-member-record__mine">이전 기록</span>{/if}
                                 </div>
                                 <div class="rd-member-record__race">
@@ -1877,9 +1872,6 @@
         gap: clamp(32px, 5vw, 72px);
         align-items: end;
     }
-    .rd-community__accent {
-        color: var(--text-accent);
-    }
     .rd-community__title {
         max-width: 760px;
         margin: 10px 0 0;
@@ -2122,6 +2114,7 @@
     }
     .rd-community__title--records {
         max-width: 720px;
+        margin-top: 0;
         font-size: clamp(30px, 2.8vw, 42px);
         letter-spacing: -0.035em;
         line-height: 1.08;

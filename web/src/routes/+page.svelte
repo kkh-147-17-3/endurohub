@@ -64,7 +64,7 @@
     <div class="home-hero__ink">
         <div class="v-container home-hero__copy">
             <div class="home-hero__micro eh-data">
-                MARATHON · TRAIL · CYCLE · SWIM <span class="sl">/</span> TRIATHLON
+                마라톤 · 트레일러닝 · 사이클 · 수영 · 철인3종
             </div>
             <h2 class="home-hero__title">전국의 모든 지구력 대회,<br />한 곳에서.</h2>
         </div>
@@ -122,10 +122,6 @@
         font-size: var(--text-micro);
         font-weight: var(--w-strong);
         letter-spacing: var(--track-micro);
-        text-transform: uppercase;
-    }
-    .home-hero__micro .sl {
-        color: var(--accent);
     }
     .home-hero__title {
         margin-top: 10px;

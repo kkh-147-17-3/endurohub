@@ -41,7 +41,6 @@
 
         <!-- Page header -->
         <header class="mp-hd">
-            <div class="eh-micro"><span class="acc">ACCOUNT</span> · 계정 / 설정</div>
             <h1 class="eh-h1">마이페이지</h1>
             <p class="eh-body mp-lead">계정 정보와 알림 설정을 한곳에서 관리합니다.</p>
         </header>
@@ -79,11 +78,7 @@
         <!-- ── 01 · 계정 정보 ── -->
         <section class="mp-section">
             <div class="v-sechead">
-                <span>
-                    <span class="eh-micro" style="color: var(--text-faint)">01</span>
-                    <span class="eh-h3" style="margin-left: var(--sp-2)">계정 정보</span>
-                </span>
-                <span class="eh-micro" style="color: var(--text-faint)">ACCOUNT</span>
+                <span class="eh-h3">계정 정보</span>
             </div>
 
             <div class="v-table" style="margin-top: var(--sp-4)">
@@ -118,11 +113,7 @@
         <!-- ── 02 · 바로가기 ── -->
         <section class="mp-section">
             <div class="v-sechead">
-                <span>
-                    <span class="eh-micro" style="color: var(--text-faint)">02</span>
-                    <span class="eh-h3" style="margin-left: var(--sp-2)">바로가기</span>
-                </span>
-                <span class="eh-micro" style="color: var(--text-faint)">QUICK ACCESS</span>
+                <span class="eh-h3">바로가기</span>
             </div>
 
             <div class="shortcuts">
@@ -156,11 +147,7 @@
         <!-- ── 03 · 알림 설정 ── -->
         <section class="mp-section">
             <div class="v-sechead">
-                <span>
-                    <span class="eh-micro" style="color: var(--text-faint)">03</span>
-                    <span class="eh-h3" style="margin-left: var(--sp-2)">알림 설정</span>
-                </span>
-                <span class="eh-micro" style="color: var(--text-faint)">EMAIL / PUSH</span>
+                <span class="eh-h3">알림 설정</span>
             </div>
 
             <form
@@ -224,11 +211,7 @@
         <!-- ── 04 · 계정 관리 ── -->
         <section class="mp-section">
             <div class="v-sechead">
-                <span>
-                    <span class="eh-micro" style="color: var(--text-faint)">04</span>
-                    <span class="eh-h3" style="margin-left: var(--sp-2)">계정 관리</span>
-                </span>
-                <span class="eh-micro" style="color: var(--text-faint)">SIGN OUT / DELETE</span>
+                <span class="eh-h3">계정 관리</span>
             </div>
 
             <div class="danger-box" style="margin-top: var(--sp-4)">

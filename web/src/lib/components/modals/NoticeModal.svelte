@@ -39,6 +39,7 @@
         /** Title; newlines render as line breaks. */
         title: string;
         description: Snippet;
+        /** Optional category or state absent from the title. */
         eyebrow?: string;
         meta?: NoticeMeta[];
         /** Warn primary button; hidden when not provided. */
@@ -50,7 +51,7 @@
     let {
         title,
         description,
-        eyebrow = 'Notice · 긴급 공지',
+        eyebrow = '긴급 공지',
         meta = [],
         ctaLabel = '변경된 일정 확인하기',
         onCta,
@@ -61,7 +62,9 @@
 </script>
 
 <Modal {onClose} labelledby={titleId}>
-    <div class="m-eyebrow warn"><span class="dot"></span>{eyebrow}</div>
+    {#if eyebrow}
+        <div class="m-eyebrow warn"><span class="dot"></span>{eyebrow}</div>
+    {/if}
     <h2 class="m-title pre" id={titleId}>{title}</h2>
     <p class="m-sub">{@render description()}</p>
 

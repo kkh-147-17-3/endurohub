@@ -264,9 +264,7 @@
 	{#if showDiscovery}<CalendarDiscovery {month} {filters} {regions} onapply={applyFilters} />{/if}
 	<!-- ═══ page header ═══════════════════════════════════════════ -->
 	<div class="hd">
-		<div class="eh-micro home-kicker">
-			<span class="acc">RACE CALENDAR</span> · {year} · 전국 5종목
-		</div>
+		<div class="eh-micro">전국 5종목</div>
 		<div class="hd-month">
 			<h1 class="eh-data">{month}월</h1>
 			<span class="yr eh-data">{year}</span>
@@ -492,9 +490,6 @@
 	/* ── page header ── */
 	.hd {
 		padding: 40px 0 0;
-	}
-	.home-kicker .acc {
-		color: var(--text-accent);
 	}
 	.with-discovery .hd { padding-top: var(--sp-5); }
 	.with-discovery .hd-month h1 { font-size: clamp(38px, 4.5vw, 56px); }

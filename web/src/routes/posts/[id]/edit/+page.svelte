@@ -54,7 +54,6 @@
 <div class="v-container form-page">
     <header class="page-head">
         <a href="/posts/{data.post.id}" class="back-link eh-micro">← 글로 돌아가기</a>
-        <div class="eh-micro page-kicker">EDIT POST · 글 수정</div>
         <h1 class="eh-h2 page-title">글 수정</h1>
     </header>
 
@@ -189,7 +188,6 @@
         transition: color var(--dur-fast) var(--ease-out);
     }
     .back-link:hover { color: var(--text-strong); }
-    .page-kicker { color: var(--text-muted); }
     .page-title { margin: 0; }
 
     .form-grid {

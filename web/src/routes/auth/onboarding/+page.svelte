@@ -224,7 +224,7 @@
 
     <!-- ─────────── STEP 01 · EMAIL ─────────── -->
     {#if step === 0}
-        <div class="eh-micro step-eyebrow"><span class="acc">STEP 01</span> · EMAIL</div>
+        <div class="eh-micro step-eyebrow"><span class="acc">1 / 5단계</span></div>
         <h1 class="ob-title">이메일 인증</h1>
         <p class="ob-subtitle">
             {#if data.hasPendingSocialLogin}
@@ -361,7 +361,7 @@
 
     <!-- ─────────── STEP 02 · NICKNAME ─────────── -->
     {#if step === 1}
-        <div class="eh-micro step-eyebrow"><span class="acc">STEP 02</span> · NICKNAME</div>
+        <div class="eh-micro step-eyebrow"><span class="acc">2 / 5단계</span></div>
         <h1 class="ob-title">닉네임 설정</h1>
         <p class="ob-subtitle">커뮤니티에서 사용할 닉네임을 정해주세요. 나중에 마이페이지에서 바꿀 수 있습니다.</p>
 
@@ -413,7 +413,7 @@
 
     <!-- ─────────── STEP 03 · SPORT ─────────── -->
     {#if step === 2}
-        <div class="eh-micro step-eyebrow"><span class="acc">STEP 03</span> · SPORT</div>
+        <div class="eh-micro step-eyebrow"><span class="acc">3 / 5단계</span></div>
         <h1 class="ob-title">어떤 종목에<br />관심 있으세요?</h1>
         <p class="ob-subtitle">관심 종목을 선택하면 맞춤 대회 정보를 받을 수 있어요. 복수 선택 가능합니다.</p>
 
@@ -451,7 +451,7 @@
 
     <!-- ─────────── STEP 04 · REGION ─────────── -->
     {#if step === 3}
-        <div class="eh-micro step-eyebrow"><span class="acc">STEP 04</span> · REGION</div>
+        <div class="eh-micro step-eyebrow"><span class="acc">4 / 5단계</span></div>
         <h1 class="ob-title">주로 어디서<br />활동하세요?</h1>
         <p class="ob-subtitle">관심 지역의 대회를 우선 추천해드릴게요.</p>
 
@@ -484,7 +484,7 @@
 
     <!-- ─────────── STEP 05 · RECORDS ─────────── -->
     {#if step === 4}
-        <div class="eh-micro step-eyebrow"><span class="acc">STEP 05</span> · RECORDS</div>
+        <div class="eh-micro step-eyebrow"><span class="acc">5 / 5단계</span></div>
         <h1 class="ob-title">최근 대회 기록을<br />알려주세요</h1>
         <p class="ob-subtitle">
             최근 1년 이내 PB나 기억에 남는 기록을 입력하면 시즌 플래너와 페이스 도구가 자동 보정됩니다. 건너뛰어도 됩니다.
@@ -619,7 +619,6 @@
     {#if step === 5}
         <div class="done-wrap">
             <div class="done-mark">✓</div>
-            <div class="eh-micro step-eyebrow" style="justify-content:center"><span class="acc">SETUP COMPLETE</span></div>
             <h1 class="ob-title" style="text-align:center">준비 완료</h1>
             <p class="ob-subtitle done-sub">입력하신 정보로 맞춤 캘린더를 구성했어요. 곧 열릴 대회부터 확인해 보세요.</p>
 
@@ -1206,6 +1205,7 @@
 
     /* ── Done screen ── */
     .done-wrap { text-align: center; padding: var(--sp-6) 0 var(--sp-10); }
+    .done-wrap .ob-title { margin-top: 0; }
     .done-mark {
         width: 64px;
         height: 64px;

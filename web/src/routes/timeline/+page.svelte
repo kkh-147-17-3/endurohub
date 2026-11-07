@@ -440,7 +440,7 @@
     <!-- ── Header ─────────────────────────────────────────────────────────── -->
     <div class="hd">
         <div>
-            <div class="eh-micro"><span class="acc">MY SEASON</span> · {year}{#if userName} · {userName}{/if}</div>
+            {#if userName}<div class="eh-micro season-owner">{userName}</div>{/if}
             <h1>시즌 타임라인</h1>
             <nav class="year-nav" aria-label="시즌 연도 선택">
                 {#if year > 2000}
@@ -467,7 +467,6 @@
     {#if seasonRaces.length === 0}
         <!-- ── Empty state → 로그인 유도 ──────────────────────────────────── -->
         <div class="empty-state">
-            <div class="eh-micro acc">{data.isAuthed ? 'EMPTY SEASON' : 'SIGN IN'}</div>
             {#if data.isAuthed}
                 <h2>아직 {year} 시즌에 담은 대회가 없어요</h2>
                 <p>
@@ -478,6 +477,7 @@
                     <Button variant="primary" size="md" href="/races?reset=1">대회 둘러보기 →</Button>
                 </div>
             {:else}
+                <div class="eh-micro acc empty-access">로그인 필요</div>
                 <h2>나만의 시즌 타임라인을 만들어보세요</h2>
                 <p>
                     로그인하면 관심 대회·참가 예정·완주 기록을 연간 타임라인 하나로 모아
@@ -585,10 +585,9 @@
     <section class="sec">
         <div class="sechead">
             <div class="sechead-l">
-                <span class="eh-micro eh-data acc">01</span>
                 <h2>다가오는 대회</h2>
             </div>
-            <span class="eh-micro" style="color: var(--text-faint);">{upcoming.length} RACES</span>
+            <span class="eh-micro" style="color: var(--text-faint);">{upcoming.length}개 대회</span>
         </div>
         <div class="rows">
             {#each upcoming as r (r.id)}
@@ -604,10 +603,9 @@
         <section class="sec">
             <div class="sechead">
                 <div class="sechead-l">
-                    <span class="eh-micro eh-data acc">02</span>
                     <h2>지난 대회</h2>
                 </div>
-                <span class="eh-micro" style="color: var(--text-faint);">{past.length} RACES</span>
+                <span class="eh-micro" style="color: var(--text-faint);">{past.length}개 대회</span>
             </div>
             <div class="rows">
                 {#each past as r (r.id)}
@@ -723,7 +721,7 @@
 <Modal bind:open={logOpen} maxWidth="440px" onclose={closeLog}>
     {#if logRace}
         <div class="log">
-            <div class="eh-micro acc">{isEditing ? 'EDIT RESULT' : 'LOG RESULT'}</div>
+            <div class="eh-micro acc">{isEditing ? '기록 수정' : '기록 등록'}</div>
             <h2 class="log-title">{logRace.name}</h2>
             <p class="log-sub eh-data">
                 {months[logRace.month - 1].label} {logRace.month}.{String(logRace.day).padStart(2, '0')}
@@ -812,7 +810,7 @@
         text-align: center;
     }
     .empty-state h2 {
-        margin-top: 10px;
+        margin-top: 0;
         font-size: clamp(22px, 3vw, 30px);
         font-weight: var(--w-display);
         letter-spacing: var(--track-display);
@@ -825,6 +823,9 @@
         font-size: var(--text-caption);
         line-height: 1.7;
         color: var(--text-muted);
+    }
+    .empty-access {
+        margin-bottom: 10px;
     }
     .empty-actions {
         margin-top: 26px;
@@ -860,8 +861,11 @@
         font-weight: var(--w-display);
         letter-spacing: var(--track-display);
         line-height: var(--leading-display);
-        margin-top: 8px;
+        margin-top: 0;
         color: var(--text-strong);
+    }
+    .season-owner {
+        margin-bottom: 8px;
     }
     .year-nav {
         display: flex;
@@ -1097,9 +1101,6 @@
         display: flex;
         align-items: baseline;
         gap: 12px;
-    }
-    .sechead-l .acc {
-        color: var(--text-accent);
     }
     .sechead h2 {
         font-size: var(--text-h3);

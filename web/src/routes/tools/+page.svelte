@@ -5,32 +5,24 @@
 	const tools = [
 		{
 			slug: 'pace-calculator',
-			num: '01',
-			tag: 'PACE',
 			title: '페이스 계산기',
 			desc: '거리와 목표 완주 시간을 선택하면 km당 페이스, 평균 속도와 주요 구간의 누적 통과 시간을 계산합니다.',
 			tags: ['거리·목표 시간', '구간 통과 시간', '평균 속도'],
 		},
 		{
 			slug: 'training-plan',
-			num: '02',
-			tag: 'PLAN',
 			title: '훈련 플랜',
 			desc: '가상의 목표를 사용한 16주 공개 예시와 BASE·BUILD·PEAK·TAPER 구성을 살펴봅니다. 로그인 후 관심 대회 일정으로 참고 구성을 볼 수 있습니다.',
 			tags: ['공개 예시', '주차별 구성', '4단계 참고 플랜'],
 		},
 		{
 			slug: 'vo2max',
-			num: '03',
-			tag: 'VDOT',
 			title: 'VDOT 계산기',
 			desc: '러닝 거리와 기록으로 VDOT 근사값과 같은 지수의 거리별 동등 기록을 비교합니다. 실제 VO₂max 측정과 구분해 확인하세요.',
 			tags: ['VDOT 근사값', '기록 기반 계산', '동등 기록 비교'],
 		},
 		{
 			slug: 'race-predictor',
-			num: '04',
-			tag: 'PREDICT',
 			title: '대회 기록 예측',
 			desc: '최근 기록을 바탕으로 5K · 10K · 하프 · 풀코스의 예상 완주 시간과 평균 페이스를 비교합니다 (Riegel 모델, k = 1.06).',
 			tags: ['Riegel 모델', '거리별 예상', '평균 페이스'],
@@ -50,8 +42,7 @@
 	<div class="hub v-container">
 		<!-- intro -->
 		<div class="intro">
-			<div class="eh-micro" style="color:var(--accent)">ENDUROHUB · 도구실</div>
-			<h2 class="eh-h2" style="margin:var(--sp-2) 0 0">달리기를 위한 도구</h2>
+			<h2 class="eh-h2">달리기를 위한 도구</h2>
 			<p class="intro-desc">
 				4가지 도구를 한 곳에서. 로그인 시 최근 기록이 자동으로 채워집니다.
 			</p>
@@ -61,9 +52,6 @@
 		<div class="cards">
 			{#each tools as t (t.slug)}
 				<a class="tool-card" href="/tools/{t.slug}">
-					<div class="card-num eh-micro">
-						{t.num} · <span style="color:var(--accent)">{t.tag}</span>
-					</div>
 					<div class="card-title">{t.title}</div>
 					<p class="card-desc">{t.desc}</p>
 					<div class="card-tags">
@@ -80,7 +68,6 @@
 
 		<!-- sidebar -->
 		<aside class="aside">
-			<div class="eh-micro" style="margin-bottom:var(--sp-3)">REFERENCE</div>
 			<a href="/running-terms" class="aux-link">
 				<div class="aux-title">러닝 용어 사전</div>
 				<p class="aux-desc">페이스 · LSD · 인터벌 · VO₂max … 러닝 용어 120개+</p>
@@ -150,9 +137,6 @@
 		border-color: var(--ink-900);
 		transform: translateY(-2px);
 		box-shadow: var(--shadow-card-hover);
-	}
-	.card-num {
-		/* .eh-micro handles font/case/tracking */
 	}
 	.card-title {
 		font-size: var(--text-h3);
