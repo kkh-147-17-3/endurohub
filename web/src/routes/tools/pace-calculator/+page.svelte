@@ -13,9 +13,10 @@
 	let km = $state(pf?.distKm ?? 21.0975);
 	let time = $state(pf?.timeStr ?? '1:42:15');
 
-	const sec = $derived(parseTime(time || '0'));
-	const paceSec = $derived(sec > 0 && km > 0 ? sec / km : NaN);
-	const kmh = $derived(sec > 0 ? km / (sec / 3600) : NaN);
+	const sec = $derived(parseTime(time));
+	const valid = $derived(Number.isFinite(sec) && sec > 0 && Number.isFinite(km) && km > 0);
+	const paceSec = $derived(valid ? sec / km : NaN);
+	const kmh = $derived(valid ? km / (sec / 3600) : NaN);
 
 	const splits = $derived.by(() => {
 		if (!Number.isFinite(paceSec)) return [];
@@ -31,22 +32,19 @@
 	}
 </script>
 
-<svelte:head>
-	<title>페이스 계산 — endurohub</title>
-</svelte:head>
-
 <ToolsShell currentPath={$page.url.pathname}>
 <div class="page v-container">
 	<div class="tool-layout">
 		<!-- INPUT -->
 		<div class="panel">
-			<span class="eh-micro"><span class="acc">INPUT</span> · 거리 + 목표 시간</span>
+			<span class="eh-micro"><span class="acc">INPUT</span> · {pf ? '내 기록 기준 · 수정 가능' : '계산 예시 · 내 기록으로 변경해 보세요'}</span>
 			<div class="row">
 				{#each STD_DISTANCES as d (d.code)}
 					<FilterChip selected={Math.abs(km - d.km) < 0.01} onclick={() => (km = d.km)}>{d.label}</FilterChip>
 				{/each}
 			</div>
-			<Field label="Time" placeholder="예: 1:45:00" bind:value={time} hint="시:분:초 또는 분:초" />
+			<Field label="목표 완주 시간" placeholder="예: 1:45:00" bind:value={time} error={!valid} aria-invalid={!valid} hint="시:분:초 또는 분:초 · 숫자만 입력하면 분으로 계산" />
+			{#if !valid}<p class="input-error" role="status">0보다 큰 시간을 입력해 주세요. 분·초 칸은 0–59까지 사용할 수 있습니다.</p>{/if}
 			{#if pf}
 				<Prefill label={pf.label} onApply={() => { km = pf.distKm; time = pf.timeStr; }} />
 			{/if}
@@ -103,6 +101,7 @@
 		gap: var(--sp-5);
 	}
 	.row { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+	.input-error { margin: 0; font-size: 13px; color: var(--danger); }
 
 	.out { display: flex; flex-direction: column; gap: var(--sp-6); }
 	.out-hero {

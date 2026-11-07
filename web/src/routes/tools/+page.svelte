@@ -8,31 +8,31 @@
 			num: '01',
 			tag: 'PACE',
 			title: '페이스 계산기',
-			desc: '거리 · 시간 · 페이스 — 셋 중 둘을 입력하면 나머지를 산출합니다. 페이스 변환 및 1 km 구간 스플릿 표 포함.',
-			tags: ['거리/시간/페이스', '구간 스플릿', '페이스 변환'],
+			desc: '거리와 목표 완주 시간을 선택하면 km당 페이스, 평균 속도와 주요 구간의 누적 통과 시간을 계산합니다.',
+			tags: ['거리·목표 시간', '구간 통과 시간', '평균 속도'],
 		},
 		{
 			slug: 'training-plan',
 			num: '02',
 			tag: 'PLAN',
 			title: '훈련 플랜',
-			desc: '8 · 12 · 16주 주기화 (베이스 → 빌드 → 피크 → 테이퍼). VDOT 기반 강도, 주간 캘린더, 포커스 주차 상세.',
-			tags: ['주기화', '주간 캘린더', '강도 단계'],
+			desc: '가상의 목표를 사용한 16주 공개 예시와 BASE·BUILD·PEAK·TAPER 구성을 살펴봅니다. 로그인 후 관심 대회 일정으로 참고 구성을 볼 수 있습니다.',
+			tags: ['공개 예시', '주차별 구성', '4단계 참고 플랜'],
 		},
 		{
 			slug: 'vo2max',
 			num: '03',
 			tag: 'VDOT',
-			title: 'VO₂max 계산기',
-			desc: '최근 레이스 기록으로 VDOT (Daniels)를 추정하고, 트레이닝 페이스 (E / M / T / I / R)를 자동으로 산출합니다.',
-			tags: ['Daniels VDOT', '체력 등급', '트레이닝 페이스'],
+			title: 'VDOT 계산기',
+			desc: '러닝 거리와 기록으로 VDOT 근사값과 같은 지수의 거리별 동등 기록을 비교합니다. 실제 VO₂max 측정과 구분해 확인하세요.',
+			tags: ['VDOT 근사값', '기록 기반 계산', '동등 기록 비교'],
 		},
 		{
 			slug: 'race-predictor',
 			num: '04',
 			tag: 'PREDICT',
 			title: '대회 기록 예측',
-			desc: '최근 기록을 바탕으로 5K · 10K · 하프 · 풀 · 50K의 예상 완주 시간을 산출합니다 (Riegel 모델, k = 1.06).',
+			desc: '최근 기록을 바탕으로 5K · 10K · 하프 · 풀코스의 예상 완주 시간과 평균 페이스를 비교합니다 (Riegel 모델, k = 1.06).',
 			tags: ['Riegel 모델', '거리별 예상', '평균 페이스'],
 		},
 	];
@@ -42,7 +42,7 @@
 	<title>러닝 도구실 — endurohub</title>
 	<meta
 		name="description"
-		content="페이스 계산기, 훈련 플랜, VO₂max, 대회 기록 예측 — 러너를 위한 도구"
+		content="페이스 계산기, 훈련 플랜 공개 예시, VDOT와 동등 기록, 대회 기록 예측 — 러너를 위한 도구"
 	/>
 </svelte:head>
 
@@ -86,7 +86,7 @@
 				<p class="aux-desc">페이스 · LSD · 인터벌 · VO₂max … 러닝 용어 120개+</p>
 			</a>
 			<div class="note">
-				<div class="eh-micro" style="margin-bottom:var(--sp-2);color:var(--text-muted)">공식 근거</div>
+				<div class="eh-micro" style="margin-bottom:var(--sp-2);color:var(--text-muted)">계산 방식</div>
 				<ul class="note-list">
 					<li>Daniels &amp; Gilbert VDOT 근사식</li>
 					<li>Riegel 피로 지수 모델 (k = 1.06)</li>

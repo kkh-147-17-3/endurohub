@@ -16,27 +16,26 @@ export const STD_DISTANCES: DistancePreset[] = [
 ];
 
 // Map a stored race-record distance label to kilometres for the running tools.
-// Handles the onboarding presets plus free-form custom text ("21.0975K", "100마일", "10–30K").
+// Ambiguous labels and ranges are deliberately excluded from automatic prefill.
 const RECORD_DIST_KM: Record<string, number> = {
     '5K': 5,
     '10K': 10,
     '하프': 21.0975,
     '풀코스': 42.195,
-    '울트라': 50,
 };
 
 export function recordDistanceToKm(distance: string): number {
     if (!distance) return 0;
     const d = distance.trim();
     if (RECORD_DIST_KM[d] != null) return RECORD_DIST_KM[d];
-    // Take the first number in the string (e.g. "10–30K" → 10, "21.0975K" → 21.0975).
-    const match = d.replace(',', '.').match(/\d+(?:\.\d+)?/);
+    const match = d.match(/^(\d+(?:\.\d+)?)\s*(km|k|킬로미터|킬로|m|미터|mi|마일)?$/i);
     if (!match) return 0;
     let n = parseFloat(match[0]);
     if (!Number.isFinite(n) || n <= 0) return 0;
-    const lower = d.toLowerCase();
-    if (lower.includes('마일') || lower.includes('mi')) n *= 1.60934;
-    return n;
+    const unit = match[2]?.toLowerCase();
+    if (unit === '마일' || unit === 'mi') n *= 1.609344;
+    if (unit === 'm' || unit === '미터') n /= 1000;
+    return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
 export interface RecordPrefill {
@@ -60,8 +59,9 @@ export function pickRunningRecordPrefill(records: PrefillRecord[] | null | undef
     for (const r of records) {
         if (r.sport !== 'running' && r.sport !== 'trail_running') continue;
         const km = recordDistanceToKm(r.distance);
-        if (km > 0 && r.durationSeconds > 0) {
-            return { distKm: km, timeSec: r.durationSeconds, timeStr: r.time, label: `${r.distance} · ${r.time}` };
+        if (km > 0 && Number.isFinite(r.durationSeconds) && r.durationSeconds > 0) {
+            const timeStr = fmtTime(r.durationSeconds);
+            return { distKm: km, timeSec: r.durationSeconds, timeStr, label: `${r.sport === 'trail_running' ? '트레일 · ' : ''}${r.distance} · ${timeStr}` };
         }
     }
     return null;
@@ -80,8 +80,9 @@ export type ZoneKey = keyof typeof ZONE_INK;
 // ── Formulas ─────────────────────────────────
 // Riegel: T2 = T1 * (D2/D1)^k  (default k = 1.06)
 export function riegel(t1Sec: number, d1Km: number, d2Km: number, k = 1.06): number {
-    if (d1Km <= 0 || d2Km <= 0 || t1Sec <= 0) return 0;
-    return t1Sec * Math.pow(d2Km / d1Km, k);
+    if (![t1Sec, d1Km, d2Km, k].every((n) => Number.isFinite(n) && n > 0)) return NaN;
+    const result = t1Sec * Math.pow(d2Km / d1Km, k);
+    return Number.isFinite(result) ? result : NaN;
 }
 
 // VDOT (Daniels) — approximation
@@ -89,7 +90,7 @@ export function riegel(t1Sec: number, d1Km: number, d2Km: number, k = 1.06): num
 //   %VO2max = 0.8 + 0.1894393*exp(-0.012778*t) + 0.2989558*exp(-0.1932605*t)  (t = min)
 //   VDOT = VO2 / %VO2max
 export function vdot(distKm: number, timeSec: number): number {
-    if (distKm <= 0 || timeSec <= 0) return 0;
+    if (![distKm, timeSec].every((n) => Number.isFinite(n) && n > 0)) return NaN;
     const distMeters = distKm * 1000;
     const tMin = timeSec / 60;
     const v = distMeters / tMin; // m/min
@@ -98,14 +99,20 @@ export function vdot(distKm: number, timeSec: number): number {
         0.8 +
         0.1894393 * Math.exp(-0.012778 * tMin) +
         0.2989558 * Math.exp(-0.1932605 * tMin);
-    return vo2 / pct;
+    const result = vo2 / pct;
+    return Number.isFinite(result) && result > 0 ? result : NaN;
 }
 
 // VDOT inverse — given a VDOT value, predict time for a distance via binary search
 export function timeFromVdot(targetVdot: number, distKm: number): number {
-    let lo = 60;
+    if (![targetVdot, distKm].every((n) => Number.isFinite(n) && n > 0)) return NaN;
+    let lo = 1;
     let hi = 60 * 60 * 8;
-    for (let i = 0; i < 50; i++) {
+    if (!Number.isFinite(vdot(distKm, lo)) || vdot(distKm, lo) < targetVdot) return NaN;
+    // Expand the bracket instead of silently clamping slower equivalents to eight hours.
+    for (let i = 0; i < 32 && vdot(distKm, hi) > targetVdot; i++) hi *= 2;
+    if (vdot(distKm, hi) > targetVdot) return NaN;
+    for (let i = 0; i < 64; i++) {
         const mid = (lo + hi) / 2;
         const v = vdot(distKm, mid);
         if (v > targetVdot) lo = mid;
@@ -150,18 +157,21 @@ export function fmtTime(sec: number): string {
 
 export function fmtPace(secPerKm: number): string {
     if (!Number.isFinite(secPerKm) || secPerKm < 0) return '—';
-    const m = Math.floor(secPerKm / 60);
-    const s = Math.round(secPerKm % 60);
+    const total = Math.round(secPerKm);
+    const m = Math.floor(total / 60);
+    const s = total % 60;
     return `${m}'${String(s).padStart(2, '0')}"`;
 }
 
 // Parse "1:42:15" / "42:15" / "42" (minutes)
 export function parseTime(str: string): number {
-    if (!str) return 0;
-    const parts = str.split(':').map((p) => parseInt(p, 10) || 0);
-    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-    if (parts.length === 2) return parts[0] * 60 + parts[1];
-    return parts[0] * 60;
+    const value = str.trim();
+    if (!/^\d+(?::\d{1,2}){0,2}$/.test(value)) return NaN;
+    const parts = value.split(':').map(Number);
+    if (parts.slice(1).some((p) => p >= 60)) return NaN;
+    const total = parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2]
+        : parts.length === 2 ? parts[0] * 60 + parts[1] : parts[0] * 60;
+    return Number.isFinite(total) && total > 0 ? total : NaN;
 }
 
 // Parse pace "4:51" or "4'51\"" → seconds per km
@@ -337,34 +347,6 @@ export function dayDetail(
     return { label: s.label, sub: s.sub, km, pace: paces[s.zone].sec, zoneInk: ZONE_INK[s.zone] };
 }
 
-// ── Tools "season" demo data ─────────────────────────────────
-// The app has no per-user goal/season store yet, so the Race Predictor's
-// "main goal" card and the Training Plan's target-race picker use this sample
-// data (mirrors the Claude Design handoff). Swap for real goal data once a
-// season backend exists.
-export interface GoalRace {
-    id: string;
-    name: string;
-    date: string; // ISO yyyy-mm-dd
-    distKm: number;
-}
-
-export const GOAL_RACE_OPTIONS: GoalRace[] = [
-    { id: 'seoul-int-half', name: '서울국제 하프', date: '2026-05-12', distKm: 21.0975 },
-    { id: 'jeonju-half', name: '전주 하프', date: '2026-08-12', distKm: 21.0975 },
-    { id: 'chuncheon', name: '춘천 마라톤', date: '2026-10-25', distKm: 42.195 },
-    { id: 'jiri-trail', name: '지리산 트레일런', date: '2026-07-25', distKm: 52 },
-];
-
-export const MAIN_GOAL = {
-    raceId: 'chuncheon',
-    raceName: '춘천 마라톤',
-    date: '2026-10-25',
-    distKm: 42.195,
-    targetTimeStr: '3:30:00',
-    targetTimeSec: 3 * 3600 + 30 * 60,
-};
-
 // A target-race option for the Training Plan, derived from the signed-in user's
 // 관심대회 (favorite races) for the season.
 export interface GoalRaceOption {
@@ -392,7 +374,9 @@ export const MIN_GOAL_LEAD_DAYS = 30;
 export function favoriteRacesToGoals(races: Race[]): GoalRaceOption[] {
     return races
         .filter(
-            (r) => !!r.raceDate && r.status !== 'finished' && r.daysUntilRace >= MIN_GOAL_LEAD_DAYS
+            (r) => !!r.raceDate && (r.sport === 'running' || r.sport === 'trail_running')
+                && r.status !== 'finished' && String(r.status) !== 'cancelled'
+                && r.daysUntilRace >= MIN_GOAL_LEAD_DAYS
         )
         .map((r) => ({
             id: r.slug,

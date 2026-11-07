@@ -1,11 +1,10 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import ToolsShell from '$lib/components/arena/ToolsShell.svelte';
-	import StatBlock from '$lib/components/eh/StatBlock.svelte';
 	import FilterChip from '$lib/components/eh/FilterChip.svelte';
 	import Field from '$lib/components/eh/Field.svelte';
 	import Prefill from '$lib/components/eh/Prefill.svelte';
-	import { STD_DISTANCES, MAIN_GOAL, daysUntil, fmtPace, fmtTime, parseTime, riegel } from '$lib/tools';
+	import { STD_DISTANCES, fmtPace, fmtTime, parseTime, riegel } from '$lib/tools';
 
 	let { data } = $props();
 	const pf = data.prefill;
@@ -13,36 +12,29 @@
 	let km = $state(pf?.distKm ?? 21.0975);
 	let time = $state(pf?.timeStr ?? '1:42:15');
 
-	const sec = $derived(parseTime(time || '0'));
+	const sec = $derived(parseTime(time));
+	const valid = $derived(Number.isFinite(sec) && sec > 0);
 	const rows = $derived(
 		STD_DISTANCES.map((d) => {
-			const pred = sec > 60 ? riegel(sec, km, d.km) : NaN;
+			const pred = valid ? riegel(sec, km, d.km) : NaN;
 			return { ...d, pred, pace: d.km > 0 ? pred / d.km : NaN };
 		}),
 	);
-
-	const goal = MAIN_GOAL;
-	const goalDaysOut = daysUntil(goal.date);
-	const goalPred = $derived(sec > 60 ? riegel(sec, km, goal.distKm) : NaN);
-	const gap = $derived(goalPred - goal.targetTimeSec);
 </script>
-
-<svelte:head>
-	<title>기록 예측 — endurohub</title>
-</svelte:head>
 
 <ToolsShell currentPath={$page.url.pathname}>
 <div class="page v-container">
 	<div class="tool-layout">
 		<!-- INPUT -->
 		<div class="panel">
-			<span class="eh-micro"><span class="acc">INPUT</span> · 기준 레이스</span>
+			<span class="eh-micro"><span class="acc">INPUT</span> · {pf ? '내 기록 기준 · 수정 가능' : '계산 예시 · 내 기록으로 변경해 보세요'}</span>
 			<div class="row">
 				{#each STD_DISTANCES as d (d.code)}
 					<FilterChip selected={Math.abs(km - d.km) < 0.01} onclick={() => (km = d.km)}>{d.label}</FilterChip>
 				{/each}
 			</div>
-			<Field label="Race time" placeholder="예: 1:42:15" bind:value={time} />
+			<Field label="기준 완주 기록" placeholder="예: 1:42:15" bind:value={time} error={!valid} aria-invalid={!valid} hint="시:분:초 또는 분:초 · 숫자만 입력하면 분으로 계산" />
+			{#if !valid}<p class="input-error" role="status">0보다 큰 시간을 입력해 주세요. 분·초 칸은 0–59까지 사용할 수 있습니다.</p>{/if}
 			{#if pf}
 				<Prefill label={pf.label} onApply={() => { km = pf.distKm; time = pf.timeStr; }} />
 			{/if}
@@ -68,19 +60,7 @@
 				{/each}
 			</div>
 
-			<!-- main season goal (demo data — see MAIN_GOAL in $lib/tools) -->
-			<div class="v-card goal-card">
-				<div class="eh-micro">
-					<span class="acc">MAIN GOAL</span> · {goal.raceName} · <span class="eh-data">D-{goalDaysOut}</span>
-				</div>
-				<div class="goal-stats">
-					<StatBlock label="목표" value={goal.targetTimeStr} size="lg" />
-					<StatBlock label="현재 예측" value={Number.isFinite(goalPred) ? fmtTime(goalPred) : '—'} size="lg" accent />
-					<div class="goal-gap eh-data" style="color:{gap > 0 ? 'var(--caution)' : 'var(--text-accent)'}">
-						{#if Number.isFinite(gap)}{gap > 0 ? `목표까지 ${fmtTime(gap)} 단축 필요` : `목표 대비 ${fmtTime(-gap)} 여유`}{/if}
-					</div>
-				</div>
-			</div>
+			<p class="src-note">입력한 기록의 거리별 환산값입니다. 장거리 훈련량·코스·날씨에 따라 실제 결과는 달라집니다. <a href="/tools/training-plan">공개 훈련 예제 보기 →</a></p>
 		</div>
 	</div>
 </div>
@@ -109,6 +89,7 @@
 	}
 	.row { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
 	.src-note { margin: 0; font-size: 12px; color: var(--text-faint); line-height: 1.6; }
+	.input-error { margin: 0; font-size: 13px; color: var(--danger); }
 
 	.out { display: flex; flex-direction: column; gap: var(--sp-6); }
 
@@ -118,15 +99,6 @@
 	.pred-time { font-size: 17px; }
 	.pred-pace { color: var(--text-muted); }
 
-	.goal-card { padding: 20px 22px; border-color: var(--ink-900); }
-	.goal-stats {
-		display: flex;
-		gap: 40px;
-		margin-top: 14px;
-		flex-wrap: wrap;
-		align-items: flex-end;
-	}
-	.goal-gap { font-size: 13px; font-weight: 700; padding-bottom: 4px; }
 
 	@media (max-width: 768px) {
 		.panel { padding: 18px; min-width: 0; }
