@@ -15,18 +15,28 @@ jobs:
     steps:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: ${{ secrets.DEPLOY_PORT }}
+          envs: DEPLOY_PATH
+          command_timeout: 30m
           # 원격 서버에서 실행되는 배포 스크립트. self-hosted 시절 각 step 을
           # 하나의 bash 스크립트로 합친 것(로직은 동일).
           script: |
             set -euo pipefail
-            cd "${{ vars.DEPLOY_PATH }}"
+            cd "$DEPLOY_PATH"
 
             # 1) 커밋 상태 그대로 반영 (untracked .env 등은 보존)
+            if ! git diff --quiet || ! git diff --cached --quiet; then
+              echo "Tracked server changes found; deployment stopped without resetting them." >&2
+              git diff --name-only
+              git diff --cached --name-only
+              exit 1
+            fi
             BEFORE=$(git rev-parse HEAD)
             git fetch origin master
             git reset --hard origin/master
@@ -53,16 +63,45 @@ jobs:
             echo "$CHANGED" | grep -qE "^(nginx/|docker-compose\.yml)" && INFRA=true || true
             echo "$CHANGED" | grep -qE "^(monitoring/|docker-compose\.observability\.yml)" && OBS=true || true
 
-            # 4) 재빌드 (infra 변경 시 전체 / 아니면 변경된 서비스만)
+            # 4) 먼저 이미지만 빌드한다. 실패 시 기존 컨테이너를 그대로 두고 중단한다.
+            SERVICES=()
+            if [ "$API" = true ]; then
+              SERVICES+=(api celery-worker celery-beat)
+            fi
+            if [ "$WEB" = true ]; then
+              SERVICES+=(web)
+            fi
+            if [ "$CRAWLER" = true ]; then
+              SERVICES+=(crawler-worker)
+            fi
             if [ "$INFRA" = true ]; then
-              docker compose up -d --build --remove-orphans
-            else
-              # celery-worker/celery-beat 는 api 와 같은 이미지(build: ./api)를 쓴다.
-              # api 만 올리면 워커/비트는 옛 코드로 계속 돌아 배치 잡(날씨·접수상태·
-              # 주간다이제스트)에 수정이 반영되지 않는다.
-              [ "$API" = true ] && docker compose up -d --build api celery-worker celery-beat || true
-              [ "$WEB" = true ] && docker compose up -d --build web || true
-              [ "$CRAWLER" = true ] && docker compose up -d --build crawler-worker || true
+              docker compose build
+            elif [ "${#SERVICES[@]}" -gt 0 ]; then
+              docker compose build "${SERVICES[@]}"
+            fi
+
+            # 5) 새 API 이미지의 일회성 컨테이너로 마이그레이션한다.
+            # 신규 컬럼/테이블을 쓰는 API·워커를 먼저 시작하지 않는다.
+            if [ "$API" = true ] || [ "$INFRA" = true ]; then
+              MIGRATION_PLAN=$(docker compose run --rm --no-deps -T api python manage.py showmigrations --plan)
+              printf '%s\n' "$MIGRATION_PLAN"
+              if printf '%s\n' "$MIGRATION_PLAN" | grep '^\[ \]' > /dev/null; then
+                bash scripts/deploy-db-backup.sh "$PWD/.deploy-backups" "$AFTER"
+                umask 077
+                {
+                  printf 'Previous commit: %s\nNext commit: %s\n' "$BEFORE" "$AFTER"
+                  docker compose images
+                } > "$PWD/.deploy-backups/rollout-${AFTER}.txt"
+              fi
+              docker compose run --rm --no-deps -T -e PGOPTIONS='-c lock_timeout=10s -c statement_timeout=300s' api python manage.py migrate --noinput
+            fi
+
+            # 6) 빌드와 DB 준비가 모두 성공한 뒤 관련 서비스만 교체한다.
+            # celery-worker/beat 도 api 코드가 바뀌면 반드시 새 이미지로 시작한다.
+            if [ "$INFRA" = true ]; then
+              docker compose up -d --no-build --remove-orphans
+            elif [ "${#SERVICES[@]}" -gt 0 ]; then
+              docker compose up -d --no-build --no-deps "${SERVICES[@]}"
             fi
 
             # 관측성 스택은 앱과 독립 배포 (mounted config 반영 위해 force-recreate)
@@ -70,16 +109,15 @@ jobs:
               docker compose -f docker-compose.observability.yml up -d --force-recreate
             fi
 
-            # 5) 마이그레이션
-            if [ "$API" = true ] || [ "$INFRA" = true ]; then
-              docker compose exec -T api python manage.py migrate --noinput --fake-initial
-            fi
-
-            # 6) 검증
+            # 7) 검증 — 실패하면 워크플로도 실패해야 한다.
             # nginx 안티크롤러가 `curl/` UA 를 403 차단하므로(default.conf) 헬스체크는
             # 블랙리스트에 없는 UA 로 요청해야 실제 200 을 확인할 수 있다.
             sleep 5
             docker compose ps
+            docker compose exec -T api python manage.py migrate --check
+            docker compose exec -T api python manage.py showmigrations races accounts
             UA="Mozilla/5.0 (deploy-healthcheck)"
-            curl -sf -A "$UA" http://localhost/api/v1/races/ > /dev/null && echo "API OK" || echo "API FAIL"
-            curl -sf -A "$UA" http://localhost/ > /dev/null && echo "Web OK" || echo "Web FAIL"
+            curl -fsS --max-time 10 --retry 5 --retry-delay 3 --retry-connrefused -A "$UA" http://localhost/api/v1/races/ > /dev/null
+            echo "API OK"
+            curl -fsS --max-time 10 --retry 5 --retry-delay 3 --retry-connrefused -A "$UA" http://localhost/ > /dev/null
+            echo "Web OK"

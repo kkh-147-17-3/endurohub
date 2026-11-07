@@ -835,7 +835,9 @@ class MySeasonView(APIView):
         }
         records = {
             r.race_id: r
-            for r in RaceRecord.objects.filter(user=user, race__isnull=False)
+            for r in RaceRecord.objects.filter(
+                user=user, race__isnull=False, merge_source_race_id__isnull=True,
+            )
         }
 
         race_ids: set[int] = {
@@ -947,10 +949,12 @@ class RaceParticipationView(APIView):
 
     def put(self, request: Request, slug: str) -> Response:
         from races.models import Race, RaceParticipation
+        from races.resolution import resolve_race
         from races.serializers import RaceParticipationWriteSerializer
 
-        race = Race.objects.filter(slug=slug).first()
-        if not race:
+        try:
+            race = resolve_race(slug)
+        except Race.DoesNotExist:
             return Response({'error': '대회를 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = RaceParticipationWriteSerializer(data=request.data)
@@ -970,10 +974,16 @@ class RaceParticipationView(APIView):
         })
 
     def delete(self, request: Request, slug: str) -> Response:
-        from races.models import RaceParticipation
+        from races.models import Race, RaceParticipation
+        from races.resolution import resolve_race
+
+        try:
+            race = resolve_race(slug)
+        except Race.DoesNotExist:
+            return Response({'error': '대회를 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
 
         deleted, _ = RaceParticipation.objects.filter(
-            user=cast(User, request.user), race__slug=slug,
+            user=cast(User, request.user), race=race,
         ).delete()
         if not deleted:
             return Response(
@@ -989,9 +999,11 @@ class RaceResultCreateView(APIView):
 
     def post(self, request: Request, slug: str) -> Response:
         from races.models import Race
+        from races.resolution import resolve_race
 
-        race = Race.objects.filter(slug=slug).first()
-        if not race:
+        try:
+            race = resolve_race(slug)
+        except Race.DoesNotExist:
             return Response({'error': '대회를 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = RaceResultCreateSerializer(
@@ -1005,8 +1017,16 @@ class RaceResultCreateView(APIView):
         )
 
     def delete(self, request: Request, slug: str) -> Response:
+        from races.models import Race
+        from races.resolution import resolve_race
+
+        try:
+            race = resolve_race(slug)
+        except Race.DoesNotExist:
+            return Response({'error': '대회를 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
+
         deleted, _ = RaceRecord.objects.filter(
-            user=cast(User, request.user), race__slug=slug,
+            user=cast(User, request.user), race=race, merge_source_race_id__isnull=True,
         ).delete()
         if not deleted:
             return Response(

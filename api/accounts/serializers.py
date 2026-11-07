@@ -122,14 +122,18 @@ class RaceRecordSerializer(serializers.ModelSerializer[RaceRecord]):
 
     sport_label = serializers.SerializerMethodField()
     time = serializers.SerializerMethodField()
+    is_merge_history = serializers.SerializerMethodField()
 
     class Meta:
         model = RaceRecord
         fields = [
             'id', 'sport', 'sport_label', 'distance', 'name',
             'course_code', 'record_date', 'duration_seconds', 'time',
-            'is_personal_best', 'is_public', 'created_at',
+            'is_personal_best', 'is_public', 'created_at', 'is_merge_history',
         ]
+
+    def get_is_merge_history(self, obj: RaceRecord) -> bool:
+        return obj.merge_source_race_id is not None
 
     def get_sport_label(self, obj: RaceRecord) -> str:
         from races.constants import SPORT_LABELS
@@ -251,6 +255,7 @@ def upsert_linked_race_record(*, user: AuthUser, race: Race, result_data: dict[s
     record, _ = RaceRecord.objects.update_or_create(
         user=user,
         race=race,
+        merge_source_race_id__isnull=True,
         defaults=defaults,
     )
     return record

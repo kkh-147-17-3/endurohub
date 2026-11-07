@@ -3,6 +3,7 @@
 	import FilterChip from '$lib/components/eh/FilterChip.svelte';
 	import Select from '$lib/components/eh/Select.svelte';
 	import { SPORT_META, appSportToDs } from '$lib/components/eh/meta';
+	import { kstTodayStr } from '$lib/date';
 	import type { SportOption, DistanceCategory } from '$lib/types';
 
 	interface Applied {
@@ -11,7 +12,7 @@
 		status: string[];
 		name: string | null;
 		distanceCategory: string[];
-		monthFrom: string;
+		monthFrom: string | null;
 		monthTo: string | null;
 	}
 
@@ -38,24 +39,24 @@
 		{ value: 'registration_closed', label: '접수 마감' }
 	] as const;
 
-	// ── Current month (server defaults month_from to this when absent) ────────
-	const now = new Date();
-	const curY = now.getFullYear();
-	const curM = now.getMonth() + 1;
+	// Presets use the same Korean date boundary as the API.
+	const [curY, curM] = kstTodayStr().split('-').map(Number);
 	const currentMonth = `${curY}-${String(curM).padStart(2, '0')}`;
 
 	// ── Selections derive straight from the URL (server `applied`) ────────────
 	let sportSel = $derived(applied.sport ?? []);
 	let regionSel = $derived(applied.region ?? []);
 	let statusSel = $derived(applied.status ?? []);
+	let includesFinished = $derived(statusSel.includes('finished'));
+	let defaultRangeLabel = $derived(includesFinished ? '전체 기간' : '오늘 이후');
 	let distSel = $derived(applied.distanceCategory ?? []);
-	let monthFrom = $derived(applied.monthFrom || currentMonth);
+	let monthFrom = $derived(applied.monthFrom ?? '');
 	let monthTo = $derived(applied.monthTo ?? null);
 
 	// 거리 카테고리는 종목이 정확히 1개일 때만 의미가 있다 (백엔드 규칙과 동일).
 	let availableDist = $derived(sportSel.length === 1 ? (filters.distanceCategories[sportSel[0]] ?? []) : []);
 
-	let monthActive = $derived(monthFrom !== currentMonth || monthTo != null);
+	let monthActive = $derived(!!monthFrom || monthTo != null);
 	let activeCount = $derived(
 		sportSel.length + regionSel.length + statusSel.length + distSel.length + (monthActive ? 1 : 0) + (applied.name ? 1 : 0)
 	);
@@ -94,7 +95,7 @@
 		for (const s of status) sp.append('status', s);
 		if (name) sp.set('name', name);
 		for (const d of dist) sp.append('distance_category', d);
-		if (mFrom && mFrom !== currentMonth) sp.set('month_from', mFrom);
+		if (mFrom) sp.set('month_from', mFrom);
 		if (mTo) sp.set('month_to', mTo);
 		return sp;
 	}
@@ -122,13 +123,15 @@
 		const d = new Date(curY, curM - 1 + n, 1);
 		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 	}
-	const PRESETS = [
+	let PRESETS = $derived([
+		{ label: defaultRangeLabel, from: '', to: '' },
+		{ label: '이번 달', from: currentMonth, to: currentMonth },
 		{ label: '3개월', from: currentMonth, to: addMonths(2) },
 		{ label: '6개월', from: currentMonth, to: addMonths(5) },
 		{ label: '올해', from: `${curY}-01`, to: `${curY}-12` },
 		{ label: '내년', from: `${curY + 1}-01`, to: `${curY + 1}-12` },
 		{ label: '전체', from: `${curY}-01`, to: '' }
-	];
+	]);
 	function presetActive(p: { from: string; to: string }): boolean {
 		return p.from === monthFrom && p.to === (monthTo ?? '');
 	}
@@ -144,6 +147,7 @@
 		return out;
 	}
 	const monthOptions = genMonths();
+	const monthFromOptions = [{ value: '', label: '시작월 선택' }, ...monthOptions];
 	const monthToOptions = [{ value: '', label: '제한 없음' }, ...monthOptions];
 
 	function fmtMonth(ym: string): string {
@@ -151,12 +155,12 @@
 		return `${y}.${m}`;
 	}
 	function monthRangeLabel(): string {
-		const f = monthFrom !== currentMonth ? fmtMonth(monthFrom) : '';
+		const f = monthFrom ? fmtMonth(monthFrom) : '';
 		const t = monthTo ? fmtMonth(monthTo) : '';
 		if (f && t) return `${f} ~ ${t}`;
 		if (f) return `${f} ~`;
 		if (t) return `~ ${t}`;
-		return '전체 기간';
+		return defaultRangeLabel;
 	}
 
 	// ── Label helpers for active chips / dropdown buttons ─────────────────────
@@ -164,6 +168,7 @@
 		return filters.sports.find((s) => s.value === v)?.label ?? v;
 	}
 	function statusLabel(v: string): string {
+		if (v === 'finished') return '종료';
 		return STATUSES.find((s) => s.value === v)?.label ?? v;
 	}
 	function distLabel(v: string): string {
@@ -288,7 +293,7 @@
 					<div class="fdrop__range">
 						<Select
 							label="시작"
-							options={monthOptions}
+							options={monthFromOptions}
 							value={monthFrom}
 							onchange={(e) => apply({ month_from: (e.target as HTMLSelectElement).value })}
 						/>
@@ -300,6 +305,11 @@
 							onchange={(e) => apply({ month_to: (e.target as HTMLSelectElement).value || null })}
 						/>
 					</div>
+					<p class="fdrop__hint">
+						{includesFinished
+							? '기간을 지정하지 않으면 과거에 종료된 대회도 전체 기간에서 표시합니다.'
+							: '기간을 지정하지 않으면 오늘 이후 대회를 표시합니다.'}
+					</p>
 				</div>
 			</details>
 		</div>
@@ -325,7 +335,7 @@
 				<button type="button" class="achip" onclick={() => apply({ distance_category: toggle(distSel, v) })}>{distLabel(v)}<span class="x">×</span></button>
 			{/each}
 			{#if monthActive}
-				<button type="button" class="achip" onclick={() => apply({ month_from: currentMonth, month_to: null })}>{monthRangeLabel()}<span class="x">×</span></button>
+				<button type="button" class="achip" onclick={() => apply({ month_from: '', month_to: null })}>{monthRangeLabel()}<span class="x">×</span></button>
 			{/if}
 			{#if applied.name}
 				<button type="button" class="achip" onclick={() => apply({ name: '' })}>“{applied.name}”<span class="x">×</span></button>

@@ -17,7 +17,7 @@ from rest_framework.views import APIView
 from typing import Any, cast
 
 from .image_utils import delete_upload, get_webp_path, process_image, save_upload
-from .models import Race
+from .models import Race, RaceAlias
 from .serializers import RaceSerializer
 
 
@@ -49,6 +49,14 @@ EDITABLE_FIELDS = [
 
 
 class RaceAdminEditSerializer(drf_serializers.ModelSerializer[Race]):
+    def validate_slug(self, value: str) -> str:
+        aliases = RaceAlias.objects.filter(alias=value)
+        if self.instance is not None:
+            aliases = aliases.exclude(race_id=self.instance.pk)
+        if aliases.exists():
+            raise drf_serializers.ValidationError('병합된 대회의 이전 URL은 재사용할 수 없습니다.')
+        return value
+
     class Meta:
         model = Race
         fields = EDITABLE_FIELDS

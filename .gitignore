@@ -31,6 +31,9 @@ claude.md
 # Docker
 *.log
 
+# Production deployment backups (server-local, never versioned)
+.deploy-backups/
+
 # SvelteKit build
 .svelte-kit/
 build/

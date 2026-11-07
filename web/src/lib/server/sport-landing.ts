@@ -28,7 +28,7 @@ export async function loadSportLanding(
 
 	// 접수 중 집계는 부가 정보다. 실패해도 페이지 자체는 떠야 하므로 따로 삼킨다.
 	const [upcoming, open] = await Promise.all([
-		apiFetch<RaceListResponse>('/races/', auth, { sport: content.sport }),
+		apiFetch<RaceListResponse>('/races/', auth, { sport: content.sport, upcoming: 'true' }),
 		apiFetch<RaceListResponse>('/races/', auth, {
 			sport: content.sport,
 			status: 'registration_open',

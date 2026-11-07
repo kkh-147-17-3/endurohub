@@ -56,6 +56,9 @@ class RaceRecord(models.Model):
         blank=True,
         related_name='records',
     )
+    # A conflicting result from a merged duplicate stays linked and visible to
+    # its owner; result editing/upsert continues to address one current row.
+    merge_source_race_id = models.PositiveBigIntegerField(null=True, blank=True, editable=False)
     # Sport key matching races.constants.SPORT_LABELS (running, trail_running, ...)
     sport = models.CharField(max_length=20)
     # Distance / category — a preset label (e.g. '풀코스') or free-form custom text.
@@ -84,7 +87,7 @@ class RaceRecord(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=['user', 'race'],
-                condition=models.Q(race__isnull=False),
+                condition=models.Q(race__isnull=False, merge_source_race_id__isnull=True),
                 name='uniq_linked_race_record_per_user',
             ),
         ]

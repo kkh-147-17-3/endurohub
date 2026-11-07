@@ -4,7 +4,8 @@ from datetime import date, timedelta
 from typing import Any, TypedDict, cast
 
 from django.conf import settings
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models
 from django.utils import timezone
 
@@ -29,7 +30,11 @@ class RaceQuerySet(models.QuerySet["Race"]):
 
     def upcoming(self) -> "RaceQuerySet":
         today = timezone.localdate()
-        return self.filter(race_date__gte=today).order_by('race_date')
+        # A multi-day race remains current through its final day.
+        return self.filter(
+            models.Q(race_end_date__gte=today) |
+            models.Q(race_end_date__isnull=True, race_date__gte=today)
+        ).order_by('race_date', 'id')
 
     def closing_soon(self, days: int = 7) -> "RaceQuerySet":
         today = timezone.localdate()
@@ -312,7 +317,21 @@ class Race(models.Model):
         db_table = 'races'
         ordering = ['race_date']
 
+    def clean(self) -> None:
+        super().clean()
+        self._validate_alias_ownership()
+
+    def _validate_alias_ownership(self) -> None:
+        if RaceAlias.objects.filter(alias=self.slug).exclude(race_id=self.pk).exists():
+            raise ValidationError({'slug': '병합된 대회의 이전 URL은 재사용할 수 없습니다.'})
+        if self._state.adding and self.pk is not None:
+            if RaceAlias.objects.filter(alias=str(self.pk)).exclude(race_id=self.pk).exists():
+                raise ValidationError({'id': '병합된 대회의 이전 ID는 재사용할 수 없습니다.'})
+
     def save(self, **kwargs: Any) -> None:
+        update_fields = kwargs.get('update_fields')
+        if self._state.adding or update_fields is None or 'slug' in update_fields:
+            self._validate_alias_ownership()
         if self.sport == 'running' and self._title_matches_trail_running():
             self.sport = 'trail_running'
         self._fill_distance_meters()
@@ -616,7 +635,7 @@ class Race(models.Model):
         slug = Race.title_to_slug(title)
         original_slug = slug
         counter = 2
-        while Race.objects.filter(slug=slug).exists():
+        while Race.objects.filter(slug=slug).exists() or RaceAlias.objects.filter(alias=slug).exists():
             slug = f'{original_slug}-{counter}'
             counter += 1
         return slug
@@ -628,6 +647,38 @@ class Race(models.Model):
         slug = re.sub(r'-+', '-', slug)
         slug = slug.strip('-')
         return slug.lower()
+
+
+class RaceAlias(models.Model):
+    """Reserved former slug or numeric URL, always pointing to a live race."""
+
+    alias = models.CharField(max_length=255, unique=True)
+    race = models.ForeignKey(Race, on_delete=models.PROTECT, related_name='legacy_aliases')
+    source_race_id = models.PositiveBigIntegerField()
+    source_slug = models.CharField(max_length=255)
+    source = models.CharField(max_length=20, blank=True, default='')
+    source_url = models.CharField(max_length=500, blank=True, default='', db_index=True)
+    external_id = models.CharField(max_length=50, blank=True, default='', db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'race_aliases'
+
+
+class RaceMergeLog(models.Model):
+    """Immutable pre-merge snapshots for an explicitly selected pair of IDs.
+
+    IDs deliberately aren't foreign keys: subsequent merges must not alter or
+    delete the historical evidence of what the operator combined.
+    """
+
+    source_race_id = models.PositiveBigIntegerField(unique=True)
+    target_race_id = models.PositiveBigIntegerField(db_index=True)
+    snapshot = models.JSONField(encoder=DjangoJSONEncoder)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'race_merge_logs'
 
 
 class Review(models.Model):
@@ -648,6 +699,9 @@ class Review(models.Model):
         blank=True,
         related_name='race_reviews',
     )
+    # Only a merge service may set provenance. Imported overlapping reviews keep
+    # their author, ID, content and likes while normal new reviews stay unique.
+    merge_source_race_id = models.PositiveBigIntegerField(null=True, blank=True, editable=False)
     nickname = models.CharField(max_length=50, null=True, blank=True)
     rating = models.SmallIntegerField()
     comment = models.CharField(max_length=200)
@@ -668,7 +722,7 @@ class Review(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=['user', 'race'],
-                condition=models.Q(user__isnull=False),
+                condition=models.Q(user__isnull=False, merge_source_race_id__isnull=True),
                 name='uniq_member_review_per_race',
             ),
         ]

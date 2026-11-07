@@ -207,12 +207,13 @@
 		const min = arenaMinFee(r);
 		return min != null ? arenaFeeShort(min) : '—';
 	}
-	function dsBadge(r: Race): 'open' | 'closing' | 'live' | 'closed' {
+	function dsBadge(r: Race): 'open' | 'closing' | 'live' | 'closed' | 'upcoming' {
 		if (isToday(r) && !isClosedish(r)) return 'live';
 		if (isOpen(r)) {
 			const d = ddayOf(r);
 			return d != null && d >= 0 && d <= 3 ? 'closing' : 'open';
 		}
+		if (r.status === 'upcoming') return 'upcoming';
 		return 'closed';
 	}
 
@@ -241,7 +242,7 @@
 		{/if}
 		{#each rows as r (r.id)}
 			{@const d = dayOf(r)}
-			<a class="v-trow click" href={`/races/${r.slug}`}>
+			<a class="v-trow click" href={`/races/${encodeURIComponent(r.slug)}`}>
 				<span class="dt eh-data"
 					>{month}.{String(d).padStart(2, '0')}<span class="dw">{dowKo(d)}</span></span
 				>
@@ -261,6 +262,8 @@
 									D-{ddayOf(r)}{/if}</span
 							>
 						{:else if dsBadge(r) === 'live'}오늘 개최
+						{:else if dsBadge(r) === 'upcoming'}오픈 예정
+						{:else if r.status === 'finished'}종료
 						{:else}접수 마감{/if}
 					</Badge>
 				</span>
@@ -371,7 +374,6 @@
 						{#each week as c, ci (ci)}
 							{@const evs = c.out ? [] : dayRaces(c.d)}
 							{@const wknd = ci === 0 || ci === 6}
-							<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 							<div
 								class="cell"
 								class:out={c.out}
@@ -379,23 +381,26 @@
 								class:emph={wknd && !c.out}
 								class:has={evs.length > 0}
 								class:sel={selDay === c.d && !c.out}
-								role={evs.length > 0 ? 'button' : undefined}
-								tabindex={evs.length > 0 ? 0 : undefined}
-								aria-label={evs.length > 0 ? `${month}월 ${c.d}일 대회 ${evs.length}개` : undefined}
-								onclick={() => !c.out && openDay(c.d)}
-								onkeydown={(e) => {
-									if (!c.out && evs.length > 0 && (e.key === 'Enter' || e.key === ' ')) {
-										e.preventDefault();
-										openDay(c.d);
-									}
-								}}
 							>
-								<span class="d-num eh-data">
-									{c.d}
-									{#if !c.out && c.d === todayDay}<span class="today-pin">TODAY</span>{/if}
-								</span>
+								{#if evs.length > 0}
+									<button
+										type="button"
+										class="cell-open d-num eh-data"
+										aria-label={`${month}월 ${c.d}일 대회 ${evs.length}개 보기`}
+										aria-haspopup="dialog"
+										onclick={() => openDay(c.d)}
+									>
+										{c.d}
+										{#if c.d === todayDay}<span class="today-pin">TODAY</span>{/if}
+									</button>
+								{:else}
+									<span class="d-num eh-data">
+										{c.d}
+										{#if !c.out && c.d === todayDay}<span class="today-pin">TODAY</span>{/if}
+									</span>
+								{/if}
 								{#each evs.slice(0, MAX_PER_CELL) as r (r.id)}
-									<span class="ev" class:dim={isClosedish(r)}>
+									<a class="ev" class:dim={isClosedish(r)} href={`/races/${encodeURIComponent(r.slug)}`}>
 										<span class="v-dot" style:background={sportDotColor[r.sport]}></span>
 										<span class="nm">{r.title}</span>
 										{#if isToday(r) && !isClosedish(r)}
@@ -403,16 +408,33 @@
 										{:else if isOpen(r) && ddayOf(r) != null && ddayOf(r)! >= 0}
 											<span class="dd eh-data">D-{ddayOf(r)}</span>
 										{/if}
-									</span>
+									</a>
 								{/each}
 								{#if evs.length > MAX_PER_CELL}
-									<span class="more eh-data">+{evs.length - MAX_PER_CELL} 더보기</span>
+									<button
+										type="button"
+										class="more eh-data"
+										aria-label={`${month}월 ${c.d}일 대회 ${evs.length}개 모두 보기`}
+										aria-haspopup="dialog"
+										onclick={() => openDay(c.d)}
+									>
+										+{evs.length - MAX_PER_CELL} 더보기
+									</button>
 								{/if}
 							</div>
 						{/each}
 					</div>
 				{/each}
 			</div>
+		{/if}
+
+		{#if listRaces.length > 0}
+			<!-- Native disclosure keeps every race link in the server HTML, including
+			     busy days and the compact mobile calendar, without requiring a click to fetch it. -->
+			<details class="month-list">
+				<summary>{month}월 전체 대회 목록 <span class="eh-data">{listRaces.length}개</span></summary>
+				{@render listTable(listRaces, false)}
+			</details>
 		{/if}
 
 		<!-- day modal -->
@@ -592,6 +614,7 @@
 		grid-template-columns: repeat(7, 1fr);
 	}
 	.cell {
+		position: relative;
 		min-height: 118px;
 		padding: 8px 8px 10px;
 		border-right: 1px solid var(--line);
@@ -625,6 +648,26 @@
 	.cell.sel {
 		box-shadow: inset 0 0 0 2px var(--ink-900);
 	}
+	.cell-open {
+		background: none;
+		border: 0;
+		padding: 0;
+		width: fit-content;
+		font-family: inherit;
+		cursor: pointer;
+	}
+	.cell-open::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+	}
+	.cell-open:focus-visible {
+		outline: none;
+	}
+	.cell-open:focus-visible::after {
+		outline: 2px solid var(--ink-900);
+		outline-offset: -2px;
+	}
 	.d-num {
 		font-size: 13px;
 		font-weight: 700;
@@ -652,12 +695,24 @@
 		border-radius: var(--r-2);
 	}
 	.ev {
+		position: relative;
+		z-index: 1;
 		display: flex;
 		align-items: center;
 		gap: 5px;
 		font-size: 11.5px;
 		line-height: 1.25;
 		min-width: 0;
+		text-decoration: none;
+	}
+	.ev:hover .nm {
+		text-decoration: underline;
+	}
+	.ev:focus-visible,
+	.more:focus-visible,
+	.month-list summary:focus-visible {
+		outline: 2px solid var(--ink-900);
+		outline-offset: 2px;
 	}
 	.ev .v-dot {
 		width: 6px;
@@ -680,6 +735,14 @@
 		flex: none;
 	}
 	.more {
+		position: relative;
+		z-index: 1;
+		align-self: flex-start;
+		background: none;
+		border: 0;
+		padding: 0;
+		font-family: inherit;
+		cursor: pointer;
 		font-size: 10.5px;
 		font-weight: 600;
 		letter-spacing: 0.06em;
@@ -688,6 +751,21 @@
 	}
 	.cell.has:hover .more {
 		color: var(--text-accent);
+	}
+	.month-list {
+		margin-top: var(--sp-5);
+		border: 1px solid var(--line);
+		background: var(--paper-0);
+	}
+	.month-list summary {
+		padding: 14px 16px;
+		font-size: 13px;
+		font-weight: 600;
+		cursor: pointer;
+	}
+	.month-list summary span {
+		margin-left: 8px;
+		color: var(--text-muted);
 	}
 	.v-dot {
 		width: 8px;

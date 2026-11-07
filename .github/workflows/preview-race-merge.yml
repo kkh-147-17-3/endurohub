@@ -1,0 +1,60 @@
+name: Preview race merge
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_id:
+        description: Duplicate race ID to preview merging away
+        required: true
+        type: string
+      target_id:
+        description: Canonical race ID to retain
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# Preview takes row locks; serialize it with production deployments.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Preview on production without applying changes
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          SOURCE_ID: ${{ inputs.source_id }}
+          TARGET_ID: ${{ inputs.target_id }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          envs: DEPLOY_PATH,SOURCE_ID,TARGET_ID
+          command_timeout: 5m
+          script: |
+            set -euo pipefail
+            export LC_ALL=C
+            for RACE_ID in "$SOURCE_ID" "$TARGET_ID"; do
+              if ! [[ "$RACE_ID" =~ ^[1-9][0-9]*$ ]]; then
+                echo "Race IDs must be positive integers." >&2
+                exit 1
+              fi
+              if [[ ${#RACE_ID} -gt 19 ]] || { [[ ${#RACE_ID} -eq 19 ]] && [[ "$RACE_ID" > "9223372036854775807" ]]; }; then
+                echo "Race ID exceeds the database integer range." >&2
+                exit 1
+              fi
+            done
+            if [ "$SOURCE_ID" = "$TARGET_ID" ]; then
+              echo "Source and target must be different race IDs." >&2
+              exit 1
+            fi
+            cd "$DEPLOY_PATH"
+            echo "MERGE_PREVIEW_BEGIN"
+            docker compose exec -T api python manage.py merge_races --source "$SOURCE_ID" --target "$TARGET_ID"
+            echo "MERGE_PREVIEW_END"

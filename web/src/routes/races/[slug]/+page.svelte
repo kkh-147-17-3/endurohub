@@ -22,6 +22,7 @@
         arenaShortDate,
     } from '$lib/arena';
     import { sportLandingPath } from '$lib/seo/sport-landing';
+    import { buildRaceEventSchema, serializeJsonLd } from '$lib/seo/race-event';
     import { track, trackOutboundClick } from '$lib/analytics';
     import { clientApiFetch } from '$lib/api.client';
 
@@ -439,70 +440,12 @@
         showToast('카카오 공유를 사용할 수 없어 링크를 복사했습니다.');
     }
 
-    const defaultImage = $derived(`${appUrl}/images/og-${race.sport.replace('_', '-')}.png`);
-    const minFee = $derived(arenaMinFee(race));
-    const eventSchema = $derived({
-        '@context': 'https://schema.org',
-        '@type': 'SportsEvent',
-        name: race.title,
-        description: race.description
-            ? race.description.substring(0, 200)
-            : `${race.title} - ${race.location}에서 개최되는 ${race.sportLabel} 대회`,
-        startDate: race.raceDate,
-        endDate: race.raceEndDate || race.raceDate,
-        // 종료된 대회는 '취소된' 대회가 아니다. schema.org 에 '종료' 상태값은 없고,
-        // 이미 지난 대회라는 사실은 startDate 가 표현한다. finished 를 EventCancelled
-        // 로 내보내면 "열리지 않은 대회"라는 틀린 정보를 구글에 알리게 된다.
-        eventStatus: 'https://schema.org/EventScheduled',
-        eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
-        url: pageUrl,
-        sport: race.sportLabel,
-        location: {
-            '@type': 'Place',
-            name: race.location,
-            address: {
-                '@type': 'PostalAddress',
-                addressLocality: race.location,
-                addressRegion: race.region,
-                addressCountry: 'KR',
-            },
-            geo:
-                race.latitude && race.longitude
-                    ? {
-                          '@type': 'GeoCoordinates',
-                          latitude: race.latitude,
-                          longitude: race.longitude,
-                      }
-                    : undefined,
-        },
-        // imageSrc 는 보통 /storage/… 형태의 상대 경로다. schema.org 의 image 는 절대
-        // URL 이어야 해서 그대로 내보내면 무효가 된다. 외부 절대 URL 이 들어와도
-        // new URL(input, base) 이 그대로 돌려주므로 양쪽 다 안전하다.
-        image: race.imageSrc ? new URL(race.imageSrc, appUrl).href : defaultImage,
-        sameAs: validOfficialUrl || undefined,
-        // 참가비를 모르는 대회가 많은데, 그때 price:"0" 을 내보내면 무료 대회라고
-        // 잘못 선언하는 셈이 된다. 값을 아는 경우에만 offers 를 싣는다.
-        offers:
-            minFee != null
-                ? {
-                      '@type': 'Offer',
-                      url: validOfficialUrl || pageUrl,
-                      availability:
-                          race.status === 'registration_open'
-                              ? 'https://schema.org/InStock'
-                              : 'https://schema.org/SoldOut',
-                      price: String(minFee),
-                      priceCurrency: 'KRW',
-                      validFrom: race.registrationStart || race.raceDate,
-                  }
-                : undefined,
-        performer: { '@type': 'SportsTeam', name: race.organizer || '대회 주최측' },
-        organizer: {
-            '@type': 'Organization',
-            name: race.organizer || 'endurohub',
-            url: validOfficialUrl || appUrl,
-        },
-    });
+    const eventSchema = $derived(buildRaceEventSchema(race, {
+        appUrl,
+        pageUrl,
+        officialUrl: validOfficialUrl,
+        minFee: arenaMinFee(race),
+    }));
 
     const breadcrumbSchema = $derived({
         '@context': 'https://schema.org',
@@ -661,9 +604,11 @@
         );
         return rows;
     });
-    const recMine = $derived(recRows.find((r) => r.me) ?? null);
+    const recMine = $derived(recRows.filter((r) => r.me).sort(
+        (a, b) => Number(!!a.isMergeHistory) - Number(!!b.isMergeHistory),
+    ));
     const recOthers = $derived(recRows.filter((r) => !r.me));
-    const recDisplay = $derived(recMine ? [recMine, ...recOthers] : recOthers);
+    const recDisplay = $derived([...recMine, ...recOthers]);
     const hasMyRecord = $derived(seasonRecords.some((r) => r.me));
     const hasCourseFilter = $derived(recCourseOpts.length > 2);
     const hasRecordControls = $derived(hasCourseFilter || seasonRecords.length > 1);
@@ -753,8 +698,8 @@
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="twitter:image" content={ogImage} />
-    {@html `<script type="application/ld+json">${JSON.stringify(eventSchema)}</script>`}
-    {@html `<script type="application/ld+json">${JSON.stringify(breadcrumbSchema)}</script>`}
+    {@html `<script type="application/ld+json">${serializeJsonLd(eventSchema)}</script>`}
+    {@html `<script type="application/ld+json">${serializeJsonLd(breadcrumbSchema)}</script>`}
 </svelte:head>
 
 <!-- Reusable numbered section head -->
@@ -1329,7 +1274,7 @@
                             </div>
                         </div>
                     {:else}
-                        {#each recDisplay as record, index (record.nickname + record.courseCode + record.time + (record.date ?? '') + index)}
+                        {#each recDisplay as record, index (record.id ?? record.nickname + record.courseCode + record.time + (record.date ?? '') + index)}
                             <article class="rd-member-record" class:rd-member-record--me={record.me}>
                                 <div class="rd-member-record__runner">
                                     <span class="rd-member-record__number eh-data" aria-hidden="true">
@@ -1337,6 +1282,7 @@
                                     </span>
                                     <strong>@{record.nickname}</strong>
                                     {#if record.me}<span class="rd-member-record__mine">MY RECORD</span>{/if}
+                                    {#if record.isMergeHistory}<span class="rd-member-record__mine">이전 기록</span>{/if}
                                 </div>
                                 <div class="rd-member-record__race">
                                     <a href="#race-top">{race.title} <span aria-hidden="true">↗</span></a>

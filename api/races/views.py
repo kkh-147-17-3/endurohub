@@ -47,6 +47,7 @@ from posts.serializers import PostListSerializer
 
 from .constants import DISTANCE_CATEGORIES, REGIONS, SPORTS
 from .models import DeviceToken, Race, RaceFavorite, RacePendingChange, Review, ReviewLike
+from .resolution import resolve_race
 
 
 def _favorite_race_ids(request: Request, race_ids: Iterable[int] | None = None) -> set[int]:
@@ -430,8 +431,8 @@ class RaceListView(APIView):
             if dc_single:
                 distance_category = [dc_single]
 
-        month_from = request.query_params.get('month_from', timezone.now().strftime('%Y-%m'))
-        month_to = request.query_params.get('month_to')
+        month_from = request.query_params.get('month_from') or None
+        month_to = request.query_params.get('month_to') or None
 
         # Mobile-specific params
         upcoming_only = request.query_params.get('upcoming') == 'true'
@@ -440,37 +441,46 @@ class RaceListView(APIView):
 
         qs = Race.objects.all()
 
+        # Unqualified searches show current/future races, not races that already
+        # ended earlier this month. Explicit month bounds (or finished status)
+        # retain access to the archive. Mobile flags intersect these filters.
+        if upcoming_only or (not month_from and not month_to and 'finished' not in status_filter):
+            qs = qs.upcoming()
+        if month_from or month_to:
+            qs = qs.by_month_range(month_from, month_to)
         if closing_soon_only:
-            qs = Race.objects.closing_soon(days)
-        elif upcoming_only:
-            qs = Race.objects.upcoming()
+            qs = qs.closing_soon(days)
+
+        # Status choices are ORed with each other, then intersected with all
+        # remaining filters. Keep this in SQL rather than loading every ID.
+        has_closing_soon = 'closing_soon' in status_filter
+        regular_statuses = [s for s in status_filter if s != 'closing_soon']
+        if has_closing_soon and regular_statuses:
+            qs = qs.filter(
+                Q(pk__in=Race.objects.closing_soon(7).values('pk')) |
+                Q(pk__in=Race.objects.by_status(regular_statuses).values('pk'))
+            )
+        elif has_closing_soon:
+            qs = qs.closing_soon(7)
+        elif regular_statuses:
+            qs = qs.by_status(regular_statuses)
+
+        if sport:
+            qs = qs.by_sport(sport)
+        if region:
+            qs = qs.by_region(region)
+        if name:
+            qs = qs.by_name(name)
+
+        # Distance category only when exactly 1 sport selected.
+        if distance_category and len(sport) == 1:
+            qs = qs.by_distance_category(sport[0], distance_category)
+
+        # Equal-date races need a stable tie-breaker across numbered pages.
+        if closing_soon_only:
+            qs = qs.order_by('registration_end', 'race_date', 'id')
         else:
-            # Handle closing_soon in status filter specially
-            has_closing_soon = 'closing_soon' in status_filter
-            regular_statuses = [s for s in status_filter if s != 'closing_soon']
-
-            if has_closing_soon and regular_statuses:
-                closing_ids = Race.objects.closing_soon(7).values_list('pk', flat=True)
-                status_ids = Race.objects.by_status(regular_statuses).values_list('pk', flat=True)
-                qs = Race.objects.filter(pk__in=set(closing_ids) | set(status_ids))
-            elif has_closing_soon:
-                qs = Race.objects.closing_soon(7)
-            elif regular_statuses:
-                qs = qs.by_status(regular_statuses)
-
-            if sport:
-                qs = qs.by_sport(sport)
-            if region:
-                qs = qs.by_region(region)
-            if name:
-                qs = qs.by_name(name)
-
-            # Distance category only when exactly 1 sport selected
-            if distance_category and len(sport) == 1:
-                qs = qs.by_distance_category(sport[0], distance_category)
-
-            if not closing_soon_only and not upcoming_only:
-                qs = qs.by_month_range(month_from, month_to)
+            qs = qs.order_by('race_date', 'id')
 
         paginator = StandardPagination()
         per_page = request.query_params.get('per_page')
@@ -605,10 +615,7 @@ class RaceDetailView(APIView):
 
     def get(self, request: Request, slug: str) -> Response:
         try:
-            if slug.isdigit():
-                race = Race.objects.get(id=int(slug))
-            else:
-                race = Race.objects.get(slug=slug)
+            race = resolve_race(slug)
         except Race.DoesNotExist:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -732,6 +739,8 @@ class RaceDetailView(APIView):
             except ObjectDoesNotExist:
                 nickname = ''
             out.append({
+                'id': rec.pk,
+                'isMergeHistory': rec.merge_source_race_id is not None,
                 'nickname': nickname or '러너',
                 'courseCode': rec.course_code,
                 'courseLabel': rec.distance,
@@ -1039,10 +1048,7 @@ class ReviewCreateView(APIView):
 
     def post(self, request: Request, slug: str) -> Response:
         try:
-            if slug.isdigit():
-                race = Race.objects.get(id=int(slug))
-            else:
-                race = Race.objects.get(slug=slug)
+            race = resolve_race(slug)
         except Race.DoesNotExist:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -1150,12 +1156,12 @@ class ReviewLikeToggleView(APIView):
     """
 
     def post(self, request: Request, slug: str, review_id: int) -> Response:
-        if slug.isdigit():
-            race_filter = Q(race_id=int(slug))
-        else:
-            race_filter = Q(race__slug=slug)
+        try:
+            race = resolve_race(slug)
+        except Race.DoesNotExist:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        review = Review.objects.filter(race_filter, pk=review_id).first()
+        review = Review.objects.filter(race=race, pk=review_id).first()
         if review is None:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -1195,10 +1201,7 @@ class RaceFavoriteToggleView(APIView):
 
     def post(self, request: Request, slug: str) -> Response:
         try:
-            if slug.isdigit():
-                race = Race.objects.get(id=int(slug))
-            else:
-                race = Race.objects.get(slug=slug)
+            race = resolve_race(slug)
         except Race.DoesNotExist:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -1360,10 +1363,7 @@ class RaceImageUploadView(APIView):
             )
 
         try:
-            if slug.isdigit():
-                race = Race.objects.get(id=int(slug))
-            else:
-                race = Race.objects.get(slug=slug)
+            race = resolve_race(slug)
         except Race.DoesNotExist:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
 

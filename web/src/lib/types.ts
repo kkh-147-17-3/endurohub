@@ -219,6 +219,7 @@ export interface OnboardingResponse {
 
 export interface RaceRecord {
 	id: number;
+	isMergeHistory?: boolean;
 	sport: string;
 	sportLabel: string;
 	distance: string;
@@ -386,13 +387,15 @@ export interface RaceListResponse extends PaginatedResponse<Race> {
 		status: string[];
 		name: string | null;
 		distanceCategory: string[];
-		monthFrom: string;
+		monthFrom: string | null;
 		monthTo: string | null;
 	};
 }
 
 /** 시즌 기록 — 대회에 연결된 공개 완주 기록 한 건. */
 export interface SeasonRecord {
+	id?: number;
+	isMergeHistory?: boolean;
 	nickname: string;
 	courseCode: string;
 	courseLabel: string;

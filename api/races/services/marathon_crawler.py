@@ -11,6 +11,7 @@ import httpx
 from django.utils import timezone
 
 from races.models import Race, RacePendingChange
+from races.services.merge_races import merged_source_race
 
 logger = logging.getLogger(__name__)
 
@@ -384,6 +385,10 @@ class MarathonCrawlerService:
     def save_race(self, data: dict[str, Any]) -> dict[str, Any]:
         existing = Race.objects.filter(source_url=data['source_url']).first()
         if not existing:
+            merged = merged_source_race(source_url=data['source_url'], race_date=data.get('race_date'))
+            if merged:
+                return {'status': 'skipped', 'race': merged, 'reason': 'merged_duplicate_source'}
+        if not existing:
             existing = self._find_by_title(data.get('title'))
         race_data: dict[str, Any] = {
             'title': data['title'],
@@ -406,6 +411,15 @@ class MarathonCrawlerService:
             existing = Race.objects.filter(external_id=str(external_id)).first()
         if not existing and data.get('source_url'):
             existing = Race.objects.filter(source_url=data['source_url']).first()
+        if not existing:
+            merged = merged_source_race(
+                source_url=data.get('source_url'),
+                external_id=str(external_id) if external_id else None,
+                source='crawl',
+                race_date=data.get('race_date'),
+            )
+            if merged:
+                return {'status': 'skipped', 'race': merged, 'reason': 'merged_duplicate_source'}
         if not existing:
             existing = self._find_by_title(data.get('title'))
 
