@@ -47,15 +47,17 @@
     {@html `<script type="application/ld+json">${JSON.stringify(websiteSchema)}</script>`}
 </svelte:head>
 
-<!-- ── Hero (DS: desaturated-cool photo + ink protection gradient, r-0, no shadow) ── -->
+<!-- ── Hero: responsive sports illustrations with space for the headline ── -->
 <section class="home-hero">
     <picture>
-        <source type="image/webp" media="(max-width: 768px)" srcset="/images/home-hero-mobile.webp" />
+        <source type="image/webp" media="(max-width: 768px)" srcset="/images/home-hero-mobile.webp" width="1672" height="941" />
         <source type="image/webp" srcset="/images/home-hero.webp" />
-        <source media="(max-width: 768px)" srcset="/images/home-hero-mobile.jpg" />
+        <source media="(max-width: 768px)" srcset="/images/home-hero-mobile.jpg" width="1672" height="941" />
         <img
             class="home-hero__img"
             src="/images/home-hero.jpg"
+            width="2172"
+            height="724"
             alt="마라톤, 사이클, 수영, 트레일 러닝, 철인3종 — 다섯 종목의 선수들"
             loading="eager"
             fetchpriority="high"
@@ -97,18 +99,13 @@
         border-bottom: var(--border-rule);
     }
     .home-hero__img {
-        position: absolute;
-        inset: 0;
         width: 100%;
-        height: 100%;
-        object-fit: cover;
-        object-position: center 20%;
+        height: auto;
         display: block;
-        filter: saturate(0.35);
     }
     .home-hero__ink {
-        position: relative;
-        min-height: clamp(190px, 22vw, 300px);
+        position: absolute;
+        inset: 0;
         display: flex;
         align-items: flex-end;
         background: linear-gradient(transparent 30%, rgba(16, 19, 18, 0.78));
@@ -133,11 +130,11 @@
         text-wrap: pretty;
     }
     @media (max-width: 768px) {
-        .home-hero__ink {
-            min-height: 170px;
-        }
         .home-hero__copy {
-            padding-bottom: 22px;
+            padding-bottom: clamp(14px, 4vw, 22px);
+        }
+        .home-hero__title {
+            font-size: clamp(24px, 7.2vw, 28px);
         }
     }
 </style>
