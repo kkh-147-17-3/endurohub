@@ -5,7 +5,7 @@
 	import FilterChip from '$lib/components/eh/FilterChip.svelte';
 	import Field from '$lib/components/eh/Field.svelte';
 	import Prefill from '$lib/components/eh/Prefill.svelte';
-	import { STD_DISTANCES, ZONE_INK, type ZoneKey, fmtPace, parseTime, trainingPaces, vdot } from '$lib/tools';
+	import { STD_DISTANCES, fmtPace, fmtTime, parseTime, timeFromVdot, vdot } from '$lib/tools';
 
 	let { data } = $props();
 	const pf = data.prefill;
@@ -13,75 +13,58 @@
 	let km = $state(pf?.distKm ?? 21.0975);
 	let time = $state(pf?.timeStr ?? '1:42:15');
 
-	const sec = $derived(parseTime(time || '0'));
-	const v = $derived(sec > 60 ? vdot(km, sec) : NaN);
-	const paces = $derived(Number.isFinite(v) ? trainingPaces(v) : null);
-	const grade = $derived(
-		!Number.isFinite(v) ? '—' : v >= 55 ? '상위 5%' : v >= 48 ? '상위 15%' : v >= 42 ? '상위 35%' : '평균',
-	);
-
-	const zoneUse: Record<ZoneKey, string> = {
-		E: '회복 / 베이스 빌딩',
-		M: '마라톤 목표 페이스',
-		T: '젖산 역치 자극',
-		I: 'VO₂max 인터벌',
-		R: '스피드 / 폼',
-	};
+	const sec = $derived(parseTime(time));
+	const v = $derived(vdot(km, sec));
+	const valid = $derived(Number.isFinite(v) && v > 0);
+	const equivalents = $derived(valid ? STD_DISTANCES.map((d) => ({ ...d, sec: timeFromVdot(v, d.km) })) : []);
 </script>
-
-<svelte:head>
-	<title>VO₂max — endurohub</title>
-</svelte:head>
 
 <ToolsShell currentPath={$page.url.pathname}>
 <div class="page v-container">
 	<div class="tool-layout">
 		<!-- INPUT -->
 		<div class="panel">
-			<span class="eh-micro">최근 레이스 결과</span>
+			<span class="eh-micro">{pf ? '내 기록 기준 · 수정 가능' : '계산 예시 · 내 기록으로 변경해 보세요'}</span>
 			<div class="row">
 				{#each STD_DISTANCES as d (d.code)}
 					<FilterChip selected={Math.abs(km - d.km) < 0.01} onclick={() => (km = d.km)}>{d.label}</FilterChip>
 				{/each}
 			</div>
-			<Field label="Race time" placeholder="예: 1:42:15" bind:value={time} hint="최근 전력 레이스 기록일수록 정확합니다" />
+			<Field label="최근 완주 기록" placeholder="예: 1:42:15" bind:value={time} error={!valid} aria-invalid={!valid} hint="시:분:초 또는 분:초 · 최근 평탄한 코스의 레이스 기록을 사용하세요" />
+			{#if !valid}<p class="input-error" role="status">거리와 0보다 큰 완주 시간을 확인해 주세요. 분·초 칸은 0–59까지 입력하며, 양수 VDOT를 계산할 수 있는 기록이 필요합니다.</p>{/if}
 			{#if pf}
 				<Prefill label={pf.label} onApply={() => { km = pf.distKm; time = pf.timeStr; }} />
 			{/if}
-			<p class="src-note">Daniels &amp; Gilbert VDOT 근사식 기반. 트랙 실측 VO₂max와 다를 수 있습니다.</p>
+			<p class="src-note">Daniels &amp; Gilbert 근사식으로 계산하는 기록 기반 수행 지수입니다. VDOT는 실측 VO₂max나 연령별 등급이 아닙니다. <a href="https://support.vdoto2.com/v-o2-faq/" target="_blank" rel="noopener noreferrer">VDOT 공식 설명</a></p>
 		</div>
 
 		<!-- OUTPUT -->
 		<div class="out">
 			<div class="out-hero">
-				<StatBlock label="VDOT" value={Number.isFinite(v) ? v.toFixed(1) : '—'} size="xl" accent />
-				<StatBlock label="등급 (동연령)" value={grade} size="lg" />
+				<StatBlock label="VDOT · 기록 기반 지수" value={valid ? v.toFixed(1) : '—'} size="xl" accent />
 			</div>
+			<p class="src-note">입력한 {km}km 기록을 바탕으로 계산합니다. 나이·성별·실측 산소 섭취량을 입력받지 않으므로 체력 등급과 백분위는 제공하지 않습니다.</p>
 
-			{#if paces}
+			{#if valid}
 			<div>
 				<div class="v-sechead">
-					<h2 class="sechead-title">트레이닝 페이스</h2>
-					<span class="eh-micro sechead-aux">DANIELS RUNNING FORMULA</span>
+					<h2 class="sechead-title">같은 VDOT의 거리별 참고 기록</h2>
 				</div>
 				<div class="v-table ztable" style="margin-top:12px">
 					<div class="v-thead zcols">
-						<span></span>
-						<span>ZONE</span>
-						<span>용도</span>
+						<span>거리</span>
+						<span>동등 기록</span>
 						<span>PACE/KM</span>
-						<span class="hide-m">HR</span>
 					</div>
-					{#each Object.entries(paces) as [z, p] (z)}
+					{#each equivalents as result (result.code)}
 						<div class="v-trow zcols">
-							<span class="zone-dot" style="background:{ZONE_INK[z as ZoneKey]}"></span>
-							<b>{z} · {p.label}</b>
-							<span class="zone-use">{zoneUse[z as ZoneKey]}</span>
-							<b class="eh-data">{fmtPace(p.sec)}</b>
-							<span class="hide-m eh-data zone-hr">{p.hr}</span>
+							<b>{result.label}</b>
+							<b class="eh-data">{fmtTime(result.sec)}</b>
+							<span class="eh-data">{fmtPace(result.sec / result.km)}</span>
 						</div>
 					{/each}
 				</div>
+				<p class="src-note" style="margin-top:12px">동일한 지수를 만드는 기록을 역산한 수학적 참고값입니다. 완주 예측이나 훈련 페이스 처방이 아니며, 거리별 훈련량·코스·날씨에 따라 실제 기록은 달라집니다.</p>
 			</div>
 			{/if}
 		</div>
@@ -112,6 +95,7 @@
 	}
 	.row { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
 	.src-note { margin: 0; font-size: 12px; color: var(--text-faint); line-height: 1.6; }
+	.input-error { margin: 0; font-size: 13px; color: var(--danger); }
 
 	.out { display: flex; flex-direction: column; gap: var(--sp-6); }
 	.out-hero {
@@ -130,17 +114,10 @@
 		letter-spacing: var(--track-heading);
 		color: var(--text-strong);
 	}
-	.sechead-aux { color: var(--text-faint); }
-
-	.zcols { grid-template-columns: 14px 110px 1fr 110px 90px; gap: 14px; }
-	.zone-dot { width: 10px; height: 10px; border-radius: 50%; align-self: center; }
-	.zone-use { color: var(--text-muted); font-size: 13px; }
-	.zone-hr { color: var(--text-faint); font-size: 12px; }
+	.zcols { grid-template-columns: minmax(50px, 1fr) minmax(90px, 1fr) minmax(80px, 1fr); gap: 12px; }
 
 	@media (max-width: 768px) {
 		.panel { padding: 18px; min-width: 0; }
 		.out-hero { gap: 22px 28px; }
-		.zcols { grid-template-columns: 14px 90px 1fr 90px; }
-		.hide-m { display: none; }
 	}
 </style>

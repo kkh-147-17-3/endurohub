@@ -21,7 +21,7 @@
     const fee = $derived(arenaFeeShort(arenaMinFee(race)));
     const date = $derived(arenaShortDate(race.raceDate));
     const deadline = $derived(
-        race.registrationEnd ? `접수마감 ${arenaShortDate(race.registrationEnd)}` : '',
+        race.status === 'cancelled' ? '대회 취소' : race.registrationEnd ? `접수마감 ${arenaShortDate(race.registrationEnd)}` : '',
     );
 
     function handleClick() {

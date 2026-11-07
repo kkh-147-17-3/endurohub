@@ -25,14 +25,15 @@ export function dsSport(sport: Sport): DsSport {
 }
 
 /** DS Badge status keys. */
-export type DsBadgeStatus = 'open' | 'closing' | 'closed' | 'upcoming' | 'live';
+export type DsBadgeStatus = 'open' | 'closing' | 'closed' | 'upcoming' | 'live' | 'cancelled';
 
 export const BADGE_LABELS: Record<DsBadgeStatus, string> = {
 	open: '접수 중',
 	closing: '마감 임박',
 	closed: '접수 마감',
 	upcoming: '오픈 예정',
-	live: 'LIVE'
+	live: 'LIVE',
+	cancelled: '대회 취소'
 };
 
 /**
@@ -41,6 +42,8 @@ export const BADGE_LABELS: Record<DsBadgeStatus, string> = {
  */
 export function dsBadgeStatus(status: RaceStatus, daysToClose?: number | null): DsBadgeStatus {
 	switch (status) {
+		case 'cancelled':
+			return 'cancelled';
 		case 'registration_open':
 			return daysToClose != null && daysToClose >= 0 && daysToClose <= 7 ? 'closing' : 'open';
 		case 'registration_closed':

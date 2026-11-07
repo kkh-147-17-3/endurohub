@@ -1,13 +1,17 @@
 import type { PageServerLoad } from './$types';
 import { apiFetch } from '$lib/api';
 import { favoriteRacesToGoals, pickRunningRecordPrefill } from '$lib/tools';
+import { kstTodayStr } from '$lib/date';
+import { createPublicTrainingExample, supportsMarathonPlan } from '$lib/tools/public-training-example';
 import type { PaginatedResponse, Race, RaceRecordListResponse } from '$lib/types';
 
-// Prefill the tool with the user's most recent running/trail race record, and
-// load the season's target-race options from their 관심대회 (favorite races),
-// keeping only races that haven't finished yet. Both require sign-in.
+// Personal targets are saved road races offering a full marathon. Other
+// visitors can explore the fictional model without any account requests.
 export const load: PageServerLoad = async ({ locals }) => {
-	if (!locals.authToken) return { prefill: null, goalRaces: [], signedIn: false };
+	// The same serialized date anchors SSR and hydration; anonymous visitors need
+	// no private endpoints to explore the fictional example.
+	const publicExample = createPublicTrainingExample(kstTodayStr());
+	if (!locals.authToken) return { prefill: null, goalRaces: [], signedIn: false, publicExample };
 
 	const [prefill, goalRaces] = await Promise.all([
 		apiFetch<RaceRecordListResponse>('/me/records/', { authToken: locals.authToken })
@@ -18,9 +22,9 @@ export const load: PageServerLoad = async ({ locals }) => {
 			{ authToken: locals.authToken },
 			{ per_page: '100' }
 		)
-			.then((res) => favoriteRacesToGoals(res.results ?? []))
+			.then((res) => favoriteRacesToGoals((res.results ?? []).filter(supportsMarathonPlan)))
 			.catch(() => [])
 	]);
 
-	return { prefill, goalRaces, signedIn: true };
+	return { prefill, goalRaces, signedIn: true, publicExample };
 };

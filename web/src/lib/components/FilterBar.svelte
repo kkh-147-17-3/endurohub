@@ -108,6 +108,7 @@
         { value: 'closing_soon', label: '마감임박' },
         { value: 'upcoming', label: '예정' },
         { value: 'registration_closed', label: '접수마감' },
+        { value: 'cancelled', label: '대회 취소' },
     ];
 
     let name = $state('');

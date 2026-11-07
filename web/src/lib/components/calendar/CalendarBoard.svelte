@@ -1,17 +1,16 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import { calendarFilterParams, matchesCalendarFilters, readCalendarFilters, type CalendarFilters, type CalendarView } from '$lib/calendar-filters';
 	import { kstTodayStr } from '$lib/date';
 	import type { Race, Sport, SportOption } from '$lib/types';
-	import { arenaDistLabel, arenaMinFee, arenaFeeShort } from '$lib/arena';
-	import { dsSport } from '$lib/components/eh/meta';
-	import SportTag from '$lib/components/eh/SportTag.svelte';
-	import Badge from '$lib/components/eh/Badge.svelte';
+	import CalendarRaceList from './CalendarRaceList.svelte';
+	import CalendarDiscovery from './CalendarDiscovery.svelte';
 	import StatBlock from '$lib/components/eh/StatBlock.svelte';
 	import IconButton from '$lib/components/eh/IconButton.svelte';
 	import FilterChip from '$lib/components/eh/FilterChip.svelte';
 	import RegionCartogram from './RegionCartogram.svelte';
-
-	type ViewId = 'cal' | 'list' | 'map';
 
 	let {
 		year,
@@ -21,7 +20,8 @@
 		previousMonth,
 		nextMonth,
 		sports,
-		sportFilter = [],
+		regions = [],
+		showDiscovery = false,
 		basePath = '/',
 		initialView = 'cal'
 	}: {
@@ -32,9 +32,10 @@
 		previousMonth: { year: number; month: number } | null;
 		nextMonth: { year: number; month: number } | null;
 		sports: SportOption[];
-		sportFilter?: string[];
+		regions?: string[];
+		showDiscovery?: boolean;
 		basePath?: string;
-		initialView?: ViewId;
+		initialView?: CalendarView;
 	} = $props();
 
 	// ── Calendar geometry ──────────────────────────────────────────
@@ -92,18 +93,22 @@
 		return Number((r.raceDate ?? '').split('-')[2]) || 0;
 	}
 
-	// ── Sport multi-select (prototype: all on by default, toggle) ───
+	// URL-backed discovery controls survive reloads, sharing and month changes.
 	const sportValues = $derived(sports.map((s) => s.value));
-	let selectedSports = $state<string[] | null>(null);
-	const selected = $derived(selectedSports ?? sportValues);
+	const filters = $derived(readCalendarFilters(page.url.searchParams, sportValues, initialView));
+	const selected = $derived(filters.sports);
+	const view = $derived(filters.view);
+	const hasFilters = $derived(!!filters.name || filters.regions.length > 0 || filters.openOnly || selected.length > 0);
+
+	function applyFilters(changes: Partial<CalendarFilters>) {
+		selDay = null;
+		const params = calendarFilterParams(page.url.searchParams, { ...filters, ...changes });
+		goto(`${basePath}${params.size ? `?${params}` : ''}`, { noScroll: true, keepFocus: true });
+	}
 
 	function toggleSport(v: string) {
-		const cur = selected;
-		if (cur.includes(v)) {
-			selectedSports = cur.length === 1 ? sportValues : cur.filter((x) => x !== v);
-		} else {
-			selectedSports = [...cur, v];
-		}
+		const sports = selected.includes(v) ? selected.filter((sport) => sport !== v) : [...selected, v];
+		applyFilters({ sports: sports.length === sportValues.length ? [] : sports });
 	}
 
 	const sportCounts = $derived(
@@ -115,7 +120,7 @@
 	);
 
 	function inFilter(r: Race): boolean {
-		return selected.includes(r.sport);
+		return matchesCalendarFilters(r, filters);
 	}
 	const filteredRaces = $derived(allRaces.filter(inFilter));
 	function dayRaces(day: number): Race[] {
@@ -143,49 +148,84 @@
 
 	// ── Header stats (reflect the active sport filter) ─────────────
 	const openCount = $derived(filteredRaces.filter((r) => r.status === 'registration_open').length);
-	const todayCount = $derived(todayDay != null ? dayRaces(todayDay).length : 0);
+	const todayCount = $derived(todayDay != null ? dayRaces(todayDay).filter((race) => race.status !== 'cancelled').length : 0);
 
 	// ── Per-race helpers ───────────────────────────────────────────
 	function ddayOf(r: Race): number | null {
-		return r.daysUntilRegistrationEnd ?? null;
+		return r.status === 'cancelled' ? null : r.daysUntilRegistrationEnd ?? null;
 	}
 	function isOpen(r: Race): boolean {
 		return r.status === 'registration_open';
 	}
 	function isClosedish(r: Race): boolean {
-		return r.status === 'finished' || r.status === 'registration_closed';
+		return r.status === 'cancelled' || r.status === 'finished' || r.status === 'registration_closed';
 	}
 	function isToday(r: Race): boolean {
 		return todayDay != null && dayOf(r) === todayDay;
 	}
 
 	// ── View + selection state ─────────────────────────────────────
-	let view = $state<ViewId>(initialView);
 	let selDay = $state<number | null>(null);
+	let dayTrigger: HTMLElement | null = null;
 
-	function openDay(day: number) {
-		if (dayRaces(day).length > 0) selDay = selDay === day ? null : day;
+	function openDay(day: number, trigger: HTMLElement) {
+		if (dayRaces(day).length === 0) return;
+		dayTrigger = trigger;
+		selDay = day;
 	}
-	function onKeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape') selDay = null;
+	function closeDay() {
+		selDay = null;
 	}
 
-	// Lock background scroll while the day modal / bottom sheet is open.
-	$effect(() => {
-		if (selDay === null) return;
-		const prev = document.body.style.overflow;
+	// Native modal dialogs keep keyboard focus inside and make the page inert.
+	// The action also cleans up when filtering or navigation removes the dialog.
+	function dayDialog(node: HTMLDialogElement) {
+		const trigger = dayTrigger;
+		const previousOverflow = document.body.style.overflow;
+		function keepFocusInside(event: KeyboardEvent) {
+			if (event.key !== 'Tab' || event.ctrlKey || event.metaKey || event.altKey || !node.open) return;
+			const controls = [...node.querySelectorAll<HTMLElement>('a[href], button, input, select, textarea, [tabindex]')]
+				.filter((element) => element.tabIndex >= 0 && !element.matches(':disabled') && element.getClientRects().length > 0);
+			const first = controls[0];
+			const last = controls.at(-1);
+			if (!first || !last) return;
+			const active = document.activeElement;
+			if (!node.contains(active) || active === node) {
+				event.preventDefault();
+				first.focus();
+			} else if (event.shiftKey && active === first) {
+				event.preventDefault();
+				last.focus();
+			} else if (!event.shiftKey && active === last) {
+				event.preventDefault();
+				first.focus();
+			}
+		}
 		document.body.style.overflow = 'hidden';
-		return () => {
-			document.body.style.overflow = prev;
+		node.showModal();
+		node.querySelector<HTMLButtonElement>('.day-close')?.focus({ preventScroll: true });
+		document.addEventListener('keydown', keepFocusInside, true);
+		return {
+			destroy() {
+				document.removeEventListener('keydown', keepFocusInside, true);
+				if (node.open) node.close();
+				document.body.style.overflow = previousOverflow;
+				if (trigger?.isConnected && !trigger.matches(':disabled')) {
+					trigger.focus({ preventScroll: true });
+				}
+				dayTrigger = null;
+			}
 		};
+	}
+	$effect(() => {
+		if (selDay !== null && (view !== 'cal' || dayRaces(selDay).length === 0)) closeDay();
 	});
 
 	// ── Month nav ──────────────────────────────────────────────────
 	function buildMonthUrl(y: number, m: number): string {
-		const p = new URLSearchParams();
+		const p = calendarFilterParams(page.url.searchParams, filters);
 		p.set('year', String(y));
 		p.set('month', String(m));
-		for (const s of sportFilter) p.append('sport', s);
 		return `${basePath}?${p.toString()}`;
 	}
 	const prevHref = $derived(
@@ -203,19 +243,6 @@
 		})
 	);
 
-	function feeLabel(r: Race): string {
-		const min = arenaMinFee(r);
-		return min != null ? arenaFeeShort(min) : '—';
-	}
-	function dsBadge(r: Race): 'open' | 'closing' | 'live' | 'closed' | 'upcoming' {
-		if (isToday(r) && !isClosedish(r)) return 'live';
-		if (isOpen(r)) {
-			const d = ddayOf(r);
-			return d != null && d >= 0 && d <= 3 ? 'closing' : 'open';
-		}
-		if (r.status === 'upcoming') return 'upcoming';
-		return 'closed';
-	}
 
 	// ── Mobile (agenda swaps in for the calendar grid) ─────────────
 	let isMobile = $state(false);
@@ -229,50 +256,12 @@
 
 </script>
 
-<svelte:window onkeydown={onKeydown} />
-
 {#snippet listTable(rows: Race[], noHead: boolean)}
-	<div class="v-table lv" class:nohead={noHead}>
-		{#if !noHead}
-			<div class="v-thead">
-				<span>DATE</span><span>SPORT</span><span>RACE</span>
-				<span class="hide-m">REGION</span><span class="hide-m">DIST</span>
-				<span class="hide-m">FEE</span><span>STATUS</span>
-			</div>
-		{/if}
-		{#each rows as r (r.id)}
-			{@const d = dayOf(r)}
-			<a class="v-trow click" href={`/races/${encodeURIComponent(r.slug)}`}>
-				<span class="dt eh-data"
-					>{month}.{String(d).padStart(2, '0')}<span class="dw">{dowKo(d)}</span></span
-				>
-				<span class="v-pc"><SportTag sport={dsSport(r.sport)} /></span>
-				<span class="nm">{r.title}</span>
-				<span class="mut hide-m">{r.region ?? ''}</span>
-				<span class="mut hide-m eh-data">{arenaDistLabel(r)}</span>
-				<span class="mut hide-m eh-data">{feeLabel(r)}</span>
-				<span>
-					<Badge status={dsBadge(r)}>
-						{#if dsBadge(r) === 'open'}<span class="eh-data"
-								>접수 중{#if ddayOf(r) != null && ddayOf(r)! >= 0}
-									D-{ddayOf(r)}{/if}</span
-							>
-						{:else if dsBadge(r) === 'closing'}<span class="eh-data"
-								>마감 임박{#if ddayOf(r) != null && ddayOf(r)! >= 0}
-									D-{ddayOf(r)}{/if}</span
-							>
-						{:else if dsBadge(r) === 'live'}오늘 개최
-						{:else if dsBadge(r) === 'upcoming'}오픈 예정
-						{:else if r.status === 'finished'}종료
-						{:else}접수 마감{/if}
-					</Badge>
-				</span>
-			</a>
-		{/each}
-	</div>
+	<CalendarRaceList {rows} {noHead} />
 {/snippet}
 
-<div class="v-container cal-page" data-screen-label="홈 · 캘린더">
+<div class="v-container cal-page" class:with-discovery={showDiscovery} data-screen-label="홈 · 캘린더">
+	{#if showDiscovery}<CalendarDiscovery {month} {filters} {regions} onapply={applyFilters} />{/if}
 	<!-- ═══ page header ═══════════════════════════════════════════ -->
 	<div class="hd">
 		<div class="eh-micro">전국 5종목</div>
@@ -294,19 +283,22 @@
 		</div>
 		<div class="hd-stats">
 			<StatBlock label="대회" value={filteredRaces.length} size="md" />
-			<StatBlock label="접수 중" value={openCount} size="md" accent />
+			<button class="open-stat" type="button" aria-label={`접수 중 대회 ${openCount}개${filters.openOnly ? ', 필터 해제' : '만 보기'}`} aria-pressed={filters.openOnly} onclick={() => applyFilters({ openOnly: !filters.openOnly })}>
+				<StatBlock label="접수 중" value={openCount} size="md" accent />
+			</button>
 			<StatBlock label="오늘 개최" value={todayCount} size="md" />
 		</div>
 	</div>
 
 	<!-- ═══ toolbar (segmented view switch + sport chips) ═════════ -->
 	<div class="toolbar">
-		<div class="views" role="tablist">
-			<button class:on={view === 'cal'} onclick={() => { view = 'cal'; selDay = null; }}>캘린더</button>
-			<button class:on={view === 'list'} onclick={() => { view = 'list'; selDay = null; }}>리스트</button>
-			<button class:on={view === 'map'} onclick={() => { view = 'map'; selDay = null; }}>지도</button>
+		<div class="views" role="group" aria-label="대회 보기 방식">
+			<button aria-pressed={view === 'cal'} class:on={view === 'cal'} onclick={() => applyFilters({ view: 'cal' })}>캘린더</button>
+			<button aria-pressed={view === 'list'} class:on={view === 'list'} onclick={() => applyFilters({ view: 'list' })}>리스트</button>
+			<button aria-pressed={view === 'map'} class:on={view === 'map'} onclick={() => applyFilters({ view: 'map' })}>지도</button>
 		</div>
 		<div class="chips-row">
+			<FilterChip selected={selected.length === 0} onclick={() => applyFilters({ sports: [] })}>전체 종목</FilterChip>
 			{#each sportChips as s (s.value)}
 				<FilterChip
 					selected={selected.includes(s.value)}
@@ -317,6 +309,18 @@
 			{/each}
 		</div>
 	</div>
+	{#if hasFilters}
+		<div class="filter-summary">
+			<p role="status">{month}월 검색 결과 <strong>{filteredRaces.length}개</strong>{#if filters.name} · “{filters.name}”{/if}{#if filters.regions.length} · {filters.regions.join(' · ')}{/if}{#if filters.openOnly} · 접수 중{/if}</p>
+			<button type="button" onclick={() => applyFilters({ name: '', regions: [], sports: [], openOnly: false })}>조건 초기화</button>
+		</div>
+	{/if}
+	{#if filteredRaces.length === 0}
+		<div class="empty-state">
+			<p>{hasFilters ? '선택한 조건에 맞는 대회가 없습니다.' : '이 달에 등록된 대회가 없습니다.'}</p>
+			{#if hasFilters}<button type="button" onclick={() => applyFilters({ name: '', regions: [], sports: [], openOnly: false })}>조건 초기화하고 다시 보기</button>{/if}
+		</div>
+	{/if}
 
 	<!-- ═══ CALENDAR (desktop) / AGENDA (mobile) ═════════════════ -->
 	{#if view === 'cal'}
@@ -340,7 +344,8 @@
 								class:sel={!c.out && evs.length > 0 && c.d === selDay}
 								disabled={c.out || evs.length === 0}
 								aria-label={evs.length > 0 ? `${month}월 ${c.d}일 대회 ${evs.length}개` : undefined}
-								onclick={() => !c.out && openDay(c.d)}
+								aria-haspopup="dialog"
+								onclick={(e) => !c.out && openDay(c.d, e.currentTarget)}
 							>
 								<span class="n eh-data">{c.d}</span>
 								<span class="dots">
@@ -359,9 +364,6 @@
 				{/each}
 			</div>
 
-			{#if filteredRaces.length === 0}
-				<p class="empty-state">이 달에는 해당하는 대회가 없습니다.</p>
-			{/if}
 		{:else}
 			<div class="cal">
 				<div class="cal-dow">
@@ -386,7 +388,7 @@
 										class="cell-open d-num eh-data"
 										aria-label={`${month}월 ${c.d}일 대회 ${evs.length}개 보기`}
 										aria-haspopup="dialog"
-										onclick={() => openDay(c.d)}
+										onclick={(e) => openDay(c.d, e.currentTarget)}
 									>
 										{c.d}
 										{#if c.d === todayDay}<span class="today-pin">TODAY</span>{/if}
@@ -401,7 +403,9 @@
 									<a class="ev" class:dim={isClosedish(r)} href={`/races/${encodeURIComponent(r.slug)}`}>
 										<span class="v-dot" style:background={sportDotColor[r.sport]}></span>
 										<span class="nm">{r.title}</span>
-										{#if isToday(r) && !isClosedish(r)}
+										{#if r.status === 'cancelled'}
+											<span class="dd" style="color:var(--danger)">취소</span>
+										{:else if isToday(r) && !isClosedish(r)}
 											<span class="dd" style="color:var(--ink-900)">오늘</span>
 										{:else if isOpen(r) && ddayOf(r) != null && ddayOf(r)! >= 0}
 											<span class="dd eh-data">D-{ddayOf(r)}</span>
@@ -414,7 +418,7 @@
 										class="more eh-data"
 										aria-label={`${month}월 ${c.d}일 대회 ${evs.length}개 모두 보기`}
 										aria-haspopup="dialog"
-										onclick={() => openDay(c.d)}
+										onclick={(e) => openDay(c.d, e.currentTarget)}
 									>
 										+{evs.length - MAX_PER_CELL} 더보기
 									</button>
@@ -440,33 +444,31 @@
 			{@const rows = dayRaces(selDay)}
 			<!-- svelte-ignore a11y_click_events_have_key_events -->
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div class="v-scrim" onclick={() => (selDay = null)}>
-				<div
-					class="v-modal day-modal"
-					role="dialog"
-					aria-modal="true"
-					tabindex="-1"
-					aria-label={`${month}월 ${selDay}일 대회`}
-					onclick={(e) => e.stopPropagation()}
-				>
+			<dialog
+				class="v-scrim"
+				use:dayDialog
+				aria-modal="true"
+				aria-label={`${month}월 ${selDay}일 대회`}
+				oncancel={(e) => { e.preventDefault(); closeDay(); }}
+				onclick={(e) => { if (e.target === e.currentTarget) closeDay(); }}
+			>
+				<div class="v-modal day-modal">
 					<div class="daypanel-head">
 						<b class="eh-data">{month}.{String(selDay).padStart(2, '0')}</b>
 						<span class="eh-micro">{dowKo(selDay)}요일 · {rows.length}개 대회</span>
-						<button type="button" class="day-close" onclick={() => (selDay = null)}>닫기 ×</button>
+						<button type="button" class="day-close" onclick={closeDay}>닫기 ×</button>
 					</div>
 					<div class="day-scroll">
 						{@render listTable(rows, true)}
 					</div>
 				</div>
-			</div>
+			</dialog>
 		{/if}
 	{/if}
 
 	<!-- ═══ LIST ═════════════════════════════════════════════════ -->
 	{#if view === 'list'}
-		{#if listRaces.length === 0}
-			<p class="empty-state">이 달에는 해당하는 대회가 없습니다.</p>
-		{:else}
+		{#if listRaces.length > 0}
 			{@render listTable(listRaces, false)}
 		{/if}
 	{/if}
@@ -489,6 +491,15 @@
 	.hd {
 		padding: 40px 0 0;
 	}
+	.with-discovery .hd { padding-top: var(--sp-5); }
+	.with-discovery .hd-month h1 { font-size: clamp(38px, 4.5vw, 56px); }
+	.with-discovery .hd-stats { margin-top: var(--sp-3); }
+	.open-stat { border: 0; padding: 0; background: transparent; text-align: left; cursor: pointer; }
+	.open-stat:hover { text-decoration: underline; text-underline-offset: 4px; }
+	.open-stat:focus-visible, .views button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+	.filter-summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-2); padding: 12px 0; font-size: var(--text-caption); color: var(--text-muted); }
+	.filter-summary strong { color: var(--text-strong); }
+	.filter-summary button, .empty-state button { min-height: 40px; padding: 4px 8px; background: transparent; border: 1px solid var(--line); color: var(--text-accent); font: inherit; cursor: pointer; }
 	.hd-month {
 		display: flex;
 		align-items: baseline;
@@ -774,6 +785,15 @@
 	.v-scrim {
 		position: fixed;
 		inset: 0;
+		width: 100%;
+		height: 100%;
+		max-width: none;
+		max-height: none;
+		margin: 0;
+		border: 0;
+		box-sizing: border-box;
+		overflow: hidden;
+		color: inherit;
 		z-index: 200;
 		background: rgba(16, 19, 18, 0.45);
 		display: grid;
@@ -781,6 +801,7 @@
 		padding: var(--sp-5);
 		animation: v-fade var(--dur-base) var(--ease-out);
 	}
+	.v-scrim::backdrop { background: transparent; }
 	.v-modal {
 		background: var(--paper-0);
 		border: 1px solid var(--ink-900);
@@ -819,6 +840,7 @@
 	.day-close:hover {
 		color: var(--text-strong);
 	}
+	.day-close:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: 2px; }
 	.day-scroll {
 		max-height: min(60vh, 520px);
 		overflow-y: auto;
@@ -844,72 +866,6 @@
 		.v-modal {
 			animation: none;
 		}
-	}
-
-	/* ── list / table ── */
-	.v-table {
-		border: 1px solid var(--line);
-		background: var(--paper-0);
-	}
-	.v-table.lv {
-		border-top: 0;
-	}
-	.v-table.nohead {
-		border: 0;
-	}
-	.v-thead {
-		display: grid;
-		align-items: center;
-		padding: 10px 18px;
-		border-bottom: var(--border-rule);
-		font-size: var(--text-micro);
-		font-weight: var(--w-strong);
-		letter-spacing: var(--track-micro);
-		text-transform: uppercase;
-		color: var(--text-muted);
-	}
-	.v-trow {
-		display: grid;
-		align-items: center;
-		padding: 13px 18px;
-		border-bottom: 1px solid var(--line);
-		font-size: var(--text-body-sm);
-		color: inherit;
-		text-decoration: none;
-		transition: background var(--dur-fast) var(--ease-out);
-	}
-	.v-trow:last-child {
-		border-bottom: 0;
-	}
-	.v-trow.click {
-		cursor: pointer;
-	}
-	.v-trow.click:hover {
-		background: var(--paper-50);
-	}
-	.lv .v-thead,
-	.lv .v-trow {
-		grid-template-columns: 76px 92px 1fr 110px 110px 80px 130px;
-		gap: 14px;
-	}
-	.lv .dt {
-		font-weight: 600;
-		color: var(--text-strong);
-	}
-	.lv .dt .dw {
-		color: var(--text-faint);
-		font-weight: 500;
-		margin-left: 4px;
-	}
-	.lv .nm {
-		font-weight: 600;
-		color: var(--text-strong);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-	.lv .mut {
-		color: var(--text-muted);
 	}
 
 	/* ── mobile: mini month grid ── */
@@ -1025,16 +981,6 @@
 		}
 		.hd-stats {
 			gap: 22px;
-		}
-		.lv .v-thead {
-			display: none;
-		}
-		.lv .v-trow {
-			grid-template-columns: 60px 1fr auto;
-			gap: 10px;
-		}
-		.lv .hide-m {
-			display: none;
 		}
 
 		/* day modal → bottom sheet */

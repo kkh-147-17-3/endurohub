@@ -49,6 +49,8 @@
 						<Badge status="closing"><span class="eh-data">마감 임박{dday != null && dday >= 0 ? ` D-${dday}` : ''}</span></Badge>
 					{:else if status === 'upcoming'}
 						<Badge status="upcoming" />
+					{:else if status === 'cancelled'}
+						<Badge status="cancelled" />
 					{:else}
 						<Badge status="closed" />
 					{/if}

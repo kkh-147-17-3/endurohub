@@ -36,7 +36,8 @@
 		{ value: 'registration_open', label: '접수 중' },
 		{ value: 'closing_soon', label: '마감 임박' },
 		{ value: 'upcoming', label: '예정' },
-		{ value: 'registration_closed', label: '접수 마감' }
+		{ value: 'registration_closed', label: '접수 마감' },
+		{ value: 'cancelled', label: '대회 취소' }
 	] as const;
 
 	// Presets use the same Korean date boundary as the API.

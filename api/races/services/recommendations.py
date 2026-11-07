@@ -12,6 +12,7 @@ from django.utils import timezone
 
 from core.models import AnalyticsEvent
 from ..models import Race
+from ..status import cancellation_query
 
 EVENT_WEIGHTS = {
     'review_submit': 3,
@@ -63,7 +64,7 @@ def build_recommendations(events: QuerySet[AnalyticsEvent]) -> dict:
 
 def popular_recommendations() -> dict:
     """조회수 상위 + 랜덤 보충. 이벤트가 없는 사용자의 대체 추천."""
-    qs = Race.objects.upcoming().exclude(title__contains='(취소)')
+    qs = Race.objects.upcoming().exclude(cancellation_query())
 
     top_races = list(qs.order_by('-view_count')[:TOP_COUNT])
     top_ids = {r.id for r in top_races}
@@ -109,7 +110,7 @@ def _personalized(events: QuerySet[AnalyticsEvent]) -> dict:
     top_sports = [s for s, _ in sorted(sport_scores.items(), key=lambda x: -x[1])][:3]
     top_regions = [r for r, _ in sorted(region_scores.items(), key=lambda x: -x[1])][:3]
 
-    qs = Race.objects.upcoming().exclude(title__contains='(취소)')
+    qs = Race.objects.upcoming().exclude(cancellation_query())
 
     # 이미 본 대회는 제외 (item_id는 race.id의 문자열)
     viewed_int_ids = set()

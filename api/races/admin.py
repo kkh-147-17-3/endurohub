@@ -218,6 +218,7 @@ class StatusFilter(admin.SimpleListFilter):
             ('registration_open', '접수중'),
             ('registration_closed', '접수마감'),
             ('finished', '종료'),
+            ('cancelled', '대회 취소'),
         ]
 
     def queryset(self, request: HttpRequest, queryset: QuerySet[Any]) -> QuerySet[Any]:
@@ -571,6 +572,7 @@ class RaceAdmin(ModelAdmin):
             'registration_open': '#22c55e',
             'registration_closed': '#f59e0b',
             'finished': '#ef4444',
+            'cancelled': '#b91c1c',
         }
         color = colors.get(status, '#6b7280')
         return format_html(
@@ -619,7 +621,11 @@ class RaceAdmin(ModelAdmin):
     def close_registration(self, request: HttpRequest, queryset: QuerySet[Race]) -> None:
         queryset.update(status='registration_closed')
 
-    actions = ['verify_races', 'close_registration']
+    @admin.action(description='선택된 대회 취소 처리')
+    def cancel_races(self, request: HttpRequest, queryset: QuerySet[Race]) -> None:
+        queryset.update(status='cancelled', updated_at=timezone.now())
+
+    actions = ['verify_races', 'close_registration', 'cancel_races']
 
 
 # ---------------------------------------------------------------------------

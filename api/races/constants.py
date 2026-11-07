@@ -26,6 +26,7 @@ STATUS_LABELS = {
     'registration_open': '접수중',
     'registration_closed': '접수마감',
     'finished': '종료',
+    'cancelled': '대회 취소',
 }
 
 SPORTS = [

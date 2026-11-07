@@ -24,12 +24,9 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	// 사라지므로 쿼리를 보존한 채 이 페이지의 캘린더 데이터만 다시 불러온다.
 	const year = url.searchParams.get('year') || String(todayYear);
 	const month = url.searchParams.get('month') || String(todayMonth);
-	const sport = url.searchParams.getAll('sport');
-	const region = url.searchParams.getAll('region');
-
+	// Return the whole month so clearing/changing client filters never starts
+	// from an already narrowed dataset. CalendarBoard restores them from the URL.
 	const params: Record<string, string | string[]> = { year, month };
-	if (sport.length > 0) params.sport = sport;
-	if (region.length > 0) params.region = region;
 
 	const communityRequest = apiFetch<HomeCommunityResponse>('/home/community/', {
 		clientIp: locals.clientIp,

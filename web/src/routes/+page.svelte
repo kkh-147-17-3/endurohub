@@ -79,7 +79,8 @@
     previousMonth={data.previousMonth}
     nextMonth={data.nextMonth}
     sports={data.sports as SportOption[]}
-    sportFilter={(Array.isArray(data.sport) ? data.sport : data.sport ? [data.sport] : []) as string[]}
+    regions={data.regions}
+    showDiscovery
     basePath="/"
 />
 
@@ -107,7 +108,7 @@
     }
     .home-hero__ink {
         position: relative;
-        min-height: clamp(230px, 30vw, 420px);
+        min-height: clamp(190px, 22vw, 300px);
         display: flex;
         align-items: flex-end;
         background: linear-gradient(transparent 30%, rgba(16, 19, 18, 0.78));
@@ -133,7 +134,7 @@
     }
     @media (max-width: 768px) {
         .home-hero__ink {
-            min-height: 210px;
+            min-height: 170px;
         }
         .home-hero__copy {
             padding-bottom: 22px;

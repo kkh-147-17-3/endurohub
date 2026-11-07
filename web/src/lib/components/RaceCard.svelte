@@ -6,6 +6,7 @@
     import { formatDate, formatDateShort, formatDateSlash } from '$lib/date';
     import { track } from '$lib/analytics';
     import { clientApiFetch } from '$lib/api.client';
+    import Badge from '$lib/components/eh/Badge.svelte';
 
     let { race, variant = 'default', eager = false, onFavoriteChange }: {
         race: Race;
@@ -88,7 +89,9 @@
             </h4>
             <div class="flex items-center gap-2 mt-1">
                 <span class="text-[10px] lg:text-xs text-base-content/50">{race.raceDate ?? ''}</span>
-                {#if race.daysUntilRegistrationEnd != null}
+                {#if race.status === 'cancelled'}
+                    <Badge status="cancelled" />
+                {:else if race.daysUntilRegistrationEnd != null}
                     <span class="text-[10px] lg:text-xs text-base-content/50">·</span>
                     <span class="text-[10px] lg:text-xs font-bold {race.daysUntilRegistrationEnd <= 3 ? 'text-error' : 'text-success'}">
                         {race.daysUntilRegistrationEnd === 0 ? 'D-Day' : `D-${race.daysUntilRegistrationEnd}`}
@@ -111,7 +114,7 @@
             <figure class="relative">
                 <img src={race.imageSrcThumb || race.imageSrc} alt={race.title} class="w-full aspect-[5/3] object-cover rounded-t-lg" loading={eager ? 'eager' : 'lazy'} fetchpriority={eager ? 'high' : 'auto'} />
                 <div class="absolute inset-0 rounded-t-lg ring-1 ring-inset ring-black/5 pointer-events-none"></div>
-                {#if race.daysUntilRegistrationEnd !== null && race.daysUntilRegistrationEnd <= 7 && race.daysUntilRegistrationEnd >= 0}
+                {#if race.status === 'registration_open' && race.daysUntilRegistrationEnd !== null && race.daysUntilRegistrationEnd <= 7 && race.daysUntilRegistrationEnd >= 0}
                     <div class="absolute top-2 right-2">
                         <span class="text-xs font-bold px-2.5 py-1 rounded-full {dDayBadgeClass}">{race.daysUntilRegistrationEnd === 0 ? 'D-Day' : `D-${race.daysUntilRegistrationEnd}`}</span>
                     </div>
@@ -133,7 +136,7 @@
         {:else}
             <figure class="relative aspect-[5/3] {style.bgLight} flex items-center justify-center rounded-t-lg">
                 <div class="text-4xl">{emoji}</div>
-                {#if race.daysUntilRegistrationEnd !== null && race.daysUntilRegistrationEnd <= 7 && race.daysUntilRegistrationEnd >= 0}
+                {#if race.status === 'registration_open' && race.daysUntilRegistrationEnd !== null && race.daysUntilRegistrationEnd <= 7 && race.daysUntilRegistrationEnd >= 0}
                     <div class="absolute top-2 right-2">
                         <span class="text-xs font-bold px-2.5 py-1 rounded-full {dDayBadgeClass}">{race.daysUntilRegistrationEnd === 0 ? 'D-Day' : `D-${race.daysUntilRegistrationEnd}`}</span>
                     </div>
@@ -160,6 +163,8 @@
                 <span class="badge badge-ghost badge-sm shrink-0 min-w-10">{race.region}</span>
                 {#if race.status === 'registration_open'}
                     <span class="badge badge-success badge-sm font-semibold shrink-0 min-w-10">접수중</span>
+                {:else if race.status === 'cancelled'}
+                    <Badge status="cancelled" />
                 {/if}
                 {#if race.officialUrl}
                     <a
@@ -198,7 +203,7 @@
                     </svg>
                     <span class="truncate">{race.location}</span>
                 </p>
-                {#if race.registrationEnd}
+                {#if race.status !== 'cancelled' && race.registrationEnd}
                     <p class="flex items-center gap-1.5">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />

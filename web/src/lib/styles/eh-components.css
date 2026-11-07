@@ -52,6 +52,7 @@
 .eh-badge--open { color: var(--positive); background: var(--positive-bg); }
 .eh-badge--closing { color: var(--caution); background: var(--caution-bg); }
 .eh-badge--closed { color: var(--ink-500); background: var(--paper-100); }
+.eh-badge--cancelled { color: var(--danger); background: var(--danger-bg); }
 .eh-badge--upcoming { color: var(--info); background: var(--info-bg); }
 .eh-badge--live { color: #fff; background: var(--accent); }
 .eh-badge__pulse { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
@@ -332,4 +333,8 @@ a.v-card { display: block; text-decoration: none; color: inherit; }
   .v-pc { display: none !important; }
   .v-mob { display: initial; }
   .v-footer-inner { padding: var(--sp-6) var(--container-pad-mobile) var(--sp-8); }
+}
+@media (max-width: 360px) {
+  .eh-nav { padding-inline: 12px; gap: 8px; }
+  .eh-nav__right { gap: 4px; }
 }

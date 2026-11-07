@@ -11,7 +11,7 @@ export interface PaginatedResponse<T> {
 // === Race ===
 
 export type Sport = 'running' | 'swimming' | 'cycling' | 'triathlon' | 'trail_running';
-export type RaceStatus = 'upcoming' | 'registration_open' | 'registration_closed' | 'finished';
+export type RaceStatus = 'upcoming' | 'registration_open' | 'registration_closed' | 'finished' | 'cancelled';
 
 export interface EntryFee {
 	distance: string;
