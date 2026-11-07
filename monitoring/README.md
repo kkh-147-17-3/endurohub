@@ -65,8 +65,8 @@ docker volume  create endurohub_nginx_logs
 # 관측성 스택 기동
 docker compose -f docker-compose.observability.yml up -d
 
-# 앱 기동(+ 전환 시 옛 관측성 컨테이너 정리)
-docker compose up -d --build --remove-orphans
+# 앱 기동: 운영 PostgreSQL/Redis가 orphan으로 보이므로 자동 삭제하지 않는다.
+COMPOSE_REMOVE_ORPHANS=0 docker compose up -d --build
 
 # 컨테이너 상태
 docker compose ps
