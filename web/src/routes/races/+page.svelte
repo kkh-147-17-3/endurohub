@@ -103,7 +103,6 @@
 
     {#if data.results.length === 0}
         <div class="empty">
-            <span class="eh-micro">NO RESULTS</span>
             <p>검색 조건에 맞는 대회가 없습니다. 조건을 바꿔보세요.</p>
         </div>
     {:else}
@@ -155,10 +154,6 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 10px;
-    }
-    .empty .eh-micro {
-        color: var(--text-faint);
     }
     .empty p {
         margin: 0;

@@ -38,7 +38,7 @@
 	<div class="tool-layout">
 		<!-- INPUT -->
 		<div class="panel">
-			<span class="eh-micro"><span class="acc">INPUT</span> · 최근 레이스 결과</span>
+			<span class="eh-micro">최근 레이스 결과</span>
 			<div class="row">
 				{#each STD_DISTANCES as d (d.code)}
 					<FilterChip selected={Math.abs(km - d.km) < 0.01} onclick={() => (km = d.km)}>{d.label}</FilterChip>

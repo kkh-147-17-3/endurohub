@@ -40,7 +40,7 @@
 	<div class="tool-layout">
 		<!-- INPUT -->
 		<div class="panel">
-			<span class="eh-micro"><span class="acc">INPUT</span> · 거리 + 목표 시간</span>
+			<span class="eh-micro">거리 + 목표 시간</span>
 			<div class="row">
 				{#each STD_DISTANCES as d (d.code)}
 					<FilterChip selected={Math.abs(km - d.km) < 0.01} onclick={() => (km = d.km)}>{d.label}</FilterChip>

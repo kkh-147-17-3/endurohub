@@ -132,8 +132,7 @@
     <!-- ── Page header ──────────────────────────────────────── -->
     <div class="hd">
         <div>
-            <div class="eh-micro"><span class="acc">COMMUNITY</span> · 후기 / Q&A / 크루</div>
-            <h1 class="eh-h1" style="margin-top: var(--sp-2);">커뮤니티</h1>
+            <h1 class="eh-h1">커뮤니티</h1>
         </div>
         <Button href="/posts/create" variant="primary">글쓰기</Button>
     </div>
@@ -201,7 +200,6 @@
         <div class="feed">
             {#if posts.length === 0}
                 <div class="empty">
-                    <span class="eh-micro">NO RESULTS</span>
                     <p>{searchInput ? '검색 결과가 없습니다.' : '아직 작성된 글이 없습니다.'}</p>
                     <a href="/posts/create" class="eh-btn eh-btn--sm eh-btn--secondary" style="margin-top: var(--sp-3);">첫 글 작성하기</a>
                 </div>
@@ -254,7 +252,7 @@
             <!-- Hot posts -->
             {#if sidebar?.popularPosts && sidebar.popularPosts.length > 0}
                 <div class="rail-box">
-                    <div class="rail-head eh-micro"><span class="acc">HOT</span> · 지금 뜨는 글</div>
+                    <div class="rail-head eh-micro">지금 뜨는 글</div>
                     {#each sidebar.popularPosts.slice(0, 5) as p, i}
                         <a href="/posts/{p.id}" class="rail-row">
                             <span class="rail-rank eh-data" class:rail-rank--top={i < 3}>{i + 1}</span>
@@ -302,8 +300,6 @@
         gap: var(--sp-4);
         flex-wrap: wrap;
     }
-    .acc { color: var(--accent-strong); }
-
     /* ── Toolbar ───────────────────────────────── */
     .toolbar {
         display: flex;

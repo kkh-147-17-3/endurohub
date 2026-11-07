@@ -275,9 +275,7 @@
 <div class="v-container cal-page" data-screen-label="홈 · 캘린더">
 	<!-- ═══ page header ═══════════════════════════════════════════ -->
 	<div class="hd">
-		<div class="eh-micro home-kicker">
-			<span class="acc">RACE CALENDAR</span> · {year} · 전국 5종목
-		</div>
+		<div class="eh-micro">전국 5종목</div>
 		<div class="hd-month">
 			<h1 class="eh-data">{month}월</h1>
 			<span class="yr eh-data">{year}</span>
@@ -490,9 +488,6 @@
 	/* ── page header ── */
 	.hd {
 		padding: 40px 0 0;
-	}
-	.home-kicker .acc {
-		color: var(--text-accent);
 	}
 	.hd-month {
 		display: flex;

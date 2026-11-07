@@ -2,31 +2,27 @@
     let { data } = $props();
 
     const sports = [
-        { code: '01', label: '마라톤', desc: '도로 · 5K~풀코스' },
-        { code: '02', label: '트레일러닝', desc: '산악 · 오프로드' },
-        { code: '03', label: '자전거', desc: '도로 · 그래블' },
-        { code: '04', label: '수영', desc: '오픈워터 · 수영장' },
-        { code: '05', label: '철인3종', desc: '수영 · 자전거 · 달리기' },
+        { label: '마라톤', desc: '도로 · 5K~풀코스' },
+        { label: '트레일러닝', desc: '산악 · 오프로드' },
+        { label: '자전거', desc: '도로 · 그래블' },
+        { label: '수영', desc: '오픈워터 · 수영장' },
+        { label: '철인3종', desc: '수영 · 자전거 · 달리기' },
     ];
 
     const features = [
         {
-            kicker: '01',
             title: '대회 검색',
             body: '종목 · 지역 · 기간 · 거리로 원하는 대회를 좁혀 찾을 수 있습니다.',
         },
         {
-            kicker: '02',
             title: '캘린더 뷰',
             body: '월별 대회 일정을 한 화면에서 확인하고 일정을 비교합니다.',
         },
         {
-            kicker: '03',
             title: '마감 임박 알림',
             body: '접수 마감이 다가오는 대회를 D-day로 한눈에 확인합니다.',
         },
         {
-            kicker: '04',
             title: '상세 정보',
             body: '대회 일시, 장소, 참가비, 거리별 종목까지 정리해 드립니다.',
         },
@@ -81,7 +77,6 @@
 <div class="page-wrap">
     <article class="page-shell">
         <header class="page-head">
-            <div class="arena-kicker">소개 · 0001</div>
             <h1 class="page-title">엔듀로허브<br />소개</h1>
             <p class="page-lead">
                 국내에서 열리는 지구력 대회를 한곳에서 찾고, 비교하고, 놓치지 않게 합니다.
@@ -98,11 +93,10 @@
         </section>
 
         <section class="page-section">
-            <div class="arena-kicker">기능 · 04</div>
+            <div class="arena-kicker">기능 · {features.length}개</div>
             <div class="feature-grid">
                 {#each features as f}
                     <div class="feature-card">
-                        <div class="feature-kicker">{f.kicker}</div>
                         <div class="feature-title">{f.title}</div>
                         <p class="feature-body">{f.body}</p>
                     </div>
@@ -111,11 +105,10 @@
         </section>
 
         <section class="page-section">
-            <div class="arena-kicker">종목 · 05</div>
+            <div class="arena-kicker">종목 · {sports.length}개</div>
             <div class="sport-grid">
                 {#each sports as s}
                     <div class="sport-tile">
-                        <span class="sport-code">{s.code}</span>
                         <span class="sport-label">{s.label}</span>
                         <span class="sport-desc">{s.desc}</span>
                     </div>
@@ -124,7 +117,7 @@
         </section>
 
         <section class="page-section">
-            <div class="arena-kicker">이용 방법 · 06</div>
+            <div class="arena-kicker">이용 방법</div>
             <p class="section-body">
                 모바일에서는 화면 하단 탭바(대회 · 검색 · 시즌 · 커뮤니티 · 메뉴)만으로 핵심 기능을 모두 오갈 수 있습니다.
             </p>
@@ -248,13 +241,6 @@
             border-bottom: none;
         }
     }
-    .feature-kicker {
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        letter-spacing: 1.5px;
-        color: var(--arena-accent-deep);
-        font-weight: 700;
-    }
     .feature-title {
         font-family: var(--arena-f-display);
         font-size: 18px;
@@ -289,13 +275,6 @@
         padding: 14px 14px 16px;
         background: var(--arena-paper);
         border: 1px solid var(--arena-line-soft);
-    }
-    .sport-code {
-        font-family: var(--arena-f-mono);
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 1.5px;
-        color: var(--arena-ink-soft);
     }
     .sport-label {
         font-family: var(--arena-f-display);

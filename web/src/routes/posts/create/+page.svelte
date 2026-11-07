@@ -69,7 +69,6 @@
 <div class="v-container form-page">
     <header class="page-head">
         <a href="/community" class="back-link eh-micro">← 커뮤니티</a>
-        <div class="eh-micro page-kicker">NEW POST · 글쓰기</div>
         <h1 class="eh-h2 page-title">새 글 작성</h1>
     </header>
 
@@ -224,7 +223,6 @@
         transition: color var(--dur-fast) var(--ease-out);
     }
     .back-link:hover { color: var(--text-strong); }
-    .page-kicker { color: var(--text-muted); }
     .page-title { margin: 0; }
 
     .form-grid {

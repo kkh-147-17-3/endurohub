@@ -9,7 +9,7 @@
 
   Usage:
     <EventModal
-        tag="Event · 이벤트"
+        tag="이벤트"
         title={"2026 봄 시즌 오픈\n인증 챌린지"}
         heroGoal="100K / 30 DAYS"
         ctaLabel="챌린지 참여하기"
@@ -33,6 +33,7 @@
         /** Title; newlines render as line breaks. */
         title: string;
         description: Snippet;
+        /** Optional category or edition absent from the title. */
         tag?: string;
         /** Tag colour variant. */
         variant?: 'event' | 'warn' | 'ink';
@@ -56,7 +57,7 @@
     let {
         title,
         description,
-        tag = 'Event · 이벤트',
+        tag = '이벤트',
         variant = 'event',
         meta = [],
         heroGoal,
@@ -80,7 +81,9 @@
 </script>
 
 <Modal onClose={close} labelledby={titleId}>
-    <span class="ev-tag" class:event={variant === 'event'} class:warn={variant === 'warn'}>{tag}</span>
+    {#if tag}
+        <span class="ev-tag" class:event={variant === 'event'} class:warn={variant === 'warn'}>{tag}</span>
+    {/if}
     <h2 class="m-title pre" id={titleId}>{title}</h2>
     <p class="m-sub">{@render description()}</p>
 

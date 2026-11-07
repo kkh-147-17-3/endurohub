@@ -175,7 +175,7 @@
     <div class="modal-overlay" role="dialog" aria-modal="true" aria-label="댓글 삭제">
         <div class="modal-card">
             <header class="modal-head">
-                <span class="kicker">DELETE · 댓글 삭제</span>
+                <span class="kicker">댓글 삭제</span>
                 <h3 class="modal-title">정말 삭제할까요?</h3>
             </header>
             <p class="modal-desc">삭제된 댓글은 복구할 수 없습니다.</p>

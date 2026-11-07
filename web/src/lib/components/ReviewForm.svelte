@@ -165,7 +165,7 @@
             <button class="rvm-close" onclick={close} aria-label="닫기">×</button>
 
             <div class="rvm-head">
-                <span class="eh-micro"><span class="acc">WRITE REVIEW</span> · 리뷰 작성</span>
+                <span class="eh-micro">리뷰 작성</span>
                 <h2 class="race">{raceTitle}</h2>
                 {#if raceMeta}
                     <p class="meta eh-data">{raceMeta}</p>

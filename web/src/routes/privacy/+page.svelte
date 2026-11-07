@@ -99,7 +99,6 @@
     <article class="page-shell">
         <header class="page-head">
             <div class="head-row">
-                <div class="arena-kicker">개인정보 · 처리방침</div>
                 <div class="head-meta">
                     <span class="meta-key">시행</span>
                     <span class="meta-val">{dateStr}</span>
@@ -179,7 +178,7 @@
     }
     .head-row {
         display: flex;
-        justify-content: space-between;
+        justify-content: flex-end;
         align-items: center;
         gap: 12px;
     }

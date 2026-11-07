@@ -13,10 +13,10 @@
     const ALPHA = glossaryGroups.map((g) => g.key);
 
     const OTHER_TOOLS = [
-        { no: '01', t: '페이스 계산기', d: '거리·목표 시간으로 구간 페이스 산출', href: '/tools/pace-calculator' },
-        { no: '02', t: '훈련 플랜', d: '목표 대회까지 주차별 단계 구성', href: '/tools/training-plan' },
-        { no: '03', t: 'VO₂max 계산기', d: '최근 기록으로 유산소 능력 추정', href: '/tools/vo2max' },
-        { no: '04', t: '기록 예측기', d: 'Riegel 공식 기반 거리별 예상 기록', href: '/tools/race-predictor' }
+        { t: '페이스 계산기', d: '거리·목표 시간으로 구간 페이스 산출', href: '/tools/pace-calculator' },
+        { t: '훈련 플랜', d: '목표 대회까지 주차별 단계 구성', href: '/tools/training-plan' },
+        { t: 'VO₂max 계산기', d: '최근 기록으로 유산소 능력 추정', href: '/tools/vo2max' },
+        { t: '기록 예측기', d: 'Riegel 공식 기반 거리별 예상 기록', href: '/tools/race-predictor' }
     ];
 
     let q = $state('');
@@ -146,7 +146,7 @@
     </nav>
 
     <header class="hd">
-        <div class="eh-micro"><span class="acc">GLOSSARY</span> · 용어 {TOTAL}</div>
+        <div class="eh-micro">총 {TOTAL}개 용어</div>
         <h1>러닝 용어 사전</h1>
         <p class="lede">
             마라톤과 러닝에서 자주 쓰이는 용어를 카테고리·초성별로 정리했습니다. 항목을 누르면 자세한
@@ -249,12 +249,11 @@
     <section class="other">
         <div class="sec-head">
             <h2>다른 도구</h2>
-            <span class="eh-micro">TOOLS · 4</span>
+            <span class="eh-micro">{OTHER_TOOLS.length}개</span>
         </div>
         <div class="other-grid">
-            {#each OTHER_TOOLS as o (o.no)}
+            {#each OTHER_TOOLS as o (o.href)}
                 <a href={o.href}>
-                    <span class="num eh-data">{o.no}</span>
                     <span class="ot">{o.t} <span class="arr">→</span></span>
                     <span class="od">{o.d}</span>
                 </a>
@@ -295,9 +294,6 @@
     /* ---- header ---- */
     .hd {
         padding: 26px 0 0;
-    }
-    .hd .acc {
-        color: var(--accent);
     }
     .hd h1 {
         font-size: var(--text-h1);
@@ -592,7 +588,6 @@
     .other-grid a {
         background: var(--paper-0);
         padding: 20px;
-        min-height: 116px;
         display: flex;
         flex-direction: column;
         text-decoration: none;
@@ -602,17 +597,10 @@
     .other-grid a:hover {
         background: var(--paper-50);
     }
-    .other-grid .num {
-        font-size: var(--text-micro);
-        font-weight: 700;
-        letter-spacing: var(--track-micro);
-        color: var(--text-faint);
-    }
     .other-grid .ot {
         font-size: 16px;
         font-weight: 700;
         letter-spacing: var(--track-heading);
-        margin-top: auto;
         color: var(--text-strong);
     }
     .other-grid .od {

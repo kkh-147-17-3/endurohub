@@ -36,7 +36,7 @@
 	<div class="tool-layout">
 		<!-- INPUT -->
 		<div class="panel">
-			<span class="eh-micro"><span class="acc">INPUT</span> · 기준 레이스</span>
+			<span class="eh-micro">기준 레이스</span>
 			<div class="row">
 				{#each STD_DISTANCES as d (d.code)}
 					<FilterChip selected={Math.abs(km - d.km) < 0.01} onclick={() => (km = d.km)}>{d.label}</FilterChip>
@@ -71,7 +71,7 @@
 			<!-- main season goal (demo data — see MAIN_GOAL in $lib/tools) -->
 			<div class="v-card goal-card">
 				<div class="eh-micro">
-					<span class="acc">MAIN GOAL</span> · {goal.raceName} · <span class="eh-data">D-{goalDaysOut}</span>
+					<span class="acc">목표 대회</span> · {goal.raceName} · <span class="eh-data">D-{goalDaysOut}</span>
 				</div>
 				<div class="goal-stats">
 					<StatBlock label="목표" value={goal.targetTimeStr} size="lg" />

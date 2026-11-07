@@ -90,7 +90,7 @@
 	{#if !hasGoals}
 		<!-- No upcoming 관심대회 to target — guide the user to register one -->
 		<div class="empty-panel">
-			<span class="eh-micro"><span class="acc">INPUT</span> · 플랜 구성</span>
+			<span class="eh-micro">플랜 구성</span>
 			<h2 class="empty-title">목표 대회를 먼저 등록하세요</h2>
 			{#if data.signedIn}
 				<p class="empty-desc">
@@ -111,7 +111,7 @@
 		<div class="tool-layout">
 			<!-- INPUT -->
 			<div class="panel">
-				<span class="eh-micro"><span class="acc">INPUT</span> · 플랜 구성</span>
+				<span class="eh-micro">플랜 구성</span>
 				<Select label="목표 대회 (관심 대회 기반)" options={raceOptions} bind:value={raceId} />
 
 				{#if canPlan}

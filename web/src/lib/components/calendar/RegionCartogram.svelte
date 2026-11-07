@@ -118,7 +118,7 @@
 <div class="mapwrap">
 	<!-- ── tile cartogram ──────────────────────────────────────────── -->
 	<div>
-		<div class="eh-micro carto-cap">REGION DENSITY · 시·도별 대회 수</div>
+		<div class="eh-micro carto-cap">시·도별 대회 수</div>
 		<div class="carto" role="group" aria-label="시·도별 타일 지도">
 			{#each sidoStats as stat (stat.code)}
 				{@const heat = heatLevel(stat.count)}

@@ -195,8 +195,8 @@
 
 <section class="filterbar" aria-label="대회 필터">
 	<div class="fb-head">
-		<span class="eh-micro"><span class="acc">SEARCH</span> · {title}</span>
-		<span class="eh-micro eh-data fb-count">{total.toLocaleString()} RACES</span>
+		<span class="eh-micro">{title}</span>
+		<span class="eh-micro eh-data fb-count">총 {total.toLocaleString()}개 대회</span>
 	</div>
 
 	<div class="fb-row">
@@ -359,10 +359,6 @@
 		border-top: var(--border-rule);
 		padding-top: 12px;
 		margin-bottom: 14px;
-	}
-	.fb-head .acc {
-		color: var(--accent);
-		font-weight: 700;
 	}
 	.fb-count {
 		color: var(--text-faint);

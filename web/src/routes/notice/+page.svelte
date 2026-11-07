@@ -47,7 +47,6 @@
 <div class="notice-wrap">
 	<!-- Page header -->
 	<div class="page-hd">
-		<div class="page-kicker eh-micro"><span class="acc">NOTICE</span> · 운영 / 대회 소식</div>
 		<h1 class="page-title eh-h1">공지사항</h1>
 	</div>
 
@@ -86,7 +85,6 @@
 	<!-- Notice list -->
 	{#if list.length === 0 && pinned.length === 0}
 		<div class="empty-state">
-			<span class="eh-micro">NO NOTICES</span>
 			<p>등록된 공지사항이 없습니다.</p>
 		</div>
 	{:else if list.length === 0}
@@ -121,13 +119,6 @@
 	/* ---- Page header ---- */
 	.page-hd {
 		padding-bottom: var(--sp-6);
-	}
-	.page-kicker {
-		margin-bottom: var(--sp-2);
-		color: var(--text-muted);
-	}
-	.page-kicker .acc {
-		color: var(--accent);
 	}
 	.page-title {
 		margin: 0;

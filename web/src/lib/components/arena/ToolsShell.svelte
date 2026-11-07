@@ -22,7 +22,6 @@
 
 <div class="v-container">
 	<div class="hd">
-		<div class="eh-micro"><span class="acc">TOOLS</span> · 페이스 / VO₂ / 예측 / 플랜</div>
 		<h1>러닝 도구</h1>
 	</div>
 	<div class="tabs-wrap">
@@ -40,7 +39,7 @@
 		letter-spacing: var(--track-display);
 		line-height: var(--leading-heading);
 		color: var(--text-strong);
-		margin: 8px 0 0;
+		margin: 0;
 	}
 	.tabs-wrap { margin-top: 22px; }
 	/* 4 tabs always fit — no horizontal scrollbar; wrap on very narrow screens */

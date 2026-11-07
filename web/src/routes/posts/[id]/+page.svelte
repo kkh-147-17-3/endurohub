@@ -281,7 +281,7 @@
             <!-- ── Race record (tagged races) ──────────────── -->
             {#if post.taggedRaces && post.taggedRaces.length > 0}
                 <section class="record" aria-label="태그된 대회">
-                    <div class="eh-micro"><span class="acc">RACE RECORD</span> · 태그된 대회</div>
+                    <div class="eh-micro">태그된 대회</div>
                     {#each post.taggedRaces as race (race.id)}
                         <div class="race-line">
                             <a href="/races/{race.slug}">{race.title} ↗</a>
@@ -297,7 +297,7 @@
             <!-- ── Images ──────────────────────────────────── -->
             {#if post.imageSrcs && post.imageSrcs.length > 0}
                 <section class="sec image-section" aria-label="첨부 이미지">
-                    <div class="eh-micro sec-label"><span class="acc">IMAGES</span> · <span class="eh-data">{post.imageSrcs.length}</span></div>
+                    <div class="eh-micro sec-label">첨부 이미지 <span class="eh-data">{post.imageSrcs.length}개</span></div>
                     <div class="image-grid">
                         {#each post.imageSrcs as src, index}
                             <button
@@ -367,7 +367,7 @@
     <div class="v-scrim" role="dialog" aria-modal="true" aria-label="글 수정 인증">
         <div class="v-modal modal-content">
             <div class="modal-head">
-                <span class="eh-micro">EDIT · 비밀번호 확인</span>
+                <span class="eh-micro">비밀번호 확인</span>
                 <h2 class="modal-title">글 수정</h2>
             </div>
             <div class="modal-body">
@@ -396,7 +396,7 @@
     <div class="v-scrim" role="dialog" aria-modal="true" aria-label="글 삭제">
         <div class="v-modal modal-content">
             <div class="modal-head">
-                <span class="eh-micro">DELETE · 글 삭제</span>
+                <span class="eh-micro">글 삭제</span>
                 <h2 class="modal-title">정말 삭제할까요?</h2>
                 <p class="modal-desc">삭제된 글은 복구할 수 없습니다.</p>
             </div>
@@ -444,7 +444,7 @@
     <div class="v-scrim" role="dialog" aria-modal="true" aria-label="공유하기">
         <div class="v-modal modal-content">
             <div class="modal-head">
-                <span class="eh-micro">SHARE · 공유</span>
+                <span class="eh-micro">공유</span>
                 <h2 class="modal-title">{post.title}</h2>
             </div>
             <div class="modal-body share-list">
@@ -465,7 +465,6 @@
         padding-top: 0;
         padding-bottom: var(--sp-20);
     }
-    .acc { color: var(--accent-strong); }
 
     /* Single-column reading layout — rail removed */
     .layout {
