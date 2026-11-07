@@ -46,14 +46,24 @@ jobs:
             docker network create endurohub_obs 2>/dev/null || true
             docker volume create endurohub_nginx_logs 2>/dev/null || true
 
-            # 3) 변경 감지 — 직전 배포 커밋(BEFORE)부터 지금까지 전부 본다.
-            #    HEAD~1..HEAD 로 보면 한 번에 여러 커밋이 push 될 때 마지막 커밋의
-            #    경로만 잡혀 나머지 커밋이 건드린 서비스가 조용히 누락된다
-            #    (실제로 crawler/ 수정이 배포된 척하고 옛 이미지로 계속 돌았다).
-            if [ "$BEFORE" = "$AFTER" ]; then
-              CHANGED=$(git diff --name-only HEAD~1 HEAD)   # 재실행: 마지막 커밋 기준
+            # 3) 마지막 성공 배포를 기준으로 변경 감지한다. 실패한 배포가 checkout만
+            #    갱신했더라도 다음 시도에서 미배포 앱 변경을 빠뜨리지 않는다.
+            SUCCESS_FILE="$PWD/.deploy-backups/last-successful-commit"
+            DIFF_BASE="$BEFORE"
+            if [ -f "$SUCCESS_FILE" ]; then
+              LAST_SUCCESSFUL=$(cat "$SUCCESS_FILE")
+              if ! [[ "$LAST_SUCCESSFUL" =~ ^[0-9a-fA-F]{40}$ ]] ||
+                 ! git cat-file -e "${LAST_SUCCESSFUL}^{commit}" ||
+                 ! git merge-base --is-ancestor "$LAST_SUCCESSFUL" "$AFTER"; then
+                echo "Invalid successful-deployment baseline; refusing an incomplete rollout." >&2
+                exit 1
+              fi
+              DIFF_BASE="$LAST_SUCCESSFUL"
+            fi
+            if [ "$DIFF_BASE" = "$AFTER" ] && [ ! -f "$SUCCESS_FILE" ]; then
+              CHANGED=$(git diff --name-only HEAD~1 HEAD)   # 성공 마커 도입 전 재실행
             else
-              CHANGED=$(git diff --name-only "$BEFORE" "$AFTER")
+              CHANGED=$(git diff --name-only "$DIFF_BASE" "$AFTER")
             fi
             echo "$CHANGED"
             API=false; WEB=false; CRAWLER=false; INFRA=false; OBS=false
@@ -62,6 +72,11 @@ jobs:
             echo "$CHANGED" | grep -q "^crawler/" && CRAWLER=true || true
             echo "$CHANGED" | grep -qE "^(nginx/|docker-compose\.yml)" && INFRA=true || true
             echo "$CHANGED" | grep -qE "^(monitoring/|docker-compose\.observability\.yml)" && OBS=true || true
+            # 배포 절차 수정 후 재시도는 checkout이 이미 앞섰을 수 있으므로 앱도 교체한다.
+            if printf '%s\n' "$CHANGED" | grep -E '^(\.github/workflows/|scripts/deploy-db-backup\.sh$)' > /dev/null; then
+              API=true
+              WEB=true
+            fi
 
             # 4) 먼저 이미지만 빌드한다. 실패 시 기존 컨테이너를 그대로 두고 중단한다.
             SERVICES=()
@@ -89,8 +104,14 @@ jobs:
                 bash scripts/deploy-db-backup.sh "$PWD/.deploy-backups" "$AFTER"
                 umask 077
                 {
-                  printf 'Previous commit: %s\nNext commit: %s\n' "$BEFORE" "$AFTER"
-                  docker compose images
+                  printf 'Checkout before rollout: %s\nPrevious successful/base commit: %s\nNext commit: %s\n' "$BEFORE" "$DIFF_BASE" "$AFTER"
+                  # Inspect running containers directly: their image IDs remain available
+                  # even if an old image was removed from the local image store.
+                  CONTAINER_IDS=$(docker compose ps -q)
+                  while IFS= read -r CONTAINER_ID; do
+                    [ -n "$CONTAINER_ID" ] || continue
+                    docker inspect --format '{{.Name}} {{.Image}}' "$CONTAINER_ID"
+                  done <<< "$CONTAINER_IDS"
                 } > "$PWD/.deploy-backups/rollout-${AFTER}.txt"
               fi
               docker compose run --rm --no-deps -T -e PGOPTIONS='-c lock_timeout=10s -c statement_timeout=300s' api python manage.py migrate --noinput
@@ -121,3 +142,10 @@ jobs:
             echo "API OK"
             curl -fsS --max-time 10 --retry 5 --retry-delay 3 --retry-connrefused -A "$UA" http://localhost/ > /dev/null
             echo "Web OK"
+            # 성공 마커는 migration과 API/Web 검증이 모두 끝난 뒤 원자적으로 갱신한다.
+            umask 077
+            mkdir -p "$PWD/.deploy-backups"
+            chmod 700 "$PWD/.deploy-backups"
+            SUCCESS_TMP=$(mktemp "$PWD/.deploy-backups/.last-successful-commit.XXXXXX")
+            printf '%s\n' "$AFTER" > "$SUCCESS_TMP"
+            mv -- "$SUCCESS_TMP" "$SUCCESS_FILE"
