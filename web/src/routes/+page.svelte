@@ -50,12 +50,12 @@
 <!-- ── Hero: responsive sports illustrations with space for the headline ── -->
 <section class="home-hero">
     <picture>
-        <source type="image/webp" media="(max-width: 768px)" srcset="/images/home-hero-mobile.webp" width="1672" height="941" />
-        <source type="image/webp" srcset="/images/home-hero.webp" />
-        <source media="(max-width: 768px)" srcset="/images/home-hero-mobile.jpg" width="1672" height="941" />
+        <source type="image/webp" media="(max-width: 768px)" srcset="/images/home-hero-mobile.webp?v=31c83bb" width="1672" height="941" />
+        <source type="image/webp" srcset="/images/home-hero.webp?v=31c83bb" />
+        <source media="(max-width: 768px)" srcset="/images/home-hero-mobile.jpg?v=31c83bb" width="1672" height="941" />
         <img
             class="home-hero__img"
-            src="/images/home-hero.jpg"
+            src="/images/home-hero.jpg?v=31c83bb"
             width="2172"
             height="724"
             alt="마라톤, 사이클, 수영, 트레일 러닝, 철인3종 — 다섯 종목의 선수들"
