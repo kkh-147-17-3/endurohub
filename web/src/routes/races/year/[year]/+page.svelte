@@ -26,7 +26,8 @@
         { id: 'open', label: '접수중', match: (r: Race) => r.status === 'registration_open' },
         { id: 'upcoming', label: '예정', match: (r: Race) => r.status === 'upcoming' },
         { id: 'closed', label: '접수마감', match: (r: Race) => r.status === 'registration_closed' },
-        { id: 'done', label: '종료', match: (r: Race) => r.status === 'finished' }
+        { id: 'done', label: '종료', match: (r: Race) => r.status === 'finished' },
+        { id: 'cancelled', label: '대회 취소', match: (r: Race) => r.status === 'cancelled' }
     ];
     const statusMatch = (r: Race, id: string) => STATUS_FACETS.find((s) => s.id === id)?.match(r) ?? true;
 
@@ -372,7 +373,9 @@
                                 <span class="hide-m yr-dim">{race.region || '—'}</span>
                                 <span class="hide-m yr-dim eh-data">{feeLabel(race)}</span>
                                 <span class="yr-badge">
-                                    {#if race.status === 'finished'}
+                                    {#if race.status === 'cancelled'}
+                                        <Badge status="cancelled" />
+                                    {:else if race.status === 'finished'}
                                         <span class="eh-micro yr-done">종료</span>
                                     {:else if race.status === 'registration_open'}
                                         {@const dday = arenaDday(race).value}

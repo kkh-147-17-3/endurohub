@@ -28,8 +28,10 @@ export function buildRaceEventSchema(race: RaceEventInput, options: RaceEventOpt
             || [race.title, race.location, race.sportLabel, '대회'].filter(Boolean).join(' · '),
         startDate: race.raceDate || undefined,
         endDate: race.raceEndDate || race.raceDate || undefined,
-        // A past event is not cancelled. Its date already communicates that it has ended.
-        eventStatus: 'https://schema.org/EventScheduled',
+        // A past event remains scheduled; only an explicit cancellation changes this status.
+        eventStatus: race.status === 'cancelled'
+            ? 'https://schema.org/EventCancelled'
+            : 'https://schema.org/EventScheduled',
         eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
         url: pageUrl,
         sport: race.sportLabel,
@@ -52,7 +54,7 @@ export function buildRaceEventSchema(race: RaceEventInput, options: RaceEventOpt
             race.imageSrc || `/images/og-${race.sport.replace('_', '-')}.png`, appUrl,
         ).href,
         sameAs: officialUrl || undefined,
-        offers: minFee != null && Number.isFinite(minFee) && minFee >= 0 ? {
+        offers: race.status !== 'cancelled' && minFee != null && Number.isFinite(minFee) && minFee >= 0 ? {
             '@type': 'Offer',
             url: officialUrl || pageUrl,
             // Upcoming, closed and finished states do not tell us whether capacity sold out.

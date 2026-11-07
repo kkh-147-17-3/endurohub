@@ -83,9 +83,10 @@ export const GET: RequestHandler = async ({ params, locals, setHeaders }) => {
 	const accent = SPORT_ACCENT[sport] ?? ARENA.accent;
 	const sportLabel = race.sportLabel || SPORT_LABEL[sport] || sport;
 
-	const dDay = race.daysUntilRegistrationEnd;
+	const isCancelled = race.status === 'cancelled';
+	const dDay = isCancelled ? null : race.daysUntilRegistrationEnd;
 	const ddayValue =
-		dDay === null || dDay === undefined
+		isCancelled ? '대회 취소' : dDay === null || dDay === undefined
 			? '—'
 			: dDay < 0
 				? '마감'
@@ -119,7 +120,9 @@ export const GET: RequestHandler = async ({ params, locals, setHeaders }) => {
 			: '';
 
 	const isOpen = race.status === 'registration_open';
-	const statusChip = isOpen
+	const statusChip = isCancelled
+		? `<div style="display:flex;padding:4px 10px;background:${ARENA.urgent};color:${ARENA.paper};font-size:14px;font-weight:700;">대회 취소</div>`
+		: isOpen
 		? `<div style="display:flex;padding:4px 10px;background:${ARENA.ink};color:${ARENA.paper};font-size:14px;font-weight:700;letter-spacing:1px;">접수중</div>`
 		: '';
 
@@ -127,7 +130,7 @@ export const GET: RequestHandler = async ({ params, locals, setHeaders }) => {
 		{ label: '일자', value: dateValue },
 		{ label: '장소', value: locationValue },
 		{ label: '종목', value: courseValue },
-		{ label: '접수마감', value: ddayValue, urgent: ddayUrgent }
+		{ label: isCancelled ? '대회 상태' : '접수마감', value: ddayValue, urgent: ddayUrgent }
 	];
 	const metaGrid = cells
 		.map(

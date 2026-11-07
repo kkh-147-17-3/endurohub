@@ -90,6 +90,7 @@
     const pageUrl = $derived(`${appUrl}${page.url.pathname}`);
 
     const badgeStatus = $derived(dsBadgeStatus(race.status, race.daysUntilRegistrationEnd));
+    const isCancelled = $derived(race.status === 'cancelled');
     const dday = $derived(arenaDday(race));
     const ddayLabel = $derived(arenaDdayLabel(race));
     const feeRange = $derived(arenaFeeRange(race));
@@ -149,6 +150,7 @@
      * 자체 생성한 요약이 있으면 그쪽이 훨씬 나은 스니펫이므로 우선 쓴다.
      */
     const metaDesc = $derived(() => {
+        if (isCancelled) return `${race.title} — 대회가 취소되었습니다. 주최 측 공식 공지에서 취소 및 후속 안내를 확인하세요.`.substring(0, 160);
         const summary = aiSummary.replace(/\s+/g, ' ').trim();
         if (summary.length >= 40) return clampAtWord(summary, 160);
         let desc = `${race.title} - ${race.raceDate ? formatDateFull(race.raceDate) : ''} ${race.location}에서 개최되는 ${race.sportLabel} 대회입니다.`;
@@ -196,6 +198,7 @@
 
     /** ENTRY hero stat — registration status + deadline. */
     const entryStat = $derived.by(() => {
+        if (isCancelled) return { value: '취소', sub: '공식 공지 확인' };
         const regEnd = race.registrationEnd ? arenaShortDate(race.registrationEnd) : '';
         const regStart = race.registrationStart ? arenaShortDate(race.registrationStart) : '';
         if (race.status === 'registration_open') {
@@ -240,6 +243,7 @@
 
     // ── register card ─────────────────────────────────────
     const regBig = $derived.by(() => {
+        if (isCancelled) return '대회 취소';
         if (dday.value == null) return race.statusLabel || '—';
         if (dday.value < 0) return '접수 마감';
         if (dday.value === 0) return '오늘 마감';
@@ -745,16 +749,26 @@
 
         <h1 class="rd-hero__title">{race.title}</h1>
 
+        {#if isCancelled}
+            <div class="rd-cancel-notice" role="note" aria-label="대회 취소 안내">
+                <strong>대회가 취소되었습니다.</strong>
+                <p>접수는 진행하지 않습니다. 환불·변경 사항은 주최 측 공식 공지를 확인해 주세요.</p>
+                {#if validOfficialUrl}
+                    <a href={validOfficialUrl} target="_blank" rel="noopener" onclick={() => handleRegisterClick('desktop')}>공식 공지 확인 ↗</a>
+                {/if}
+            </div>
+        {/if}
+
         <div class="rd-hstats">
             <div class="rd-hstat">
-                <div class="rd-hstat__k">ENTRY</div>
+                <div class="rd-hstat__k">{isCancelled ? '대회 상태' : 'ENTRY'}</div>
                 <div class="rd-hstat__v eh-data">
                     {entryStat.value}{#if entryStat.sub}<small>{entryStat.sub}</small>{/if}
                 </div>
             </div>
             {#if race.raceDate}
                 <div class="rd-hstat">
-                    <div class="rd-hstat__k">RACE DAY</div>
+                    <div class="rd-hstat__k">{isCancelled ? '기존 대회일' : 'RACE DAY'}</div>
                     <div class="rd-hstat__v eh-data">
                         {heroDate}<small>{formatDateDay(race.raceDate)}{race.startTime ? ` · ${race.startTime}` : ''}</small>
                     </div>
@@ -884,7 +898,7 @@
                     {@render sechead(
                         secN('courses'),
                         '종목 · 참가비',
-                        race.registrationEnd ? `ENTRY CLOSES ${arenaShortDate(race.registrationEnd)}` : undefined,
+                        !isCancelled && race.registrationEnd ? `ENTRY CLOSES ${arenaShortDate(race.registrationEnd)}` : undefined,
                     )}
                     <div class="rd-table-scroll">
                         <div class="v-table">
@@ -948,7 +962,7 @@
             <!-- 타임라인 -->
             {#if timelineItems.length > 0}
                 <section id="timeline" class="rd-sec">
-                    {@render sechead(secN('timeline'), '타임라인', '접수 → 대회일')}
+                    {@render sechead(secN('timeline'), '타임라인', isCancelled ? '취소 전 일정' : '접수 → 대회일')}
                     <div class="rd-tl">
                         {#each timelineItems as t, i (i)}
                             <div
@@ -1028,7 +1042,7 @@
             <div class="v-card rd-reg">
                 <div class="rd-reg__top">
                     <Badge status={badgeStatus} />
-                    {#if race.registrationEnd}
+                    {#if !isCancelled && race.registrationEnd}
                         <span class="eh-micro eh-data rd-reg__closes">CLOSES {arenaShortDate(race.registrationEnd)}</span>
                     {/if}
                 </div>
@@ -1067,7 +1081,7 @@
                         rel="noopener"
                         onclick={() => handleRegisterClick('desktop')}
                     >
-                        {race.status === 'registration_open' ? '접수하기 ↗' : '공식 페이지로 ↗'}
+                        {isCancelled ? '공식 공지 확인 ↗' : race.status === 'registration_open' ? '접수하기 ↗' : '공식 페이지로 ↗'}
                     </Button>
                 {/if}
 
@@ -1392,7 +1406,7 @@
                 class="eh-btn eh-btn--md eh-btn--primary eh-btn--full"
                 onclick={() => handleRegisterClick('mobile')}
             >
-                공식 페이지
+                {isCancelled ? '공식 공지 ↗' : '공식 페이지'}
             </a>
         {:else}
             <button class="eh-btn eh-btn--md eh-btn--primary eh-btn--full" type="button" disabled>
@@ -1456,6 +1470,18 @@
 {/if}
 
 <style>
+    .rd-cancel-notice {
+        margin-top: 20px;
+        padding: 16px 18px;
+        border: 1px solid var(--danger);
+        background: var(--danger-bg);
+        color: var(--text-strong);
+        font-size: 14px;
+        line-height: 1.6;
+    }
+    .rd-cancel-notice strong { color: var(--danger); }
+    .rd-cancel-notice p { margin: 4px 0 0; }
+    .rd-cancel-notice a { display: inline-block; margin-top: 8px; font-weight: 700; text-decoration: underline; }
     /* ══════════════════════════════════════════
        HERO — INK BLOCK
     ══════════════════════════════════════════ */

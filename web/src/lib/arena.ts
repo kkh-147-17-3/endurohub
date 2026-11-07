@@ -88,12 +88,14 @@ export function arenaShortDate(date: string | null): string {
 
 /** D-day padding: race.daysUntilRegistrationEnd preferred, fallback to daysUntilRace */
 export function arenaDday(race: Race): { value: number | null; urgent: boolean } {
+    if (race.status === 'cancelled') return { value: null, urgent: false };
     const v = race.daysUntilRegistrationEnd ?? race.daysUntilRace ?? null;
     if (v == null) return { value: null, urgent: false };
     return { value: v, urgent: v >= 0 && v <= 7 };
 }
 
 export function arenaDdayLabel(race: Race): string {
+    if (race.status === 'cancelled') return '대회 취소';
     const { value } = arenaDday(race);
     if (value == null) return 'D-—';
     if (value < 0) return '마감';

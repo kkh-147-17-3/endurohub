@@ -16,6 +16,7 @@ from .constants import (
     TRAIL_RUNNING_KEYWORDS,
 )
 from .image_utils import get_thumb_path, get_webp_path
+from .status import cancellation_query, has_cancellation_notice
 
 
 class DistanceCategory(TypedDict, total=False):
@@ -40,9 +41,7 @@ class RaceQuerySet(models.QuerySet["Race"]):
         today = timezone.localdate()
         end_date = today + timedelta(days=days)
         # .extra() 가 Self 를 잃고 QuerySet[Any, Any] 를 반환해 경계에서 되돌린다.
-        return cast("RaceQuerySet", self.exclude(
-            status='registration_closed'
-        ).extra(
+        return cast("RaceQuerySet", self.registration_open().extra(
             where=["COALESCE(race_end_date, race_date) >= %s"],
             params=[today],
         ).filter(
@@ -81,6 +80,9 @@ class RaceQuerySet(models.QuerySet["Race"]):
         today = timezone.localdate()
         q = Q()
         for s in statuses:
+            if s == 'cancelled':
+                q |= cancellation_query()
+                continue
             # Manual status override
             status_q = Q(status=s)
             # Auto-calculated based on dates (when status is NULL)
@@ -125,7 +127,9 @@ class RaceQuerySet(models.QuerySet["Race"]):
                     Q(registration_end__isnull=True) |
                     Q(registration_start__gt=today)
                 )
-            q |= (status_q | auto_q)
+            else:
+                auto_q = Q(pk__in=[])
+            q |= (status_q | auto_q) & ~cancellation_query()
         return self.filter(q)
 
     def by_name(self, name: str) -> "RaceQuerySet":
@@ -232,21 +236,7 @@ class RaceQuerySet(models.QuerySet["Race"]):
         return self.filter(pk__in=matching_ids)
 
     def registration_open(self) -> "RaceQuerySet":
-        from django.db.models import Q
-        today = timezone.localdate()
-        return self.filter(
-            Q(status='registration_open') |
-            Q(
-                Q(status__isnull=True) | Q(status=''),
-                registration_start__isnull=False,
-                registration_end__isnull=False,
-                registration_start__lte=today,
-                registration_end__gte=today,
-            ) & (
-                Q(race_end_date__gte=today) |
-                Q(race_end_date__isnull=True, race_date__gte=today)
-            )
-        )
+        return self.by_status('registration_open')
 
 
 RaceManager = models.Manager.from_queryset(RaceQuerySet)
@@ -356,7 +346,9 @@ class Race(models.Model):
 
     @property
     def computed_status(self) -> str:
-        """Return status from DB if set, otherwise calculate from dates."""
+        """Cancellation notices take precedence over registration dates/overrides."""
+        if self.status == 'cancelled' or has_cancellation_notice(self.title, self.description):
+            return 'cancelled'
         if self.status:
             return self.status
         today = timezone.localdate()
@@ -428,7 +420,7 @@ class Race(models.Model):
 
     @property
     def days_until_registration_end(self) -> int | None:
-        if not self.registration_end:
+        if not self.registration_end or self.computed_status == 'cancelled':
             return None
         return (self.registration_end - timezone.localdate()).days
 

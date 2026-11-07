@@ -48,6 +48,7 @@ from posts.serializers import PostListSerializer
 from .constants import DISTANCE_CATEGORIES, REGIONS, SPORTS
 from .models import DeviceToken, Race, RaceFavorite, RacePendingChange, Review, ReviewLike
 from .resolution import resolve_race
+from .status import cancellation_query
 
 
 def _favorite_race_ids(request: Request, race_ids: Iterable[int] | None = None) -> set[int]:
@@ -95,7 +96,7 @@ from .serializers import (
 class HomeView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [AllowAny]
-    CACHE_KEY = 'home_page_data'
+    CACHE_KEY = 'home_page_data_status_v2'
     CACHE_TTL = 300  # 5 minutes
 
     def get(self, request: Request) -> Response:
@@ -109,12 +110,10 @@ class HomeView(APIView):
 
         today = timezone.localdate()
 
-        closing_soon = Race.objects.closing_soon(7).exclude(
-            title__contains='(취소)'
-        )[:6]
+        closing_soon = Race.objects.closing_soon(7)[:6]
 
         upcoming_races = Race.objects.upcoming().exclude(
-            title__contains='(취소)'
+            cancellation_query()
         )[:12]
 
         recently_added = Race.objects.order_by('-created_at')[:8]
@@ -245,11 +244,11 @@ class RecommendationsView(APIView):
 
         # Cache key: per-user or per-session
         if user:
-            cache_key = f'recommendations_user_{user.pk}'
+            cache_key = f'recommendations_status_v2_user_{user.pk}'
         elif session_id:
-            cache_key = f'recommendations_session_{session_id}'
+            cache_key = f'recommendations_status_v2_session_{session_id}'
         else:
-            cache_key = 'recommendations_anonymous'
+            cache_key = 'recommendations_status_v2_anonymous'
 
         cached = cache.get(cache_key)
         if cached:
@@ -330,7 +329,7 @@ class RecommendationsView(APIView):
 
         # Build query: upcoming races matching preferred sports/regions, exclude already viewed
         qs = Race.objects.upcoming().exclude(
-            title__contains='(취소)'
+            cancellation_query()
         )
 
         # Exclude viewed race IDs (item_id is stored as string of race.id)
@@ -385,7 +384,7 @@ class RecommendationsView(APIView):
 
     def _popular_fallback(self) -> dict[str, Any]:
         """Return popular races based on view_count."""
-        qs = Race.objects.upcoming().exclude(title__contains='(취소)')
+        qs = Race.objects.upcoming().exclude(cancellation_query())
 
         top_races = list(qs.order_by('-view_count')[:self.TOP_COUNT])
         top_ids = {r.id for r in top_races}
@@ -628,7 +627,7 @@ class RaceDetailView(APIView):
         }, item_id=str(race.id), item_type='race')
 
         # Related races (slot-based, cached 10min)
-        cache_key = f'related_races_{race.id}'
+        cache_key = f'related_races_status_v2_{race.id}'
         related_race_slots = cache.get(cache_key)
         if related_race_slots is None:
             related_race_slots = self._get_related_races(race, request)
@@ -775,7 +774,7 @@ class RaceDetailView(APIView):
         now = timezone.localdate()
 
         # Slot 1: 지금 접수 가능한 대회 (same sport, registration open by date)
-        slot1_qs = Race.objects.filter(
+        slot1_qs = Race.objects.registration_open().filter(
             sport=race.sport,
             registration_start__lte=now,
             registration_end__gte=now,
@@ -836,7 +835,7 @@ class RaceYearlyView(APIView):
 
     @staticmethod
     def _cache_key(year: int) -> str:
-        return f'races_yearly_{year}'
+        return f'races_yearly_status_v2_{year}'
 
     def get(self, request: Request, year: int) -> Response:
         year = int(year)
@@ -884,7 +883,7 @@ class RaceCalendarView(APIView):
     @staticmethod
     def _cache_key(year: int, month: int, sport: list[str], region: list[str], min_month: date, max_month: date) -> str:
         # 필터 조합마다 별도 키. 쿼리 파라미터 순서가 달라도 같은 키가 되도록 정렬.
-        return 'races_calendar_{}_{}_{}_{}_{}_{}'.format(
+        return 'races_calendar_status_v2_{}_{}_{}_{}_{}_{}'.format(
             year,
             month,
             ','.join(sorted(sport)),

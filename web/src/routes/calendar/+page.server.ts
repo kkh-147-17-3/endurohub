@@ -21,14 +21,15 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		year === String(todayYear) &&
 		month === String(todayMonth) &&
 		sport.length === 0 &&
-		region.length === 0
+		region.length === 0 &&
+		!url.searchParams.has('name') &&
+		!url.searchParams.has('status') &&
+		!url.searchParams.has('view')
 	) {
 		redirect(301, '/calendar');
 	}
 
 	const params: Record<string, string | string[]> = { year, month };
-	if (sport.length > 0) params.sport = sport;
-	if (region.length > 0) params.region = region;
 
 	const data = await apiFetch<CalendarResponse>(
 		'/races/calendar/',

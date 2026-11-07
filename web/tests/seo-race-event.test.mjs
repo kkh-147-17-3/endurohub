@@ -42,6 +42,13 @@ test('unknown organizer, performer, price and registration dates are not invente
     assert.equal('offers' in schemaFor({}, { minFee: -1 }), false);
 });
 
+test('cancelled races advertise cancellation without registration offers', () => {
+    const schema = schemaFor({ status: 'cancelled', title: '취소된 대회' });
+    assert.equal(schema.eventStatus, 'https://schema.org/EventCancelled');
+    assert.equal('offers' in schema, false);
+    assert.equal(schema.sameAs, options.officialUrl);
+});
+
 test('known organizer, address, image URL and multiday dates remain accurate', () => {
     const schema = schemaFor({ organizer: '실제 주최자', raceEndDate: '2026-11-15' });
     assert.equal(schema.organizer.name, '실제 주최자');

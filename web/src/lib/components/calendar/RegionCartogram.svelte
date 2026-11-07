@@ -101,7 +101,7 @@
 	type RaceState = { label: string; closed: boolean; urgent: boolean };
 	function raceState(race: Race): RaceState {
 		const label = arenaDdayLabel(race);
-		const closed = race.status === 'finished' || label === '마감';
+		const closed = race.status === 'cancelled' || race.status === 'finished' || label === '마감';
 		return {
 			label: race.status === 'finished' ? '종료' : label,
 			closed,
