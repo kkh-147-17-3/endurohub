@@ -47,6 +47,9 @@ jobs:
       DATABASE_NAME: endurohub_migration_ci
       DATABASE_USER: endurohub_migration_ci
       DATABASE_PASSWORD: disposable_migration_ci_password
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: '6379'
+      REDIS_PASSWORD: ''
     services:
       postgres:
         image: postgres:17-alpine
@@ -58,6 +61,15 @@ jobs:
           - '127.0.0.1:5432:5432'
         options: >-
           --health-cmd "pg_isready -U endurohub_migration_ci -d endurohub_migration_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+      redis:
+        image: redis:7-alpine
+        ports:
+          - '127.0.0.1:6379:6379'
+        options: >-
+          --health-cmd "redis-cli ping"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 12
@@ -100,3 +112,6 @@ jobs:
 
       - name: Run mypy (strict)
         run: mypy .
+
+      - name: Run API regression tests
+        run: pytest -q

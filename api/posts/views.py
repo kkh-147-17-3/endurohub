@@ -222,7 +222,14 @@ class PostInlineImageUploadView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if image.size > self.MAX_SIZE:
+        image_size = image.size
+        if image_size is None or image_size <= 0:
+            return Response(
+                {'error': '비어 있거나 크기를 확인할 수 없는 이미지 파일입니다.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if image_size > self.MAX_SIZE:
             return Response(
                 {'error': '이미지 크기는 최대 5MB까지 가능합니다.'},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -234,7 +241,7 @@ class PostInlineImageUploadView(APIView):
         save_dir = os.path.join(str(settings.MEDIA_ROOT), 'posts', 'inline', month_dir)
         os.makedirs(save_dir, exist_ok=True)
 
-        ext = os.path.splitext(image.name)[1].lower() or '.jpg'
+        ext = os.path.splitext(image.name or '')[1].lower() or '.jpg'
         filename = f'{uuid.uuid4().hex[:12]}{ext}'
         filepath = os.path.join(save_dir, filename)
 
@@ -394,7 +401,7 @@ class PostDetailUpdateDeleteView(APIView):
             save_dir = os.path.join(str(settings.MEDIA_ROOT), 'posts', str(post.pk))
             os.makedirs(save_dir, exist_ok=True)
             for f in new_files:
-                ext = os.path.splitext(f.name)[1] or '.jpg'
+                ext = os.path.splitext(f.name or '')[1] or '.jpg'
                 filename = f'{uuid.uuid4().hex[:12]}{ext}'
                 filepath = os.path.join(save_dir, filename)
                 with open(filepath, 'wb') as dest:

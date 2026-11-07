@@ -1391,7 +1391,7 @@ class RaceImageUploadView(APIView):
         timestamp = timezone.now().strftime('%Y%m%d_%H%M%S')
 
         for i, img in enumerate(images):
-            ext = os.path.splitext(img.name)[1] or '.jpg'
+            ext = os.path.splitext(img.name or '')[1] or '.jpg'
             filename = f'{race.id}_{timestamp}_{i}{ext}'
             filepath = os.path.join(save_dir, filename)
             with open(filepath, 'wb') as f:
