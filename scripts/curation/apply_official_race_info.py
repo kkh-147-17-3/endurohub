@@ -52,6 +52,10 @@ def validate_manifest(manifest):
             raise CurationConflict('Unexpected race edition/date.')
         if not row.get('sources'):
             raise CurationConflict('Official sources are required.')
+        if 'official_url' in changes and changes['official_url'] not in {
+            source['url'] for source in row['sources']
+        }:
+            raise CurationConflict('Official URL must be one of the reviewed official sources.')
         for source in row['sources']:
             url = urlsplit(source['url'])
             if url.scheme not in {'http', 'https'} or not url.netloc or url.username:
