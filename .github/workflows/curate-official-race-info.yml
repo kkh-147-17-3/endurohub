@@ -1,0 +1,62 @@
+name: Curate official race information
+
+on:
+  push:
+    branches: [codex/official-race-info-2026-11-08]
+    paths:
+      - 'scripts/curation/**'
+      - '.github/workflows/curate-official-race-info.yml'
+
+permissions:
+  contents: read
+
+# Serialize against application deployments without restarting any service.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  curate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Preview or apply the reviewed official-information batch
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          CURATION_SHA: ${{ github.sha }}
+          CURATION_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT }}
+          envs: DEPLOY_PATH,CURATION_SHA,CURATION_RUN_ID
+          command_timeout: 5m
+          script: |
+            set -euo pipefail
+            umask 077
+            [[ "$CURATION_SHA" =~ ^[0-9a-f]{40}$ ]]
+            [[ "$CURATION_RUN_ID" =~ ^[0-9]+-[0-9]+$ ]]
+            cd "$DEPLOY_PATH"
+            export COMPOSE_REMOVE_ORPHANS=0
+            git fetch origin "$CURATION_SHA"
+            BACKUP_DIR="$PWD/.deploy-backups/official-race-info-2026-11-08/$CURATION_RUN_ID"
+            mkdir -p "$BACKUP_DIR"
+            chmod 700 "$BACKUP_DIR"
+            git show "$CURATION_SHA:scripts/curation/apply_official_race_info.py" > "$BACKUP_DIR/apply_official_race_info.py"
+            git show "$CURATION_SHA:scripts/curation/official-race-info-2026-11-08.json" > "$BACKUP_DIR/manifest.json"
+            MODE=$(git show "$CURATION_SHA:scripts/curation/MODE")
+            case "$MODE" in preview|apply) ;; *) echo 'Invalid curation mode'; exit 1;; esac
+            CONTAINER_ID=$(docker compose ps -q api)
+            [ -n "$CONTAINER_ID" ]
+            CONTAINER_DIR="/tmp/endurohub-curation-$CURATION_RUN_ID"
+            docker compose exec -T api mkdir -p "$CONTAINER_DIR"
+            docker cp "$BACKUP_DIR/apply_official_race_info.py" "$CONTAINER_ID:$CONTAINER_DIR/apply_official_race_info.py"
+            docker cp "$BACKUP_DIR/manifest.json" "$CONTAINER_ID:$CONTAINER_DIR/manifest.json"
+            # Keep the fsynced before-image on the server even if application fails.
+            trap 'docker cp "$CONTAINER_ID:$CONTAINER_DIR/before.json" "$BACKUP_DIR/before.json" 2>/dev/null || true' EXIT
+            ARGS=()
+            if [ "$MODE" = apply ]; then
+              ARGS+=(--apply --backup "$CONTAINER_DIR/before.json")
+            fi
+            docker compose exec -T -e PGOPTIONS='-c lock_timeout=10s -c statement_timeout=60s' api python "$CONTAINER_DIR/apply_official_race_info.py" --manifest "$CONTAINER_DIR/manifest.json" "${ARGS[@]}" | tee "$BACKUP_DIR/receipt.txt"
