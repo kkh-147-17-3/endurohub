@@ -19,6 +19,9 @@ from .image_utils import get_thumb_path, get_webp_path
 from .status import cancellation_query, has_cancellation_notice
 
 
+_EXPIRING_REGISTRATION_STATUSES = ('upcoming', 'registration_open', 'registration_closed')
+
+
 class DistanceCategory(TypedDict, total=False):
     value: str
     label: str
@@ -78,6 +81,10 @@ class RaceQuerySet(models.QuerySet["Race"]):
         if isinstance(statuses, str):
             statuses = [statuses]
         today = timezone.localdate()
+        ended_q = (
+            Q(race_end_date__lt=today, race_end_date__isnull=False) |
+            Q(race_end_date__isnull=True, race_date__lt=today)
+        )
         q = Q()
         for s in statuses:
             if s == 'cancelled':
@@ -85,13 +92,12 @@ class RaceQuerySet(models.QuerySet["Race"]):
                 continue
             # Manual status override
             status_q = Q(status=s)
-            # Auto-calculated based on dates (when status is NULL)
+            if s in _EXPIRING_REGISTRATION_STATUSES:
+                status_q &= ~ended_q
+            # Date-based status also expires temporary registration overrides.
             auto_q = Q(status__isnull=True) | Q(status='')
             if s == 'finished':
-                auto_q &= (
-                    Q(race_end_date__lt=today, race_end_date__isnull=False) |
-                    Q(race_end_date__isnull=True, race_date__lt=today)
-                )
+                auto_q = (auto_q | Q(status__in=_EXPIRING_REGISTRATION_STATUSES)) & ended_q
             elif s == 'registration_open':
                 auto_q &= Q(
                     registration_start__isnull=False,
@@ -349,12 +355,14 @@ class Race(models.Model):
         """Cancellation notices take precedence over registration dates/overrides."""
         if self.status == 'cancelled' or has_cancellation_notice(self.title, self.description):
             return 'cancelled'
-        if self.status:
+        if self.status and self.status not in _EXPIRING_REGISTRATION_STATUSES:
             return self.status
         today = timezone.localdate()
         end_date = self.race_end_date or self.race_date
         if end_date and end_date < today:
             return 'finished'
+        if self.status:
+            return self.status
         if self.registration_start and self.registration_end:
             if self.registration_start <= today <= self.registration_end:
                 return 'registration_open'

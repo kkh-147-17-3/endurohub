@@ -10,6 +10,7 @@
       "expected": {
         "description": "포항마라톤챔피언십은 스피드 위주의 마라톤대회입니다. 전국최강자들이 모여 가장빠른 10km챔피언을 가리는 대회입니다. 전국 최고의 대회가 될수 있도록 준비하겠습니다",
         "ai_summary": null,
+        "official_url": "http://pohangmarathon.com/",
         "distances": [
           {
             "fee": 50000,
@@ -26,6 +27,7 @@
       "changes": {
         "description": "<p><strong>공식 자료 확인일: <time datetime=\"2026-11-08\">2026년 11월 8일</time></strong></p><p>확인한 출처: <a href=\"https://pohangmarathon.com/sub/intro/introduce.asp\" target=\"_blank\" rel=\"noopener noreferrer\">포항마라톤챔피언십 - 대회요강</a> / <a href=\"https://pohangmarathon.com/sub/join/guide.asp\" target=\"_blank\" rel=\"noopener noreferrer\">포항마라톤챔피언십 - 참가신청안내</a> / <a href=\"https://pohangmarathon.com/sub/intro/notice.asp\" target=\"_blank\" rel=\"noopener noreferrer\">포항마라톤챔피언십 - 대회유의사항</a> / <a href=\"https://pohangmarathon.com/sub/board/noti.asp?board_idx=1&amp;idx=15357&amp;board_mode=view&amp;intnowpage=1&amp;sopt=&amp;sword=&amp;category=\" target=\"_blank\" rel=\"noopener noreferrer\">[2026 포항마라톤챔피언십] 추가접수 참가자 배번 지급 안내</a></p><h3>대회 일정과 장소</h3><p>2026년 11월 14일 토요일, 포항 영일대 해상누각에서 개최합니다. 집결은 08:00, 공식 대회 전체 출발 안내는 09:00입니다. 종목별 별도 출발 시각은 확인되지 않았습니다.</p><h3>종목별 참가 안내</h3><p>10km는 참가비 50,000원, 제한시간 2시간입니다. 5km는 참가비 30,000원, 제한시간 1시간입니다.</p><h3>접수와 배번호</h3><p>추가 접수의 최종 마감은 2026년 11월 3일 18:00이므로 확인일 기준 접수가 종료되었습니다. 추가 접수 참가자는 이름 없이 번호만 인쇄된 배번호를 받는다고 공지했습니다.</p><h3>현장 이용</h3><p>급수대는 2.5km마다 설치한다고 안내합니다. 탈의실과 물품보관소를 운영하며 귀중품은 맡길 수 없습니다.</p>",
         "ai_summary": "2026년 11월 14일 포항 영일대 해상누각에서 열리는 10km·5km 대회입니다. 집결 08:00, 대회 출발 안내 09:00이며 참가비는 10km 50,000원, 5km 30,000원입니다. 제한시간은 각각 2시간과 1시간입니다.",
+        "official_url": "https://pohangmarathon.com/sub/intro/introduce.asp",
         "distances": [
           {
             "fee": 50000,
@@ -71,6 +73,7 @@
       "expected": {
         "description": "1936년 베를린 올림픽 동메달에 빛나는 세계적인 마라토너 故 남승룡 선생의 발자취와 얼을 기리고자 매년 개최되는 대회입니다.",
         "ai_summary": null,
+        "official_url": "http://sc-marathon.kr",
         "distances": [
           {
             "fee": 20000,
@@ -92,11 +95,14 @@
             "name": "5km",
             "distance_meter": 5000
           }
-        ]
+        ],
+        "location": "전남광주 순천시 팔마로 333",
+        "address": "전남광주통합특별시 순천시 팔마로 333"
       },
       "changes": {
-        "description": "<p><strong>공식 자료 확인일: <time datetime=\"2026-11-08\">2026년 11월 8일</time></strong></p><p>확인한 출처: <a href=\"http://sc-marathon.kr/\" target=\"_blank\" rel=\"noopener noreferrer\">순천남승룡마라톤</a></p><h3>공식 안내에서 확인한 항목</h3><p>공식 홈페이지의 대회안내 메뉴에서 대회요강과 유의사항을 확인했습니다. 접수 종료 근거는 참여마당의 공지사항 「신청기간이 공식 마감되었습니다.」(2026년 10월 19일 게시)입니다.</p><h3>종목별 참가 안내</h3><p>풀코스: 참가비 50,000원, 출발 08:20, 제한시간 5시간. 하프: 참가비 40,000원, 출발 08:30, 제한시간 3시간. 10km: 참가비 40,000원, 출발 08:40, 제한시간 2시간. 5km: 참가비 20,000원, 출발 09:00, 제한시간 1시간.</p><h3>접수 안내</h3><p>공식 마감일은 2026년 10월 16일입니다. 최종 마감 공지는 이후 신청, 입금, 참가정보 변경과 환불을 받지 않는다고 안내합니다.</p><h3>현장 이용과 시간 구분</h3><p>5km는 전자칩 기록 계측을 하지 않습니다. 탈의실과 물품보관소를 운영합니다. 07:40은 헌화식 시각이며 집결시간으로 확인된 값이 아닙니다. 별도의 집결시각은 공식 자료에서 확인되지 않았습니다.</p>",
+        "description": "<p><strong>공식 자료 확인일: <time datetime=\"2026-11-08\">2026년 11월 8일</time></strong></p><p>확인한 출처: <a href=\"http://sc-marathon.kr/\" target=\"_blank\" rel=\"noopener noreferrer\">순천남승룡마라톤</a></p><h3>공식 안내에서 확인한 항목</h3><p>대회 장소는 순천팔마종합운동장이며 주소는 순천시 팔마로 333입니다. 공식 홈페이지의 대회안내 메뉴에서 대회요강과 유의사항을 확인했습니다. 접수 종료 근거는 참여마당의 공지사항 「신청기간이 공식 마감되었습니다.」(2026년 10월 19일 게시)입니다.</p><h3>종목별 참가 안내</h3><p>풀코스: 참가비 50,000원, 출발 08:20, 제한시간 5시간. 하프: 참가비 40,000원, 출발 08:30, 제한시간 3시간. 10km: 참가비 40,000원, 출발 08:40, 제한시간 2시간. 5km: 참가비 20,000원, 출발 09:00, 제한시간 1시간.</p><h3>접수 안내</h3><p>공식 마감일은 2026년 10월 16일입니다. 최종 마감 공지는 이후 신청, 입금, 참가정보 변경과 환불을 받지 않는다고 안내합니다.</p><h3>현장 이용과 시간 구분</h3><p>5km는 전자칩 기록 계측을 하지 않습니다. 탈의실과 물품보관소를 운영합니다. 07:40은 헌화식 시각이며 집결시간으로 확인된 값이 아닙니다. 별도의 집결시각은 공식 자료에서 확인되지 않았습니다.</p>",
         "ai_summary": "2026년 11월 14일 열리는 제26회 순천 남승룡마라톤대회입니다. 풀코스는 08:20 출발·50,000원·제한 5시간, 하프는 08:30 출발·40,000원·제한 3시간입니다. 10km와 5km도 종목별로 출발하며 접수는 종료되었습니다.",
+        "official_url": "http://sc-marathon.kr/",
         "distances": [
           {
             "fee": 50000,
@@ -126,7 +132,9 @@
             "start_time": "09:00",
             "cutoff": "1시간"
           }
-        ]
+        ],
+        "location": "순천팔마종합운동장",
+        "address": "순천시 팔마로 333"
       },
       "sources": [
         {
@@ -143,11 +151,13 @@
       "expected": {
         "description": "붉게 물든 단풍길을 따라 달리는 순간순간이 참가자 여러분께 잊지 못할 추억으로 남기를 바라며, 함께하는 걸음 속에서 건강과 기쁨을 찾으시길 바랍니다.",
         "ai_summary": null,
+        "official_url": "http://maplerun.kr",
         "registration_end": "2026-11-14"
       },
       "changes": {
         "description": "<p><strong>공식 자료 확인일: <time datetime=\"2026-11-08\">2026년 11월 8일</time></strong></p><p>확인한 출처: <a href=\"https://maplerun.kr/info/\" target=\"_blank\" rel=\"noopener noreferrer\">제2회 안양천 단풍길 마라톤 - 대회요강</a> / <a href=\"https://maplerun.kr/join/\" target=\"_blank\" rel=\"noopener noreferrer\">제2회 안양천 단풍길 마라톤 - 참가비안내</a> / <a href=\"https://maplerun.kr/info/notice.asp\" target=\"_blank\" rel=\"noopener noreferrer\">제2회 안양천 단풍길 마라톤 - 참가자유의사항</a></p><h3>대회 일정과 장소</h3><p>2026년 11월 14일 토요일, 신정교 하부 영롱이 억새구장에서 개최합니다. 참가자 집결은 08:00, 대회 전체 출발 안내는 09:00입니다. 하프, 10km, 5km 순으로 출발한다고 안내하지만 종목별 개별 시각은 명시되지 않았습니다.</p><h3>종목별 참가 안내</h3><p>하프, 10km, 5km 참가비는 모두 50,000원입니다. 종목별 제한시간은 현재 확인한 2026년 공식 안내에서 찾지 못해 확정값을 기재하지 않았습니다.</p><h3>접수와 배번호</h3><p>공식 요강의 접수 마감일은 2026년 11월 8일이며 구체적인 종료 시각과 확인 시점의 잔여 인원은 확인되지 않았습니다. 10월 26일 이후 접수자는 배번호를 현장에서 받습니다. 우편으로 받은 배번호는 지참해야 하며 재발급되지 않습니다.</p><h3>현장 이용</h3><p>탈의실과 물품보관소를 운영한다고 안내합니다.</p>",
         "ai_summary": "제2회 안양천 단풍길 마라톤은 2026년 11월 14일 신정교 하부 영롱이 억새구장에서 열립니다. 집결 08:00, 대회 출발 안내 09:00이며 하프·10km·5km 참가비는 각 50,000원입니다. 공식 접수 마감일은 11월 8일입니다.",
+        "official_url": "https://maplerun.kr/info/",
         "registration_end": "2026-11-08"
       },
       "sources": [
@@ -175,6 +185,7 @@
       "expected": {
         "description": "지난 6월에 이어 두 번째로 한강 브릿지 울트라 대회를 개최합니다 서울 한강을 가로 지르는 다리 전부를 두다리로 뛰어 건너는 특별한 경험!! 대한민국의 대동맥 한강 위에 수많은 사연을 품고 서 있는 대교들, 푸른 강물을 굽이 굽이 안고 뻗은 강변 주로, 하루 종일 늦가을 정취를 마음껏 즐기며 달려 봅시다. 새처럼 자유롭게 Free As A Bird, FAAB와 명품트레일런이 함께하는 서울 한강다리 22개 완주대회에 러너들을 초대합니다.",
         "ai_summary": null,
+        "official_url": "http://www.mtrailrun.kr/",
         "distances": [
           {
             "name": "65km",
@@ -185,6 +196,7 @@
       "changes": {
         "description": "<p><strong>공식 자료 확인일: <time datetime=\"2026-11-08\">2026년 11월 8일</time></strong></p><p>확인한 출처: <a href=\"http://www.mtrailrun.kr/run/1000.asp?T=3&amp;wgu=1&amp;wma=333\" target=\"_blank\" rel=\"noopener noreferrer\">명품트레일런대회 — 제2회 FAAB 한강브릿지런 대회안내</a> / <a href=\"http://www.mtrailrun.kr/run/1001.asp?T=3&amp;wma=333\" target=\"_blank\" rel=\"noopener noreferrer\">명품트레일런대회 — 제2회 FAAB 한강브릿지런 대회코스</a></p><h3>대회 일정과 코스</h3><p>2026년 11월 14일 토요일 08:00 출발입니다. 공식 거리는 약 65km이며 구리한강시민공원 주차장에서 출발해 고양 한강공원 주차장에서 마칩니다. 출발지와 도착지가 서로 다릅니다.</p><h3>종목별 참가 안내</h3><p>약 65km 단일 코스의 참가비는 35,000원입니다. 제한시간은 10시간으로 18:00 종료를 안내합니다. 참가 자격은 만 18세 이상입니다.</p><h3>접수와 현장 준비</h3><p>공식 접수 마감은 2026년 11월 13일 17:00입니다. 선착순 200명 모집으로 실시간 잔여 인원은 별도 확인이 필요합니다. 현장 접수와 배번호 교부는 07:00~07:40이며 실제 출발은 08:00입니다.</p><h3>추가 확인이 필요한 정보</h3><p>공식 소개와 상세 코스에 표기된 다리 개수가 서로 달라 완주 다리 개수는 확정해 안내하지 않았습니다.</p>",
         "ai_summary": "제2회 FAAB 한강브릿지런은 2026년 11월 14일 08:00에 출발하는 약 65km 대회입니다. 참가비 35,000원, 제한시간 10시간이며 출발은 구리, 도착은 고양입니다. 현장 배번호 교부는 07:00~07:40입니다.",
+        "official_url": "http://www.mtrailrun.kr/run/1000.asp?T=3&wgu=1&wma=333",
         "distances": [
           {
             "name": "65km",
@@ -215,6 +227,7 @@
       "expected": {
         "description": "2026 영종 하늘길 마라톤 장소: 인천, 영종 씨사이드파크 일대 대회규모: 5,000명 대회일자: 26.11.14(토) 08:30 접수기간: 26.08.24 ~ 26.10.08 (접수 취소 기간: ~ 26.10.08) 기념품: 완주 메달, 티셔츠, 양말, 화장품, 뉴트리션 젤 참가비: 45,000원(5K) 55,000원(10K) 55,000원(Half)",
         "ai_summary": null,
+        "official_url": "http://www.leaveit.co.kr/",
         "distances": [
           {
             "name": "21.0975km",
@@ -235,6 +248,7 @@
       "changes": {
         "description": "<p><strong>공식 자료 확인일: <time datetime=\"2026-11-08\">2026년 11월 8일</time></strong></p><p>확인한 출처: <a href=\"https://www.leaveit.co.kr/match/apply/2026-yeongjong-airway\" target=\"_blank\" rel=\"noopener noreferrer\">2026 영종 하늘길 마라톤 | 리빗</a></p><h3>대회 일정과 장소</h3><p>2026년 11월 14일 토요일, 인천 영종 씨사이드파크 일대에서 개최합니다. 집결은 07:30, 공식 대회 안내시간은 08:30입니다. 종목별 실제 출발 시각은 확인되지 않아 각 종목에 공통 시각을 임의로 입력하지 않았습니다.</p><h3>종목별 참가 안내</h3><p>5km: 참가비 45,000원, 제한시간 60분. 10km: 참가비 55,000원, 제한시간 105분. 하프: 참가비 55,000원, 제한시간 150분.</p><h3>접수 안내</h3><p>확인일 기준 공식 신청 화면은 접수 마감 상태입니다. 같은 공식 페이지의 상단 표에는 10월 31일, 대회 안내 이미지에는 10월 30일을 접수 종료일로 표기하고 있어 정확한 마감일은 확정하지 않았습니다.</p><h3>현장 이용</h3><p>무료 물품보관소 운영시간은 07:00~12:00입니다. 5km에는 기록측정 칩이 제공되지 않습니다. 배번호와 기록칩은 현장에서 재제공하지 않으므로 수령한 물품을 지참해야 합니다.</p>",
         "ai_summary": "2026 영종 하늘길 마라톤은 11월 14일 영종 씨사이드파크 일대에서 열립니다. 집결 07:30, 대회 안내시간 08:30이며 참가비는 5km 45,000원, 10km·하프 55,000원입니다. 제한시간은 60분·105분·150분입니다.",
+        "official_url": "https://www.leaveit.co.kr/match/apply/2026-yeongjong-airway",
         "distances": [
           {
             "name": "21.0975km",
@@ -272,6 +286,7 @@
       "expected": {
         "description": "희망친구 기아대책과 롯데마트가 주최하고 서울특별시가 후원하는 기부 마라톤 행사입니다. 통큰런에서 조성된 기부금은 희망친구 기아대책의 에너지 취약계층 난방비 지원 사업과 보바스어린이재활센터의 환아 재활 치료에 사용합니다.",
         "ai_summary": null,
+        "official_url": "http://tongkeun-run.com",
         "distances": [
           {
             "name": "10km",
@@ -291,6 +306,7 @@
       "changes": {
         "description": "<p><strong>공식 자료 확인일: <time datetime=\"2026-11-08\">2026년 11월 8일</time></strong></p><p>확인한 출처: <a href=\"https://tongkeun-run.com/\" target=\"_blank\" rel=\"noopener noreferrer\">통큰런 — 2026 통큰런 행사개요·코스·유의사항</a> / <a href=\"https://tongkeun-run.com/faq\" target=\"_blank\" rel=\"noopener noreferrer\">통큰런 — 자주 묻는 질문</a></p><h3>대회 일정과 장소</h3><p>2026년 11월 14일 토요일, 서울 월드컵공원 평화광장에서 개최합니다. 10km, 5km, 가족런 3km를 운영하며 참가비는 각 30,000원입니다.</p><h3>그룹별 출발시간</h3><p>10km는 A그룹 08:00, B그룹 08:05에 출발합니다. 5km는 C그룹 08:10, D그룹 08:15에 출발하며 가족런 3km는 E그룹 08:20 출발입니다. 종목 표의 출발시간은 해당 종목 첫 그룹 시각이므로 본인 배정 그룹을 확인해야 합니다.</p><h3>제한시간</h3><p>공식 공통 유의사항은 완주 제한 90분을 안내합니다. 그룹별 절대 종료 시각이나 종목별 별도 제한은 명시되지 않아 임의로 계산하지 않았습니다.</p><h3>접수와 현장 이용</h3><p>취소분 2차 접수는 2026년 10월 28일 14:00부터 10월 30일 23:59까지로 확인일 기준 종료되었습니다. 참가자 전용 주차장은 없으며 대중교통 이용을 권장합니다. 행사 운영 시작 07:00을 참가자 집결시간으로 간주하지 않았습니다.</p>",
         "ai_summary": "2026 통큰런은 11월 14일 서울 월드컵공원 평화광장에서 열리며 10km·5km·가족런 3km 참가비는 각 30,000원입니다. 출발은 그룹별 08:00~08:20에 순차 진행되고 공통 완주 제한은 90분입니다.",
+        "official_url": "https://tongkeun-run.com/",
         "distances": [
           {
             "name": "10km",
@@ -336,6 +352,7 @@
       "expected": {
         "description": "그 시절 스타들과 함께 달리는 레트로 런 IN 증평 입니다. 달리는 즐거움을 야간 공연으로 연결하는 러닝 페스티벌로 여러분을 초대합니다.",
         "ai_summary": null,
+        "official_url": "http://n-runplus.co.kr",
         "distances": [
           {
             "name": "10km",
@@ -351,6 +368,7 @@
       "changes": {
         "description": "<p><strong>공식 자료 확인일: <time datetime=\"2026-11-08\">2026년 11월 8일</time></strong></p><p>확인한 출처: <a href=\"https://n-runplus.co.kr/Jeungpyeong\" target=\"_blank\" rel=\"noopener noreferrer\">스타콜x롤링스톤 레트로 런 IN 증평</a> / <a href=\"https://n-runplus.co.kr/31/?idx=6\" target=\"_blank\" rel=\"noopener noreferrer\">스타콜 × 롤링스톤 레트로 런 IN 증평</a></p><h3>대회 일정과 참가권</h3><p>2026년 11월 14일 토요일과 15일 일요일, 증평 보강천 시민체육공원에서 진행하는 러닝 페스티벌입니다. 참가권은 날짜별 별도 구매이며 한 장으로 이틀 모두 참가할 수 있다는 의미가 아닙니다.</p><h3>종목별 참가 안내</h3><p>5km 참가비는 69,000원, 10km는 79,000원입니다. 기본 참가권에 공식 웰컴 티셔츠, 배번호, 완주 메달, 간식 키트와 레트로 콘서트 입장이 포함됩니다. 공연만 보는 별도 상품을 러닝 참가비로 계산하지 않았습니다.</p><h3>집결과 출발</h3><p>공식 참가권의 집결시간은 08:00이며 공통 출발 안내는 매일 09:00입니다. 타임테이블은 5km의 09:00 출발을 명시하지만 10km만의 별도 출발 시각은 확인되지 않았습니다. 기록칩을 사용하지 않는 행사로 안내합니다.</p><h3>추가 확인이 필요한 정보</h3><p>두 코스의 제한시간은 증평군 협의 후 공개 예정이라고 안내합니다. 공식 참가권에는 신청 마감 표시와 접수중 소개 문구가 함께 남아 있어 현재 참가 가능 여부와 정확한 접수 마감일은 주최 측 확인이 필요합니다.</p>",
         "ai_summary": "레트로 런 IN 증평은 2026년 11월 14~15일 보강천 시민체육공원에서 열리며 날짜별로 참가권을 구매해야 합니다. 참가비는 5km 69,000원, 10km 79,000원입니다. 집결 08:00, 공통 출발 안내 09:00입니다.",
+        "official_url": "https://n-runplus.co.kr/Jeungpyeong",
         "distances": [
           {
             "name": "10km",
@@ -386,6 +404,7 @@
       "expected": {
         "description": "&#129366; 서울 빵빵런2026 &#128205; 행사일: 2026년 11월 14일(토) &#128205; 장소: 서울 뚝섬한강공원 수변무대 &#128205; 코스: 10K · 5K 조기마감이 예상되니 서둘러 신청해 주세요!",
         "ai_summary": null,
+        "official_url": "http://seoul.bbangrun.com",
         "distances": [
           {
             "name": "10km",
@@ -396,11 +415,13 @@
             "distance_meter": 5000
           }
         ],
-        "registration_end": "2026-11-13"
+        "registration_end": "2026-11-13",
+        "status": "registration_open"
       },
       "changes": {
         "description": "<p><strong>공식 자료 확인일: <time datetime=\"2026-11-08\">2026년 11월 8일</time></strong></p><p>확인한 출처: <a href=\"https://seoul.bbangrun.com/overview\" target=\"_blank\" rel=\"noopener noreferrer\">서울 빵빵런2026｜대회 소개</a> / <a href=\"https://seoul.bbangrun.com/registration\" target=\"_blank\" rel=\"noopener noreferrer\">서울 빵빵런2026｜참가권</a> / <a href=\"https://seoul.bbangrun.com/course\" target=\"_blank\" rel=\"noopener noreferrer\">서울 빵빵런2026｜코스</a> / <a href=\"https://seoulbbangrun.imweb.me/shop_view?idx=346\" target=\"_blank\" rel=\"noopener noreferrer\">10K 코스 참가권 : 서울 빵빵런2026</a> / <a href=\"https://seoulbbangrun.imweb.me/shop_view?idx=344\" target=\"_blank\" rel=\"noopener noreferrer\">5K 코스 참가권 : 서울 빵빵런2026</a> / <a href=\"https://seoul.bbangrun.com/faq\" target=\"_blank\" rel=\"noopener noreferrer\">서울 빵빵런2026｜FAQ</a></p><h3>대회 일정과 참가비</h3><p>2026년 11월 14일 토요일, 서울 뚝섬한강공원 수변무대에서 개최합니다. 일반 참가권은 10km와 5km 모두 59,000원입니다.</p><h3>그룹별 출발시간</h3><p>10km는 A그룹 08:30, B그룹 08:35, C그룹 08:40에 출발합니다. 5km는 A그룹 09:30, B그룹 09:35, C그룹 09:40에 출발합니다. 종목 표는 첫 그룹 시각이며 본인 그룹 출발 최소 30분 전 도착을 권장합니다.</p><h3>제한시간과 공식 안내 차이</h3><p>5km 제한시간은 60분입니다. 10km는 공식 코스 페이지에 1시간 30분, 공식 참가권 유의사항에 100분으로 서로 다르게 안내되어 있어 확정값을 입력하지 않았습니다. 10km 참가자는 주최 측에 최종 제한시간을 확인해야 합니다.</p><h3>접수와 현장 준비</h3><p>2026년 11월 8일 확인한 공식 10km 및 5km 참가권 상품은 모두 품절입니다. 정확한 접수 마감 날짜는 확인되지 않았습니다. FAQ의 10월 2일 17:00은 취소와 정보 변경 기한이며 접수 마감일이 아닙니다. 배번호와 기록칩은 지참해야 하며 분실 시 재발급되지 않습니다. 무료 물품보관소는 07:30~12:00 운영합니다.</p>",
         "ai_summary": "서울 빵빵런2026은 11월 14일 뚝섬한강공원 수변무대에서 열립니다. 참가비는 10km·5km 각 59,000원, 첫 그룹 출발은 각각 08:30과 09:30입니다. 공식 참가권은 11월 8일 확인 기준 두 코스 모두 품절입니다.",
+        "official_url": "https://seoul.bbangrun.com/overview",
         "distances": [
           {
             "name": "10km",
@@ -416,7 +437,8 @@
             "cutoff": "60분"
           }
         ],
-        "registration_end": null
+        "registration_end": null,
+        "status": "registration_closed"
       },
       "sources": [
         {

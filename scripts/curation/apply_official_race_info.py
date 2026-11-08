@@ -19,6 +19,7 @@ ALLOWED_IDS = {341, 546, 569, 621, 623, 626, 660, 679}
 ALLOWED_FIELDS = {
     'description', 'ai_summary', 'distances', 'start_time', 'race_end_date',
     'registration_end', 'status',
+    'official_url', 'location', 'address',
 }
 
 
