@@ -29,7 +29,7 @@
         note?: string;
         /** Short state label, e.g. "등록됨" / "필요". */
         state: string;
-        /** true → done (checked), false → todo (dot). */
+        /** Whether this requirement is complete; state provides the visible label. */
         ok: boolean;
     }
 
@@ -64,7 +64,7 @@
 
 <Modal {onClose} labelledby={titleId}>
     {#if eyebrow}
-        <div class="m-eyebrow"><span class="dot"></span>{eyebrow}</div>
+        <div class="m-eyebrow">{eyebrow}</div>
     {/if}
     <h2 class="m-title pre" id={titleId}>{title}</h2>
     <p class="m-sub">{@render description()}</p>

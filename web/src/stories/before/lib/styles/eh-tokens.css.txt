@@ -1,0 +1,282 @@
+/* ============================================================
+   Endurohub — Official Design System tokens
+   Ported from the Claude Design handoff bundle (_ds/tokens/*).
+   "Swiss editorial × performance UI": one signal color (green),
+   disciplined neutrals, hairline rules, sharp corners.
+
+   Fonts: the bundle ships Pretendard OTFs; we instead reuse the
+   Pretendard Variable webfont already loaded in app.html (same
+   typeface, far lighter) and expose it as "Pretendard".
+   ============================================================ */
+
+:root {
+  /* ---- Ink (near-black, slightly cool) ---- */
+  --ink-900: #101312;
+  --ink-700: #2c322f;
+  --ink-500: #565e5a;
+  --ink-400: #79817c;
+  --ink-300: #a4aaa6;
+
+  /* ---- Paper (warm white, editorial) ---- */
+  --paper-0: #ffffff;
+  --paper-50: #f7f7f4;
+  --paper-100: #efefea;
+
+  /* ---- Signal (brand accent — Endurohub green) ---- */
+  --signal-700: #2f7d49;
+  --signal-600: #43a564;   /* primary */
+  --signal-200: #bfe3cc;
+  --signal-100: #e4f2e9;
+
+  /* ---- Lines ---- */
+  --line: #e2e2dc;               /* hairline rules */
+  --line-strong: var(--ink-900); /* 2px editorial rules */
+
+  /* ---- Semantic ---- */
+  --positive: #2f7d49;
+  --caution: #c97f10;
+  --danger: #c93a2a;
+  --info: #2a63d4;
+  --caution-bg: #f8eedb;
+  --danger-bg: #f9e7e4;
+  --info-bg: #e7eefb;
+  --positive-bg: var(--signal-100);
+
+  /* ---- Sport hues (dots & tags only — never large fills) ---- */
+  --sport-run: #d8492f;
+  --sport-trail: #8c6b2a;
+  --sport-ride: #2a63d4;
+  --sport-swim: #1791b4;
+  --sport-tri: #6a45c9;
+
+  /* ---- Semantic aliases ---- */
+  --bg-page: var(--paper-0);
+  --bg-section: var(--paper-50);
+  --bg-inverse: var(--ink-900);
+  --surface-card: var(--paper-0);
+  --surface-raised: var(--paper-0);
+  --surface-glass: rgba(255, 255, 255, 0.88);
+
+  --text-strong: var(--ink-900);
+  --text-body: var(--ink-700);
+  --text-muted: var(--ink-500);
+  --text-faint: var(--ink-400);
+  --text-inverse: var(--paper-0);
+  --text-accent: var(--signal-700);
+
+  --accent: var(--signal-600);
+  --accent-strong: var(--signal-700);
+  --accent-tint: var(--signal-100);
+
+  --focus-ring: 0 0 0 2px var(--paper-0), 0 0 0 4px var(--signal-600);
+
+  /* ---- Typography ---- */
+  --font-sans: "Pretendard Variable", "Pretendard", -apple-system,
+    "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  /* DS direction: no monospace — Pretendard everywhere, tabular numerals via
+     .eh-data / font-variant-numeric. This token stays Pretendard so the legacy
+     "mono" labels/numbers don't render in system monospace (Consolas/Menlo). */
+  --font-mono: var(--font-sans);
+
+  --text-display-1: 72px;
+  --text-display-2: 52px;
+  --text-h1: 38px;
+  --text-h2: 28px;
+  --text-h3: 21px;
+  --text-body-lg: 18px;
+  --text-body: 16px;
+  --text-body-sm: 14px;
+  --text-caption: 13px;
+  --text-micro: 11px;
+
+  --w-display: 800;
+  --w-heading: 700;
+  --w-strong: 600;
+  --w-body: 400;
+  --w-light: 300;
+
+  --track-display: -0.035em;
+  --track-heading: -0.02em;
+  --track-body: -0.005em;
+  --track-micro: 0.09em;
+
+  --leading-display: 0.98;
+  --leading-heading: 1.15;
+  --leading-body: 1.6;
+  --leading-tight: 1.3;
+
+  /* ---- Spacing (4px base) ---- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+  --sp-16: 64px;
+  --sp-20: 80px;
+  --sp-24: 96px;
+
+  /* ---- Radii (Swiss: sharp) ---- */
+  --r-0: 0px;
+  --r-1: 2px;
+  --r-2: 4px;
+  --r-pill: 999px;
+
+  /* ---- Borders ---- */
+  --border-hair: 1px solid var(--line);
+  --border-rule: 2px solid var(--ink-900);
+
+  /* ---- Shadows (rare — overlays only) ---- */
+  --shadow-pop: 0 8px 28px rgba(16, 19, 18, 0.14);
+  --shadow-card-hover: 0 2px 0 0 var(--ink-900);
+
+  /* ---- Motion ---- */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+
+  /* ---- Layout ---- */
+  --container-max: 1280px;
+  --container-pad: 32px;
+  --container-pad-mobile: 20px;
+  --grid-gutter: 24px;
+}
+
+/* ============================================================
+   Dark theme — inverted, same one-signal discipline.
+   Applied via <html data-theme="dark"> (set pre-hydration in app.html).
+   ============================================================ */
+[data-theme="dark"] {
+  --ink-900: #f2f3f0;
+  --ink-700: #c9cec9;
+  --ink-500: #939994;
+  --ink-400: #757b76;
+  --ink-300: #585d58;
+
+  --paper-0: #181b1a;
+  --paper-50: #101312;
+  --paper-100: #262a28;
+
+  --signal-700: #6fc78d;
+  --signal-600: #43a564;
+  --signal-200: #2c5d3d;
+  --signal-100: #1b2a21;
+
+  --sport-run: #ef7a5f;
+  --sport-trail: #c9a24e;
+  --sport-ride: #6f9bf0;
+  --sport-swim: #3bb6d6;
+  --sport-tri: #a385e8;
+
+  --line: #2f3431;
+  --line-strong: var(--ink-900);
+
+  --bg-page: var(--paper-0);
+  --bg-section: var(--paper-50);
+  --bg-inverse: var(--ink-900);
+  --surface-card: var(--paper-0);
+  --surface-raised: var(--paper-100);
+  --surface-glass: rgba(18, 20, 19, 0.82);
+
+  --text-strong: var(--ink-900);
+  --text-body: var(--ink-700);
+  --text-muted: var(--ink-500);
+  --text-faint: var(--ink-400);
+  --text-inverse: var(--paper-0);
+  --text-accent: var(--signal-700);
+
+  --accent: var(--signal-600);
+  --accent-strong: var(--signal-700);
+  --accent-tint: var(--signal-100);
+
+  --positive: #5cc07e;
+  --caution: #e0a23c;
+  --danger: #e2685a;
+  --info: #6f9bf0;
+  --positive-bg: #16241c;
+  --caution-bg: #2a2113;
+  --danger-bg: #2a1715;
+  --info-bg: #161f2e;
+
+  --shadow-pop: 0 10px 30px rgba(0, 0, 0, 0.55);
+  --shadow-card-hover: 0 2px 0 0 var(--ink-900);
+  --focus-ring: 0 0 0 2px var(--paper-0), 0 0 0 4px var(--signal-600);
+
+  color-scheme: dark;
+}
+
+/* ============================================================
+   Legacy bridge — the codebase's earlier "--arena-*" tokens now
+   resolve to the official DS palette, so pages not yet rebuilt
+   inherit the new system instead of the old oklch values.
+   ============================================================ */
+:root,
+[data-theme="dark"] {
+  --arena-paper: var(--paper-0);
+  --arena-paper-alt: var(--paper-50);
+  --arena-paper-deep: var(--paper-100);
+  --arena-ink: var(--ink-900);
+  --arena-ink-soft: var(--ink-500);
+  --arena-ink-mute: var(--ink-400);
+  --arena-line: var(--line);
+  --arena-line-soft: var(--line);
+  --arena-accent: var(--accent);
+  --arena-accent-deep: var(--accent-strong);
+  --arena-urgent: var(--danger);
+
+  --arena-f-display: var(--font-sans);
+  --arena-f-body: var(--font-sans);
+  --arena-f-mono: var(--font-mono);
+}
+
+/* ============================================================
+   DS base — typography defaults + selection + focus.
+   Scoped to body so it cooperates with Tailwind/daisyUI preflight.
+   ============================================================ */
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  color: var(--text-body);
+  background: var(--bg-page);
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Form controls don't inherit font-family by default in every engine — pin
+   them to the page font so inputs/buttons/selects never fall back to a
+   system face (matches the design's eh.css reset). */
+button { font-family: inherit; cursor: pointer; }
+input, select, textarea, optgroup { font-family: inherit; }
+
+::selection { background: var(--signal-200); color: var(--ink-900); }
+
+:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* ---- Typographic utility classes ---- */
+.eh-display {
+  font-size: var(--text-display-2);
+  font-weight: var(--w-display);
+  letter-spacing: var(--track-display);
+  line-height: var(--leading-display);
+  color: var(--text-strong);
+}
+.eh-h1 { font-size: var(--text-h1); font-weight: var(--w-heading); letter-spacing: var(--track-heading); line-height: var(--leading-heading); color: var(--text-strong); }
+.eh-h2 { font-size: var(--text-h2); font-weight: var(--w-heading); letter-spacing: var(--track-heading); line-height: var(--leading-heading); color: var(--text-strong); }
+.eh-h3 { font-size: var(--text-h3); font-weight: var(--w-strong); letter-spacing: var(--track-heading); line-height: var(--leading-tight); color: var(--text-strong); }
+.eh-body { font-size: var(--text-body); font-weight: var(--w-body); letter-spacing: var(--track-body); line-height: var(--leading-body); color: var(--text-body); }
+.eh-micro {
+  font-size: var(--text-micro); font-weight: var(--w-strong);
+  letter-spacing: var(--track-micro); text-transform: uppercase;
+  color: var(--text-muted);
+}
+.eh-data {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.01em;
+}

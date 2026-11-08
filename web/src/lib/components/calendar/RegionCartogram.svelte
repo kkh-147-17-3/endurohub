@@ -2,8 +2,9 @@
 	import type { Race, Sport } from '$lib/types';
 	import { track } from '$lib/analytics';
 	import { arenaDday, arenaDdayLabel, arenaDistLabel } from '$lib/arena';
+	import { dsSport, SPORT_META } from '$lib/components/eh/meta';
 
-	let { races, month }: { races: Race[]; month: number } = $props();
+	let { races, month, showSport = true }: { races: Race[]; month: number; showSport?: boolean } = $props();
 
 	// ── 17 시도 canonical list ────────────────────────────────────────
 	type Sido =
@@ -25,13 +26,6 @@
 		['제주', 1, 5]
 	];
 
-	const SPORT_CSS: Record<Sport, string> = {
-		running: 'var(--sport-run)',
-		trail_running: 'var(--sport-trail)',
-		cycling: 'var(--sport-ride)',
-		swimming: 'var(--sport-swim)',
-		triathlon: 'var(--sport-tri)'
-	};
 	const SPORT_ORDER: Sport[] = ['running', 'trail_running', 'cycling', 'swimming', 'triathlon'];
 
 	function normaliseSido(region: string): Sido | null {
@@ -122,7 +116,7 @@
 		<div class="carto" role="group" aria-label="시·도별 타일 지도">
 			{#each sidoStats as stat (stat.code)}
 				{@const heat = heatLevel(stat.count)}
-				{@const dots = sportsIn(stat.races)}
+				{@const regionSports = sportsIn(stat.races)}
 				<button
 					class="tile heat{heat}"
 					class:zero={stat.count === 0}
@@ -131,14 +125,16 @@
 					onclick={() => stat.count > 0 && selectSido(stat.code)}
 					disabled={stat.count === 0}
 					aria-pressed={activeSido === stat.code}
-					aria-label="{stat.code} 대회 {stat.count}개{stat.count > 0 ? ' — 목록 보기' : ''}"
+					aria-label="{stat.code} 대회 {stat.count}개{regionSports.length ? `, ${regionSports.map((sport) => SPORT_META[dsSport(sport)].ko).join(', ')} — 목록 보기` : ''}"
 				>
 					<span class="rg">{stat.code}</span>
-					<span class="dots" aria-hidden="true">
-						{#each dots as s}
-							<span class="v-dot" style:background={SPORT_CSS[s]}></span>
-						{/each}
-					</span>
+					{#if showSport}
+						<span class="tile-sports" aria-hidden="true">
+							{#each regionSports as sport (sport)}
+								<span>{SPORT_META[dsSport(sport)].ko}</span>
+							{/each}
+						</span>
+					{/if}
 					<span class="ct eh-data">{stat.count}</span>
 				</button>
 			{/each}
@@ -150,7 +146,7 @@
 		<div class="v-sechead">
 			<div class="sechead-row">
 				<h2 class="sechead-title">{activeSido}</h2>
-				<span class="eh-micro eh-data">{panelRaces.length} RACES · {month}월</span>
+				<span class="eh-micro eh-data">{panelRaces.length}개 대회</span>
 			</div>
 		</div>
 		<div class="v-table region-list">
@@ -162,8 +158,8 @@
 					<a class="v-trow click" class:is-closed={st.closed} href={r.url}>
 						<span class="rl-date eh-data">{shortDate(r.raceDate)}</span>
 						<span class="rl-name">
-							<span class="v-dot" style:background={SPORT_CSS[r.sport]}></span>
 							<span class="rl-title">{r.title}</span>
+							{#if showSport}<span class="rl-sport">{SPORT_META[dsSport(r.sport)].ko}</span>{/if}
 						</span>
 						<span class="rl-stat eh-data" class:urgent={st.urgent} class:closed={st.closed}>
 							{st.label}
@@ -197,12 +193,14 @@
 
 	.tile {
 		aspect-ratio: 1;
+		min-height: 104px;
 		border: 1px solid var(--line);
 		background: var(--paper-0);
 		padding: 10px;
 		display: flex;
 		flex-direction: column;
 		justify-content: space-between;
+		gap: 6px;
 		text-align: left;
 		border-radius: var(--r-0);
 		min-width: 0;
@@ -243,14 +241,16 @@
 	.tile.zero .ct {
 		color: var(--ink-300);
 	}
-	.tile .dots {
+	.tile .tile-sports {
 		display: flex;
-		gap: 3px;
+		gap: 2px 5px;
 		flex-wrap: wrap;
+		color: var(--text-muted);
+		font-size: 9px;
+		line-height: 1.3;
 	}
-	.tile .dots .v-dot {
-		width: 6px;
-		height: 6px;
+	.tile-sports > span {
+		white-space: nowrap;
 	}
 
 	.tile.heat1 {
@@ -264,16 +264,9 @@
 		border-color: var(--signal-700);
 	}
 	.tile.heat3 .rg,
-	.tile.heat3 .ct {
+	.tile.heat3 .ct,
+	.tile.heat3 .tile-sports {
 		color: #fff;
-	}
-
-	.v-dot {
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-		flex: none;
-		display: inline-block;
 	}
 
 	/* ── selected region list ── */
@@ -326,9 +319,13 @@
 	}
 	.rl-name {
 		display: flex;
-		align-items: center;
-		gap: 8px;
+		flex-direction: column;
+		gap: 4px;
 		min-width: 0;
+	}
+	.rl-sport {
+		font-size: 11px;
+		color: var(--text-muted);
 	}
 	.rl-title {
 		font-weight: 600;
@@ -353,9 +350,6 @@
 	}
 	.v-trow.is-closed .rl-title {
 		color: var(--text-muted);
-	}
-	.v-trow.is-closed .v-dot {
-		opacity: 0.45;
 	}
 	.region-empty {
 		padding: 28px 18px;

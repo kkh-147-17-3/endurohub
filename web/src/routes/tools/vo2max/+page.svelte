@@ -24,13 +24,13 @@
 	<div class="tool-layout">
 		<!-- INPUT -->
 		<div class="panel">
-			<span class="eh-micro">{pf ? '내 기록 기준 · 수정 가능' : '계산 예시 · 내 기록으로 변경해 보세요'}</span>
+			{#if !pf}<p class="input-context">예시 값입니다. 내 거리와 시간으로 변경해 보세요.</p>{/if}
 			<div class="row">
 				{#each STD_DISTANCES as d (d.code)}
 					<FilterChip selected={Math.abs(km - d.km) < 0.01} onclick={() => (km = d.km)}>{d.label}</FilterChip>
 				{/each}
 			</div>
-			<Field label="최근 완주 기록" placeholder="예: 1:42:15" bind:value={time} error={!valid} aria-invalid={!valid} hint="시:분:초 또는 분:초 · 최근 평탄한 코스의 레이스 기록을 사용하세요" />
+			<Field label="최근 완주 기록" placeholder="예: 1:42:15" bind:value={time} error={!valid} aria-invalid={!valid} hint="최근 평탄한 코스의 기록을 시:분:초 또는 분:초로 입력하세요." />
 			{#if !valid}<p class="input-error" role="status">거리와 0보다 큰 완주 시간을 확인해 주세요. 분·초 칸은 0–59까지 입력하며, 양수 VDOT를 계산할 수 있는 기록이 필요합니다.</p>{/if}
 			{#if pf}
 				<Prefill label={pf.label} onApply={() => { km = pf.distKm; time = pf.timeStr; }} />
@@ -41,7 +41,7 @@
 		<!-- OUTPUT -->
 		<div class="out">
 			<div class="out-hero">
-				<StatBlock label="VDOT · 기록 기반 지수" value={valid ? v.toFixed(1) : '—'} size="xl" accent />
+				<StatBlock label="VDOT" value={valid ? v.toFixed(1) : '—'} size="xl" accent />
 			</div>
 			<p class="src-note">입력한 {km}km 기록을 바탕으로 계산합니다. 나이·성별·실측 산소 섭취량을 입력받지 않으므로 체력 등급과 백분위는 제공하지 않습니다.</p>
 
@@ -94,6 +94,7 @@
 		gap: var(--sp-5);
 	}
 	.row { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+	.input-context { margin: 0; font-size: 12px; color: var(--text-muted); line-height: 1.6; }
 	.src-note { margin: 0; font-size: 12px; color: var(--text-faint); line-height: 1.6; }
 	.input-error { margin: 0; font-size: 13px; color: var(--danger); }
 

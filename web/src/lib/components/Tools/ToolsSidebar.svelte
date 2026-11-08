@@ -18,7 +18,7 @@
 
 <aside class="tools-aside">
     <div class="aside-head">
-        <div class="arena-kicker">다른 도구 · {otherTools.length}</div>
+        <div class="arena-kicker">다른 도구</div>
     </div>
     <ul class="tool-list">
         {#each otherTools as tool, i (tool.key)}

@@ -124,7 +124,7 @@
 		{#if races.length === 0}
 			<p class="sl-empty">현재 등록된 예정 대회가 없습니다. 새 일정이 확인되는 대로 갱신됩니다.</p>
 		{:else}
-			<RaceResultList {races} />
+			<RaceResultList {races} showSport={false} />
 		{/if}
 	</section>
 
@@ -132,7 +132,7 @@
 	<section class="sl-sec" aria-labelledby="distances">
 		<div class="v-sechead">
 			<h2 id="distances" class="sl-h2">
-				<span class="eh-micro eh-data sl-n">02</span> {content.label} 거리 · 종목 가이드
+				<span class="eh-micro eh-data sl-n">02</span> {content.label} 거리와 종목 가이드
 			</h2>
 		</div>
 		<ul class="sl-dists">

@@ -72,9 +72,9 @@
                         <td class="sport-col"><span class="badge">{r.sportLabel}</span></td>
                         <td class="status-col">
                             {#if r.isVerified}
-                                <span class="verified">✓</span>
+                                <span class="verified">완료</span>
                             {:else}
-                                <span class="unverified">·</span>
+                                <span class="unverified">미확인</span>
                             {/if}
                         </td>
                     </tr>
@@ -172,7 +172,7 @@
     .thumb-col { width: 60px; }
     .date-col { width: 110px; }
     .sport-col { width: 100px; }
-    .status-col { width: 60px; text-align: center; }
+    .status-col { width: 80px; text-align: center; white-space: nowrap; }
     .thumb-col img {
         width: 44px;
         height: 44px;
@@ -198,17 +198,11 @@
         letter-spacing: 0.5px;
     }
     .verified {
-        display: inline-block;
-        width: 22px; height: 22px;
-        line-height: 20px;
-        text-align: center;
-        background: var(--arena-accent, #22c55e);
-        color: #fff;
+        color: var(--arena-ink, #111);
         font-size: 12px;
         font-weight: 700;
-        border-radius: 50%;
     }
-    .unverified { color: var(--arena-ink-mute, #ccc); }
+    .unverified { color: var(--arena-ink-soft, #555); font-size: 12px; }
     .empty { text-align: center; color: var(--arena-ink-mute, #888); padding: 40px; }
     .pagination {
         display: flex;

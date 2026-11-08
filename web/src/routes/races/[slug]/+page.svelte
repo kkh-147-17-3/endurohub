@@ -173,7 +173,6 @@
     const ogImage = $derived(`${appUrl}/og/races/${encodeURIComponent(race.slug)}`);
 
     // ── hero ──────────────────────────────────────────────
-    const sportMeta = $derived(SPORT_META[dsSport(race.sport)]);
     const lastUpdated = $derived(race.updatedAt ? formatDistanceToNow(race.updatedAt) : '');
 
     const venueName = $derived((race.location ?? '').split(' (')[0]);
@@ -213,7 +212,7 @@
         return { value: '마감', sub: regEnd ? `${regEnd} 종료` : race.statusLabel || '마감' };
     });
 
-    /** Distance chips for the hero sport line: "21.0975KM · 10KM · 5KM". */
+    /** Equal-level course distances shown below the race title. */
     const heroDistLabels = $derived.by<string[]>(() =>
         distanceList
             .map((d) => {
@@ -613,6 +612,8 @@
     ));
     const recOthers = $derived(recRows.filter((r) => !r.me));
     const recDisplay = $derived([...recMine, ...recOthers]);
+    const showRecordCourse = $derived(recCourse === '전체' && new Set(recDisplay.map((r) => r.courseLabel)).size > 1);
+    const singleRecordCourse = $derived(recCourse === '전체' && !showRecordCourse ? recDisplay[0]?.courseLabel : undefined);
     const hasMyRecord = $derived(seasonRecords.some((r) => r.me));
     const hasCourseFilter = $derived(recCourseOpts.length > 2);
     const hasRecordControls = $derived(hasCourseFilter || seasonRecords.length > 1);
@@ -736,18 +737,14 @@
             {/if}
         </div>
 
+        <h1 class="rd-hero__title">{race.title}</h1>
+
         <div class="rd-hero__meta">
-            <div class="rd-hero__sport">
-                <span class="rd-hero__dot" style="background:{sportMeta.color}"></span>
-                <span class="rd-hero__sportcode eh-data">{sportMeta.label}</span>
-                {#if heroDistLabels.length > 0}
-                    <span class="rd-hero__dists eh-data">{heroDistLabels.join(' · ')}</span>
-                {/if}
-            </div>
+            {#if heroDistLabels.length > 0}
+                <span class="rd-hero__dists eh-data">{heroDistLabels.join(' · ')}</span>
+            {/if}
             <Badge status={badgeStatus} />
         </div>
-
-        <h1 class="rd-hero__title">{race.title}</h1>
 
         {#if isCancelled}
             <div class="rd-cancel-notice" role="note" aria-label="대회 취소 안내">
@@ -774,12 +771,6 @@
                     </div>
                 </div>
             {/if}
-            {#if distanceList.length > 0}
-                <div class="rd-hstat">
-                    <div class="rd-hstat__k">COURSES</div>
-                    <div class="rd-hstat__v eh-data">{distanceList.length}<small>개 종목</small></div>
-                </div>
-            {/if}
             {#if venueName}
                 <div class="rd-hstat">
                     <div class="rd-hstat__k">VENUE</div>
@@ -792,7 +783,7 @@
 
         {#if heroWeather}
             <div class="rd-hero__wx">
-                <span class="rd-hero__wx-label eh-micro">WEATHER · 대회시간 기준</span>
+                <span class="rd-hero__wx-label eh-micro">대회 시간대 날씨</span>
                 {#if heroWeather.condition || heroWeather.hasTemp}
                     <span class="rd-hero__wx-item">
                         {#if heroWeather.condition}<b>{heroWeather.condition}</b>{/if}
@@ -971,7 +962,6 @@
                                 class:rd-tl__item--current={t.current}
                                 class:rd-tl__item--bold={t.bold}
                             >
-                                <span class="rd-tl__mark"></span>
                                 <span class="rd-tl__date eh-data">{formatDateShort(t.date)}</span>
                                 <span class="rd-tl__label">{t.label}</span>
                             </div>
@@ -1025,7 +1015,9 @@
                                 </div>
                                 <div class="rd-relcard__nm">{r.title}</div>
                                 <div class="rd-relcard__meta eh-data">
-                                    {r.raceDate ? formatDateShort(r.raceDate) : '—'} · {arenaDistLabel(r)} · {arenaFeeShort(arenaMinFee(r))}
+                                    <span>{r.raceDate ? formatDateShort(r.raceDate) : '—'}</span>
+                                    <span>{arenaDistLabel(r)}</span>
+                                    <span>{arenaFeeShort(arenaMinFee(r))}</span>
                                 </div>
                             </a>
                         {/each}
@@ -1100,10 +1092,11 @@
 
             <!-- Contact note -->
             {#if race.organizer || race.organizerContact}
-                <p class="rd-railnote">
-                    {#if race.organizer}주최 {race.organizer}{/if}{#if race.organizer && race.organizerContact} · {/if}{#if race.organizerContact}문의 {race.organizerContact}{/if}<br />
-                    정보 오류 제보는 <a href="mailto:contact@endurohub.kr" class="rd-railnote__link">문의하기</a> 페이지를 이용해 주세요.
-                </p>
+                <div class="rd-railnote">
+                    {#if race.organizer}<p>주최 {race.organizer}</p>{/if}
+                    {#if race.organizerContact}<p>문의 {race.organizerContact}</p>{/if}
+                    <p>정보 오류 제보는 <a href="mailto:contact@endurohub.kr" class="rd-railnote__link">문의하기</a> 페이지를 이용해 주세요.</p>
+                </div>
             {/if}
 
             {#if isAdmin}
@@ -1176,7 +1169,6 @@
                                         </span>
                                         <div class="rd-review-story__byline">
                                             <strong>@{review.nickname}</strong>
-                                            <span aria-hidden="true">·</span>
                                             <time class="eh-data" datetime={review.createdAt}>
                                                 {formatDate(review.createdAt.split('T')[0])}
                                             </time>
@@ -1230,8 +1222,7 @@
                     </h2>
                 </div>
                 <p class="rd-community__intro rd-community__intro--records">
-                    참가자가 직접 등록한 {race.title} 완주 기록입니다. 코스별 기록과 평균 페이스를 한눈에
-                    비교해보세요.
+                    {singleRecordCourse ? `${singleRecordCourse} 기록과 평균 페이스를 비교해보세요.` : '코스별 기록과 평균 페이스를 비교해보세요.'}
                 </p>
             </div>
 
@@ -1263,10 +1254,11 @@
                 </div>
             {/if}
 
-            <div class="rd-member-records" aria-label={`회원 완주 기록 ${recDisplay.length}건`}>
+            <div class="rd-member-records" aria-label={`회원 완주 기록 ${recDisplay.length}건`}
+                style:--record-columns={showRecordCourse ? 'minmax(150px, 1fr) 120px 170px 130px' : 'minmax(150px, 1fr) 170px 130px'}>
                 <div class="rd-member-records__columns" aria-hidden="true">
                     <span>러너</span>
-                    <span>대회 · 종목</span>
+                    {#if showRecordCourse}<span>종목</span>{/if}
                     <span>완주 기록</span>
                     <span>평균 페이스</span>
                 </div>
@@ -1293,13 +1285,11 @@
                                     {#if record.me}<span class="rd-member-record__mine">내 기록</span>{/if}
                                     {#if record.isMergeHistory}<span class="rd-member-record__mine">이전 기록</span>{/if}
                                 </div>
-                                <div class="rd-member-record__race">
-                                    <a href="#race-top">{race.title} <span aria-hidden="true">↗</span></a>
-                                    <span>
-                                        <i style={`--record-sport:${sportMeta.color}`} aria-hidden="true"></i>
-                                        {sportMeta.ko} · {record.courseLabel}{race.raceDate ? ` · ${formatDate(race.raceDate)}` : ''}
-                                    </span>
-                                </div>
+                                {#if showRecordCourse}
+                                    <div class="rd-member-record__metric rd-member-record__course" data-label="종목">
+                                        <span>{record.courseLabel}</span>
+                                    </div>
+                                {/if}
                                 <div class="rd-member-record__metric" data-label="완주 기록">
                                     <strong class="eh-data">{record.time}</strong>
                                 </div>
@@ -1311,7 +1301,7 @@
                     {/if}
                 </div>
                 <div class="rd-member-records__foot">
-                    <span><strong>참가자 직접 등록</strong> · 공식 기록과 다를 수 있습니다.</span>
+                    <span>공식 기록과 다를 수 있습니다.</span>
                     <span>
                         다른 회원은 공개로 설정한 기록만 표시됩니다.{#if !hasMyRecord}
                             내 기록은 <a href="/timeline">시즌 탭</a>에서 입력할 수 있습니다.
@@ -1529,25 +1519,8 @@
         align-items: center;
         justify-content: space-between;
         gap: 16px;
-        margin-top: 22px;
-    }
-    .rd-hero__sport {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        min-width: 0;
         flex-wrap: wrap;
-    }
-    .rd-hero__dot {
-        width: 9px;
-        height: 9px;
-        border-radius: 50%;
-        flex: none;
-    }
-    .rd-hero__sportcode {
-        font-size: 13px;
-        font-weight: 800;
-        letter-spacing: 0.08em;
+        margin-top: 16px;
     }
     .rd-hero__dists {
         font-size: 13px;
@@ -1561,7 +1534,7 @@
         font-weight: var(--w-display);
         letter-spacing: var(--track-display);
         line-height: var(--leading-display);
-        margin-top: 16px;
+        margin-top: 22px;
         color: var(--text-inverse);
         text-wrap: balance;
     }
@@ -1812,22 +1785,13 @@
     .rd-tl { display: flex; flex-direction: column; border: var(--border-hair); background: var(--surface-card); padding: 4px 18px; }
     .rd-tl__item {
         display: grid;
-        grid-template-columns: 18px 110px 1fr;
+        grid-template-columns: 110px 1fr;
         gap: 14px;
         align-items: baseline;
         padding: 13px 0;
         border-bottom: var(--border-hair);
     }
     .rd-tl__item:last-child { border-bottom: 0; }
-    .rd-tl__mark {
-        width: 10px;
-        height: 10px;
-        border: 1px solid var(--ink-300);
-        background: var(--paper-0);
-        align-self: center;
-    }
-    .rd-tl__item--done .rd-tl__mark { background: var(--ink-900); border-color: var(--ink-900); }
-    .rd-tl__item--current .rd-tl__mark { background: var(--accent); border-color: var(--accent-strong); }
     .rd-tl__date { font-size: 13px; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
     .rd-tl__label { font-size: 14px; font-weight: 500; color: var(--text-strong); }
     .rd-tl__item--current .rd-tl__label { font-weight: 700; color: var(--text-accent); }
@@ -2168,7 +2132,7 @@
     .rd-member-records__columns,
     .rd-member-record {
         display: grid;
-        grid-template-columns: minmax(150px, 0.75fr) minmax(280px, 1.4fr) 170px 130px;
+        grid-template-columns: var(--record-columns);
     }
     .rd-member-records__columns {
         min-height: 42px;
@@ -2230,49 +2194,7 @@
         font-weight: 800;
         letter-spacing: 0.09em;
     }
-    .rd-member-record__race {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 2px;
-    }
-    .rd-member-record__race a {
-        display: inline-flex;
-        min-height: 44px;
-        max-width: 100%;
-        align-items: center;
-        margin: -8px 0 -8px -8px;
-        padding: 0 8px;
-        overflow: hidden;
-        color: var(--text-strong);
-        font-size: 14px;
-        font-weight: 750;
-        line-height: 1.35;
-        text-overflow: ellipsis;
-        text-underline-offset: 4px;
-        white-space: nowrap;
-    }
-    .rd-member-record__race a:hover {
-        background: var(--paper-100);
-    }
-    .rd-member-record__race > span {
-        display: flex;
-        max-width: 100%;
-        align-items: center;
-        gap: 7px;
-        overflow: hidden;
-        color: var(--text-muted);
-        font-size: 11px;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    .rd-member-record__race i {
-        width: 6px;
-        height: 6px;
-        flex: none;
-        border-radius: 50%;
-        background: var(--record-sport);
-    }
+    .rd-member-record__course { color: var(--text-muted); font-size: 13px; }
     .rd-member-record__metric {
         display: flex;
         flex-direction: column;
@@ -2308,7 +2230,6 @@
         font-size: 11px;
         line-height: 1.5;
     }
-    .rd-member-records__foot strong,
     .rd-member-records__foot a {
         color: var(--text-strong);
         font-weight: 700;
@@ -2380,13 +2301,8 @@
         .rd-member-record > div {
             padding: 0;
         }
-        .rd-member-record__runner,
-        .rd-member-record__race {
+        .rd-member-record__runner {
             grid-column: 1 / -1;
-        }
-        .rd-member-record__race {
-            padding-bottom: 14px !important;
-            border-bottom: var(--border-hair);
         }
         .rd-member-record__runner strong {
             white-space: normal;
@@ -2496,7 +2412,7 @@
         overflow: hidden;
     }
     .rd-relcard:hover .rd-relcard__nm { text-decoration: underline; text-underline-offset: 3px; }
-    .rd-relcard__meta { font-size: 12px; color: var(--text-muted); }
+    .rd-relcard__meta { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--text-muted); }
 
     /* ══════════════════════════════════════════
        RAIL

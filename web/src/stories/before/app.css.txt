@@ -1,0 +1,238 @@
+@import 'tailwindcss';
+@import './lib/styles/eh-tokens.css';
+@import './lib/styles/eh-components.css';
+@plugin "daisyui" {
+    themes: light --default, dark --prefersdark;
+}
+
+/* ------------------------------------------------------------------ */
+/* Arena Visual System — sharp edges, no rounding, crisp lines        */
+/* Cool paper, graphite ink, electric green accent, mono labels       */
+/* Fonts loaded via <link> in app.html (Pretendard / Space Grotesk /   */
+/* IBM Plex Mono).                                                     */
+/* ------------------------------------------------------------------ */
+
+/* --arena-* tokens are now defined in eh-tokens.css as a bridge to the
+   official DS palette. Training-zone inks (used by /tools tables) keep
+   their dedicated hues here. */
+:root {
+    --arena-zone-e: oklch(58% 0.13 145);
+    --arena-zone-m: oklch(55% 0.14 80);
+    --arena-zone-t: oklch(60% 0.15 55);
+    --arena-zone-i: oklch(60% 0.18 30);
+    --arena-zone-r: oklch(50% 0.18 25);
+}
+
+/* Arena page background now driven by DS tokens */
+body.arena {
+    background: var(--bg-page);
+    color: var(--text-strong);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+}
+
+.arena-mono { font-family: var(--arena-f-mono); }
+.arena-display { font-family: var(--arena-f-display); }
+.arena-body { font-family: var(--arena-f-body); }
+
+.arena-kicker {
+    font-family: var(--arena-f-mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--arena-ink-soft);
+}
+
+.arena-live-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: var(--arena-accent);
+    animation: arena-pulse 2s infinite;
+    vertical-align: middle;
+}
+@keyframes arena-pulse {
+    0%, 70% { opacity: 1; }
+    85% { opacity: 0.3; }
+    100% { opacity: 1; }
+}
+
+.arena-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px;
+    border: 1px solid var(--arena-line);
+    font-family: var(--arena-f-mono);
+    font-size: 11px;
+    background: transparent;
+}
+.arena-chip-filled { background: var(--arena-ink); color: var(--arena-paper); border-color: var(--arena-ink); }
+.arena-chip-accent { background: var(--arena-accent); color: var(--arena-ink); border-color: var(--arena-accent); }
+.arena-chip-urgent { background: var(--arena-urgent); color: var(--arena-paper); border-color: var(--arena-urgent); }
+
+.arena-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: none;
+    cursor: pointer;
+    font-family: var(--arena-f-display);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: -0.2px;
+    transition: transform 0.1s;
+    text-decoration: none;
+}
+.arena-btn:active { transform: translateY(1px); }
+.arena-btn-primary { background: var(--arena-ink); color: var(--arena-paper); }
+.arena-btn-ghost { background: transparent; color: var(--arena-ink); border: 1px solid var(--arena-line); }
+.arena-btn-accent { background: var(--arena-accent); color: var(--arena-ink); }
+
+/* Race card — sharp-edged grid card with offset hover shadow */
+.arena-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--arena-paper);
+    border: 1px solid var(--arena-line);
+    text-decoration: none;
+    color: var(--arena-ink);
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+.arena-card:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 4px 4px 0 var(--arena-ink);
+}
+
+/* Hairline horizontal divider used between sections */
+.arena-divider { border-bottom: 1px solid var(--arena-line); }
+
+/* ------------------------------------------------------------------ */
+/* Theme transition (existing daisyUI behaviour)                      */
+/* ------------------------------------------------------------------ */
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease,
+        box-shadow 0.3s ease !important;
+}
+
+@theme {
+    --font-sans: 'Pretendard Variable', 'Noto Sans KR', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
+        'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-display: 'Space Grotesk', 'Pretendard Variable', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'IBM Plex Mono', 'IBM Plex Sans KR', ui-monospace, Menlo, monospace;
+}
+
+/* Calendar race item - expand on hover */
+.calendar-race-item-wrapper {
+    position: relative;
+    height: 20px;
+}
+
+.calendar-race-item-wrapper:hover {
+    z-index: 50;
+}
+
+.calendar-race-item {
+    overflow: hidden;
+    white-space: nowrap;
+    display: block;
+}
+
+.calendar-race-item span {
+    display: inline-block;
+    padding-left: 0;
+}
+
+.calendar-race-item-wrapper:hover .calendar-race-item span {
+    animation: marquee 3s linear infinite;
+}
+
+@keyframes marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-100%); }
+}
+
+/* Month range slider — arena (sharp edges, ink/paper palette) */
+.month-range-slider {
+    padding-top: 2rem;
+}
+
+.month-range-slider .rangeSlider {
+    background-color: var(--arena-line-soft) !important;
+    height: 4px !important;
+    border-radius: 0 !important;
+}
+
+.month-range-slider .rangeNub {
+    border-radius: 0 !important;
+    transform: none !important;
+    background-color: var(--arena-paper) !important;
+    border: 1.5px solid var(--arena-ink) !important;
+    box-shadow: none !important;
+    transition: box-shadow 0.15s ease-out, background-color 0.15s !important;
+    width: 14px !important;
+    height: 14px !important;
+}
+
+.month-range-slider .rangeHandle.rsActive .rangeNub,
+.month-range-slider .rangeHandle:hover .rangeNub {
+    background-color: var(--arena-ink) !important;
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--arena-ink), transparent 80%) !important;
+}
+
+.month-range-slider .rangeHandle::before {
+    display: none !important;
+}
+
+.month-range-slider .rangeBar {
+    background-color: var(--arena-ink) !important;
+    opacity: 1 !important;
+    border-radius: 0 !important;
+}
+
+.month-range-slider .rangeFloat {
+    opacity: 1 !important;
+    translate: -50% 0% 0 !important;
+    scale: 1 !important;
+    background-color: var(--arena-ink) !important;
+    color: var(--arena-paper) !important;
+    font-family: var(--arena-f-mono) !important;
+    font-size: 10px !important;
+    font-weight: 400 !important;
+    letter-spacing: 0.5px !important;
+    padding: 3px 8px !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    white-space: nowrap !important;
+}
+
+.month-range-slider .rangeFloat::after {
+    content: '' !important;
+    position: absolute !important;
+    top: 100% !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    border: 4px solid transparent !important;
+    border-top-color: var(--arena-ink) !important;
+}
+
+@media (pointer: coarse) {
+    .month-range-slider .rangeNub {
+        width: 18px !important;
+        height: 18px !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .month-range-slider .rangeNub {
+        transition: none !important;
+    }
+}
+
+/* Hide scrollbar utility (Home carousels) */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }

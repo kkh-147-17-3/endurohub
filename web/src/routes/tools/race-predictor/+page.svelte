@@ -27,18 +27,18 @@
 	<div class="tool-layout">
 		<!-- INPUT -->
 		<div class="panel">
-			<span class="eh-micro">{pf ? '내 기록 기준 · 수정 가능' : '계산 예시 · 내 기록으로 변경해 보세요'}</span>
+			{#if !pf}<p class="input-context">예시 값입니다. 내 거리와 시간으로 변경해 보세요.</p>{/if}
 			<div class="row">
 				{#each STD_DISTANCES as d (d.code)}
 					<FilterChip selected={Math.abs(km - d.km) < 0.01} onclick={() => (km = d.km)}>{d.label}</FilterChip>
 				{/each}
 			</div>
-			<Field label="기준 완주 기록" placeholder="예: 1:42:15" bind:value={time} error={!valid} aria-invalid={!valid} hint="시:분:초 또는 분:초 · 숫자만 입력하면 분으로 계산" />
+			<Field label="기준 완주 기록" placeholder="예: 1:42:15" bind:value={time} error={!valid} aria-invalid={!valid} hint="시:분:초 또는 분:초로 입력하세요. 숫자만 입력하면 분으로 계산합니다." />
 			{#if !valid}<p class="input-error" role="status">0보다 큰 시간을 입력해 주세요. 분·초 칸은 0–59까지 사용할 수 있습니다.</p>{/if}
 			{#if pf}
 				<Prefill label={pf.label} onApply={() => { km = pf.distKm; time = pf.timeStr; }} />
 			{/if}
-			<p class="src-note">Riegel 공식 (지수 1.06). 동일한 트레이닝 상태 · 평탄 코스 가정입니다.</p>
+			<p class="src-note">Riegel 공식 (지수 1.06). 동일한 훈련 상태에서 평탄한 코스를 달린다고 가정합니다.</p>
 		</div>
 
 		<!-- OUTPUT -->
@@ -88,6 +88,7 @@
 		gap: var(--sp-5);
 	}
 	.row { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+	.input-context { margin: 0; font-size: 12px; color: var(--text-muted); line-height: 1.6; }
 	.src-note { margin: 0; font-size: 12px; color: var(--text-faint); line-height: 1.6; }
 	.input-error { margin: 0; font-size: 13px; color: var(--danger); }
 

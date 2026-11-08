@@ -412,13 +412,19 @@
         unknown: 'unknown',
         logged: 'logged'
     };
+    const STATUS_LABELS: Record<SeasonStatus, string> = {
+        confirmed_going: '참가 예정',
+        maybe: '관심',
+        unknown: '미확인',
+        logged: '완주 기록'
+    };
 
-    function deadlineInfo(r: SeasonRace): { text: string; warn: boolean } | null {
+    function deadlineInfo(r: SeasonRace): { text: string; countdown?: string; warn: boolean } | null {
         if (!isCurrentSeason || !r.deadline) return null;
         if (r.userStatus === 'logged' || r.userStatus === 'unknown') return null;
         const left = dayOfYear(r.deadline.m, r.deadline.day) - todayDoy;
         if (left < 0) return { text: `접수 마감됨 ${r.deadline.m}.${r.deadline.day}`, warn: false };
-        return { text: `접수 마감 ${r.deadline.m}.${r.deadline.day} · D-${left}`, warn: left <= 14 };
+        return { text: `접수 마감 ${r.deadline.m}.${r.deadline.day}`, countdown: `D-${left}`, warn: left <= 14 };
     }
 
     function isPlanned(r: SeasonRace, code: string): boolean {
@@ -508,17 +514,6 @@
 
     <!-- ── Year strip (gantt) ─────────────────────────────────────────────── -->
     <div class="strip-wrap">
-        <div class="strip-head">
-            <span class="eh-micro"><span class="acc">JAN — DEC</span> · 대회 {seasonRaces.length}개</span>
-            {#if isCurrentSeason}
-                <span class="eh-micro" style="color: var(--text-faint);">
-                    오늘 {todayMonth}.{todayDay} · 시즌 {Math.round(todayPct)}% 경과
-                </span>
-            {:else}
-                <span class="eh-micro" style="color: var(--text-faint);">과거 기록 공개 설정 가능</span>
-            {/if}
-        </div>
-
         <div class="strip">
             <div class="strip-months">
                 {#each months as m (m.m)}
@@ -542,7 +537,8 @@
                         class:sel={sel === r.id}
                         style="left: {pct(r.month, r.day)}%; top: {14 + lane * 38}px"
                         onclick={() => toggle(r.id)}
-                        title={r.name}
+                        title={`${r.name} · ${STATUS_LABELS[r.userStatus]}${r.mainGoal ? ' · 메인 목표' : ''}`}
+                        aria-label={`${r.month}월 ${r.day}일 ${r.name} · ${STATUS_LABELS[r.userStatus]}${r.mainGoal ? ' · 메인 목표' : ''}`}
                     >
                         <span class="mk"></span>
                         <span class="nm">{r.name}</span>
@@ -557,7 +553,7 @@
                 {#if item.kind === 'today'}
                     <div class="mtoday">
                         <span class="tdate eh-data">{todayMonth}.{todayDay}</span>
-                        <span class="mrail"><span class="tdot"></span></span>
+                        <span class="mrail" aria-hidden="true"></span>
                         <span class="tpill">TODAY</span>
                     </div>
                 {:else if item.kind === 'month'}
@@ -641,21 +637,27 @@
         <div style="min-width: 0;">
             <div class="nm">
                 {r.name}
-                <span style="color: var(--text-faint); font-weight: 500; font-size: 13px;">{r.region}</span>
             </div>
+            {#if r.region}<p class="race-region">{r.region}</p>{/if}
             <div class="sub">
                 <span class="codes">
-                    {#each r.courses as c (c.code)}
-                        <span class="code eh-data" class:planned={isPlanned(r, c.code)}>{c.label}</span>
-                    {/each}
+                    {#if r.result && loggedCourseLabel(r)}
+                        <span class="code eh-data planned">{loggedCourseLabel(r)}</span>
+                    {:else}
+                        {#each r.courses as c (c.code)}
+                            <span class="code eh-data" class:planned={isPlanned(r, c.code)}>{c.label}</span>
+                        {/each}
+                    {/if}
                 </span>
-                {#if r.note}<span>· {r.note}</span>{/if}
-                {#if r.result}
-                    <span class="result-line eh-data">
-                        {#if loggedCourseLabel(r)}<b>{loggedCourseLabel(r)}</b> · {/if}{r.result.time}{#if r.result.pace} ({r.result.pace}){/if}{r.result.pb ? ' · PB' : ''}
-                    </span>
-                {/if}
             </div>
+            {#if r.result}
+                <div class="result-line eh-data">
+                    <b>{r.result.time}</b>
+                    {#if r.result.pace}<span>{r.result.pace}</span>{/if}
+                    {#if r.result.pb}<span>PB</span>{/if}
+                </div>
+            {/if}
+            {#if r.note}<p class="race-note">{r.note}</p>{/if}
         </div>
         <div class="right">
             {#if r.userStatus === 'logged'}
@@ -670,6 +672,7 @@
 
             {#if ddl}
                 <span class="ddl eh-data" class:warn={ddl.warn}>{ddl.text}</span>
+                {#if ddl.countdown}<span class="ddl-countdown eh-data" class:warn={ddl.warn}>{ddl.countdown}</span>{/if}
             {/if}
             {#if !isPast(r) && r.userStatus !== 'logged'}
                 <span onclick={(e) => e.stopPropagation()}>
@@ -701,7 +704,8 @@
         class:goal={r.mainGoal}
         class:sel={sel === r.id}
         onclick={() => toggle(r.id)}
-        title={r.name}
+        title={`${r.name} · ${STATUS_LABELS[r.userStatus]}${r.mainGoal ? ' · 메인 목표' : ''}`}
+        aria-label={`${r.month}월 ${r.day}일 ${r.name} · ${STATUS_LABELS[r.userStatus]}${r.mainGoal ? ' · 메인 목표' : ''}`}
     >
         <span class="mdate eh-data">{r.month}.{String(r.day).padStart(2, '0')}</span>
         <span class="mrail"><span class="mk"></span></span>
@@ -710,9 +714,14 @@
             <span class="mmeta">
                 {#if r.region}<span>{r.region}</span>{/if}
                 {#if r.mainGoal}<span class="goaltag">메인 목표</span>{/if}
-                {#if ddl}<span class="ddl eh-data" class:warn={ddl.warn}>{ddl.text}</span>{/if}
-                {#if r.result}<span class="mresult eh-data">{r.result.time}</span>{/if}
             </span>
+            {#if ddl}
+                <span class="mdeadline">
+                    <span class="ddl eh-data" class:warn={ddl.warn}>{ddl.text}</span>
+                    {#if ddl.countdown}<span class="ddl-countdown eh-data" class:warn={ddl.warn}>{ddl.countdown}</span>{/if}
+                </span>
+            {/if}
+            {#if r.result}<span class="mresult eh-data">{r.result.time}</span>{/if}
         </span>
     </button>
 {/snippet}
@@ -724,7 +733,7 @@
             <div class="eh-micro acc">{isEditing ? '기록 수정' : '기록 등록'}</div>
             <h2 class="log-title">{logRace.name}</h2>
             <p class="log-sub eh-data">
-                {months[logRace.month - 1].label} {logRace.month}.{String(logRace.day).padStart(2, '0')}
+                {logRace.month}.{String(logRace.day).padStart(2, '0')}
                 {#if logRace.region} · {logRace.region}{/if}
             </p>
 
@@ -920,13 +929,6 @@
         margin-top: 32px;
         border-top: var(--border-rule);
         padding-top: 14px;
-    }
-    .strip-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        flex-wrap: wrap;
-        gap: 8px;
     }
     .strip {
         position: relative;
@@ -1163,6 +1165,7 @@
         letter-spacing: var(--track-heading);
         color: var(--text-strong);
     }
+    .race-region, .race-note { margin-top: 5px; font-size: 12.5px; color: var(--text-muted); }
     .rrow .sub {
         display: flex;
         gap: 10px;
@@ -1202,6 +1205,8 @@
         color: var(--caution);
         font-weight: 700;
     }
+    .ddl-countdown { font-size: 12px; font-weight: 700; color: var(--text-muted); }
+    .ddl-countdown.warn { color: var(--caution); }
     .logged-chip {
         display: inline-flex;
         align-items: center;
@@ -1215,10 +1220,16 @@
         border-radius: var(--r-2);
     }
     .result-line {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 8px 14px;
+        margin-top: 8px;
         font-size: 12.5px;
         color: var(--text-accent);
         font-weight: 700;
     }
+    .result-line b { font-size: 18px; }
 
     /* ── Mobile vertical timeline rail ───────────────────────────────────────
        Hidden on desktop; the @media block below swaps the gantt strip for this
@@ -1340,11 +1351,14 @@
         color: var(--text-accent);
         font-weight: 700;
     }
-    .mnode .mmeta .ddl.warn {
+    .mnode .mdeadline { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; font-size: 11.5px; color: var(--text-muted); }
+    .mnode .mdeadline .ddl.warn {
         color: var(--caution);
         font-weight: 700;
     }
-    .mnode .mmeta .mresult {
+    .mnode .mresult {
+        display: block;
+        margin-top: 6px;
         color: var(--text-accent);
         font-weight: 700;
     }
@@ -1377,15 +1391,6 @@
     }
     .mtoday .mrail::before {
         background: var(--accent);
-    }
-    .mtoday .tdot {
-        position: relative;
-        z-index: 1;
-        width: 13px;
-        height: 13px;
-        border-radius: 50%;
-        background: var(--accent);
-        box-shadow: 0 0 0 3px var(--accent-tint);
     }
     .mtoday .tpill {
         align-self: center;

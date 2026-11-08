@@ -1,0 +1,89 @@
+{
+  "commit": "b3fab0b20a66bf895d615ae14174bb1c688c6c3f",
+  "files": [
+    {
+      "snapshot": "lib/components/eh/SportTag.svelte",
+      "source": "web/src/lib/components/eh/SportTag.svelte"
+    },
+    {
+      "snapshot": "lib/components/eh/Badge.svelte",
+      "source": "web/src/lib/components/eh/Badge.svelte"
+    },
+    {
+      "snapshot": "lib/components/eh/FilterChip.svelte",
+      "source": "web/src/lib/components/eh/FilterChip.svelte"
+    },
+    {
+      "snapshot": "lib/components/eh/EventCard.svelte",
+      "source": "web/src/lib/components/eh/EventCard.svelte"
+    },
+    {
+      "snapshot": "lib/components/eh/RaceResultList.svelte",
+      "source": "web/src/lib/components/eh/RaceResultList.svelte"
+    },
+    {
+      "snapshot": "lib/components/eh/meta.ts",
+      "source": "web/src/lib/components/eh/meta.ts"
+    },
+    {
+      "snapshot": "lib/components/eh/race.ts",
+      "source": "web/src/lib/components/eh/race.ts"
+    },
+    {
+      "snapshot": "lib/components/PostCard.svelte",
+      "source": "web/src/lib/components/PostCard.svelte"
+    },
+    {
+      "snapshot": "lib/components/RaceTagBadges.svelte",
+      "source": "web/src/lib/components/RaceTagBadges.svelte"
+    },
+    {
+      "snapshot": "lib/components/home/HomeCommunityHighlights.svelte",
+      "source": "web/src/lib/components/home/HomeCommunityHighlights.svelte"
+    },
+    {
+      "snapshot": "lib/components/calendar/CalendarBoard.svelte",
+      "source": "web/src/lib/components/calendar/CalendarBoard.svelte"
+    },
+    {
+      "snapshot": "lib/components/calendar/CalendarRaceList.svelte",
+      "source": "web/src/lib/components/calendar/CalendarRaceList.svelte"
+    },
+    {
+      "snapshot": "lib/components/calendar/CalendarDiscovery.svelte",
+      "source": "web/src/lib/components/calendar/CalendarDiscovery.svelte"
+    },
+    {
+      "snapshot": "lib/components/calendar/RegionCartogram.svelte",
+      "source": "web/src/lib/components/calendar/RegionCartogram.svelte"
+    },
+    {
+      "snapshot": "lib/components/modals/ActionModal.svelte",
+      "source": "web/src/lib/components/modals/ActionModal.svelte"
+    },
+    {
+      "snapshot": "lib/components/modals/NoticeModal.svelte",
+      "source": "web/src/lib/components/modals/NoticeModal.svelte"
+    },
+    {
+      "snapshot": "lib/components/modals/Modal.svelte",
+      "source": "web/src/lib/components/modals/Modal.svelte"
+    },
+    {
+      "snapshot": "lib/components/Tools/ToolsSidebar.svelte",
+      "source": "web/src/lib/components/Tools/ToolsSidebar.svelte"
+    },
+    {
+      "snapshot": "lib/styles/eh-components.css.txt",
+      "source": "web/src/lib/styles/eh-components.css"
+    },
+    {
+      "snapshot": "lib/styles/eh-tokens.css.txt",
+      "source": "web/src/lib/styles/eh-tokens.css"
+    }
+  ],
+  "transforms": [
+    "Repoint imports of snapshotted $lib components to $before/lib. Relative imports remain unchanged.",
+    "Store original global CSS as .css.txt for explicit ?raw injection only in the isolated before preview."
+  ]
+}

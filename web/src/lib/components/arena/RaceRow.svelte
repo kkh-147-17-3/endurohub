@@ -134,16 +134,12 @@
             font-size: 11px;
             padding-left: 0;
             row-gap: 2px;
+            column-gap: 12px;
         }
         .meta .cell {
             display: inline-flex;
             align-items: baseline;
             overflow: visible;
-        }
-        .meta .cell:not(:first-child)::before {
-            content: '·';
-            margin: 0 8px;
-            color: var(--arena-line);
         }
     }
 </style>

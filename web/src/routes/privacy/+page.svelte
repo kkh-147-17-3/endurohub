@@ -136,7 +136,7 @@
                             <p class="sec-paragraph">{p}</p>
                         {/each}
                         {#if s.list}
-                            <ul class="sec-list">
+                            <ul class="sec-list" role="list">
                                 {#each s.list as item}
                                     <li>{item}</li>
                                 {/each}
@@ -329,8 +329,8 @@
     }
     .sec-list {
         margin: 0;
-        padding: 0 0 0 20px;
-        list-style: disc;
+        padding: 0;
+        list-style: none;
         display: flex;
         flex-direction: column;
         gap: 6px;
@@ -341,9 +341,6 @@
         line-height: 1.6;
         color: var(--arena-ink);
         word-break: keep-all;
-    }
-    .sec-list li::marker {
-        color: var(--arena-ink-soft);
     }
 
     .sec-contact {

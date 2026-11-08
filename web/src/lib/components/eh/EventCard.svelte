@@ -8,6 +8,7 @@
 	let {
 		variant = 'tile',
 		sport = 'run',
+		showSport = true,
 		title,
 		date,
 		location = '',
@@ -20,6 +21,7 @@
 	}: {
 		variant?: 'tile' | 'row';
 		sport?: DsSport;
+		showSport?: boolean;
 		title: string;
 		date: string;
 		location?: string;
@@ -45,8 +47,8 @@
 		<div class="eh-event__body">
 			<div class="eh-event__main">
 				<div class="eh-event__top" style="justify-content:flex-start;gap:12px;">
-					<SportTag {sport} />
-					<span class="eh-event__date">{date}{#if location} · {location}{/if}</span>
+					{#if showSport}<SportTag {sport} />{/if}
+					<span class="eh-event__date"><span>{date}</span>{#if location}<span>{location}</span>{/if}</span>
 					<Badge {status} />
 				</div>
 				<h3 class="eh-event__title">{title}</h3>
@@ -71,12 +73,14 @@
 			</div>
 		{/if}
 		<div class="eh-event__body">
-			<div class="eh-event__top">
-				<SportTag {sport} />
-				{#if !image}<Badge {status} />{/if}
-			</div>
+			{#if showSport || !image}
+				<div class="eh-event__top">
+					{#if showSport}<SportTag {sport} />{/if}
+					{#if !image}<Badge {status} />{/if}
+				</div>
+			{/if}
 			<h3 class="eh-event__title">{title}</h3>
-			<span class="eh-event__meta">{date}{#if location} · {location}{/if}</span>
+			<span class="eh-event__meta"><span>{date}</span>{#if location}<span>{location}</span>{/if}</span>
 			{#if specs.length}
 				<div class="eh-event__specs">
 					{#each specs as sp}

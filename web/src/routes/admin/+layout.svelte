@@ -11,7 +11,6 @@
     {#if showShell}
     <header class="admin-header">
         <a href="/admin/races" class="admin-brand">
-            <span class="brand-dot"></span>
             EnduroHub <span class="brand-mute">/ admin</span>
         </a>
         <nav class="admin-nav">
@@ -53,12 +52,6 @@
         letter-spacing: -0.3px;
         color: var(--arena-ink, #111);
         text-decoration: none;
-    }
-    .brand-dot {
-        display: inline-block;
-        width: 7px;
-        height: 7px;
-        background: var(--arena-accent, #22c55e);
     }
     .brand-mute {
         color: var(--arena-ink-mute, #888);

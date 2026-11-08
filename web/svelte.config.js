@@ -10,7 +10,8 @@ const config = {
 			precompress: true
 		}),
 		alias: {
-			$components: 'src/lib/components'
+			$components: 'src/lib/components',
+			$before: 'src/stories/before'
 		},
 		version: {
 			// Poll for new deployments. When a stale tab (loaded before a deploy)

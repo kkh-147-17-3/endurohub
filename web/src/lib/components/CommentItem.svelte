@@ -102,7 +102,6 @@
     <header class="head">
         <div class="ident">
             <span class="nickname">{comment.nickname}</span>
-            <span class="dot">·</span>
             <span class="date">{comment.createdAtFormatted}</span>
         </div>
         <div class="actions">
@@ -236,9 +235,6 @@
         font-weight: 700;
         font-family: var(--arena-f-body);
         font-size: 13px;
-    }
-    .dot {
-        opacity: 0.4;
     }
     .date {
         letter-spacing: 0.5px;

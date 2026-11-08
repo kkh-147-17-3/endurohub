@@ -56,6 +56,15 @@
     let fStatus = $state<Facet>('all');
     let fRegion = $state<Facet>('all');
     let sheetOpen = $state(false);
+    const rowColumns = $derived([
+        '96px',
+        ...(fSport === 'all' ? ['84px'] : []),
+        'minmax(0, 1fr)',
+        '100px',
+        ...(fRegion === 'all' ? ['56px'] : []),
+        '76px',
+        '132px',
+    ].join(' '));
 
     function reset() {
         fSport = 'all';
@@ -230,7 +239,6 @@
             {#each SPORTS as s (s)}
                 <FilterChip
                     selected={fSport === s}
-                    dotColor={SPORT_META[s].color}
                     count={sportPool.filter((x) => appSportToDs[x.race.sport] === s).length}
                     onclick={() => (fSport = fSport === s ? 'all' : s)}
                 >
@@ -271,13 +279,12 @@
     </div>
 {/snippet}
 
-<div class="v-container yr-page">
+<div class="v-container yr-page" style:--year-row-columns={rowColumns}>
     <!-- HERO -->
     <div class="hero">
         <div class="eh-micro">전국 <span class="eh-data">{totalCount}</span>개 대회</div>
         <h1 class="hero-title">{year} 대회 캘린더</h1>
         <p class="hero-sub">
-            {year}년 전국 마라톤·트레일러닝·자전거·수영·철인3종 대회 {totalCount}개를 월별로 모았습니다.
             종목, 접수 상태, 지역으로 원하는 대회를 골라보세요.
         </p>
     </div>
@@ -365,10 +372,10 @@
                             {@const day = dayOf(race)}
                             <a class="v-trow click yr-row" class:done={race.status === 'finished'} href={`/races/${race.slug}`}>
                                 <span class="eh-data yr-date">{m}.{pad(day)} {dowOf(m, day)}</span>
-                                <span class="hide-m"><SportTag sport={appSportToDs[race.sport]} /></span>
+                                {#if fSport === 'all'}<span class="hide-m"><SportTag sport={appSportToDs[race.sport]} /></span>{/if}
                                 <span class="yr-name">{race.title}</span>
                                 <span class="hide-m yr-dim eh-data">{arenaDistLabel(race)}</span>
-                                <span class="hide-m yr-dim">{race.region || '—'}</span>
+                                {#if fRegion === 'all'}<span class="hide-m yr-dim">{race.region || '—'}</span>{/if}
                                 <span class="hide-m yr-dim eh-data">{feeLabel(race)}</span>
                                 <span class="yr-badge">
                                     {#if race.status === 'cancelled'}
@@ -674,7 +681,7 @@
     }
 
     .yr-row {
-        grid-template-columns: 96px 84px 1fr 100px 56px 76px 132px;
+        grid-template-columns: var(--year-row-columns);
         gap: 14px;
         text-decoration: none;
         color: var(--text-strong);

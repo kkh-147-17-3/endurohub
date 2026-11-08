@@ -28,7 +28,7 @@
 	const race = $derived(isExample ? publicExample.goal : (goalRaces.find((r) => r.id === raceId) ?? goalRaces[0]));
 	const raceOptions = $derived(goalRaces.map((r) => ({
 		value: r.id,
-		label: `${r.name} · ${r.date.slice(5).replace('-', '.')}`,
+		label: r.name,
 	})));
 	const timing = $derived(trainingPlanTiming(race?.date ?? '', publicExample.referenceDateKst));
 	const weeks = $derived(!timing.canPlan ? 0
@@ -69,16 +69,17 @@
 		{/if}
 
 		<section class="plan-context" aria-labelledby="plan-context-title">
-			<div class="eh-micro">{isExample ? '공개 예시 · 가상의 기록과 목표' : '내 관심 대회 · 참고 모형'}</div>
-			<h2 id="plan-context-title">{isExample ? `가상 풀코스 목표로 ${weeks}주 구성 살펴보기` : '내 대회 날짜로 주차별 구성 살펴보기'}</h2>
+			<h2 id="plan-context-title">{isExample ? `가상 풀코스 ${weeks}주 공개 예시` : '내 대회 날짜로 주차별 구성 살펴보기'}</h2>
 			{#if isExample}
-				<p>예시 기록은 하프 21.0975km · 1:42:15, 예시 목표는 기준일로부터 16주 후의 가상 풀코스 42.195km입니다. 실제 대회나 회원 기록을 사용하지 않습니다.</p>
+				<p>가상의 완주 기록과 목표를 사용합니다. 실제 대회나 회원 기록을 사용하지 않습니다.</p>
 			{:else}
 				<p>선택한 도로 마라톤의 풀코스 42.195km를 기준으로 주차를 배치합니다. 이 참고 모형은 풀코스 종목이 있는 도로 달리기 대회를 지원합니다.</p>
 			{/if}
-			<p class="basis-note"><strong>{usesSampleRecord ? '계산 기준 · 예시 기록' : '계산 기준 · 내 최근 기록'}</strong> {basis.label}
-				{#if !isExample && usesSampleRecord} · 사용할 수 있는 러닝 기록이 없어 예시 기록을 사용합니다.{/if}
-			</p>
+			<dl class="basis-note">
+				<dt>{usesSampleRecord ? '예시 기록 기준' : '내 최근 기록 기준'}</dt>
+				<dd>{basis.label}</dd>
+			</dl>
+			{#if !isExample && usesSampleRecord}<p>사용할 수 있는 러닝 기록이 없어 예시 기록을 사용합니다.</p>{/if}
 			<p class="model-note">주간 부하 지수는 이 모형의 가장 높은 주를 100으로 놓은 상대값입니다. 요일별 활동 종류를 비교하는 참고 예시이며, 개인별 훈련 거리·강도를 처방하지 않습니다.</p>
 			{#if !hasGoals}
 				{#if data.signedIn}
@@ -94,9 +95,12 @@
 			<div class="panel">
 				<h2 class="panel-title">플랜 구성</h2>
 				{#if isExample}
-					<p class="sample-target"><strong>예시 목표</strong><br />가상 풀코스 마라톤 · 42.195km<br />기준일로부터 16주 후</p>
+					<p class="sample-target"><strong>가상 풀코스 마라톤</strong><span class="eh-data">42.195km</span><span>기준일로부터 16주 후</span></p>
 				{:else}
-					<Select label="목표 대회 (관심 대회의 풀코스 기준)" options={raceOptions} value={race.id} onchange={(event) => { raceId = (event.target as HTMLSelectElement).value; focus = 0; }} />
+					<div class="goal-target">
+						<Select label="목표 대회" options={raceOptions} value={race.id} onchange={(event) => { raceId = (event.target as HTMLSelectElement).value; focus = 0; }} />
+						<time class="goal-date eh-data" datetime={race.date}>{race.date.replaceAll('-', '.')}</time>
+					</div>
 				{/if}
 
 				{#if timing.canPlan}
@@ -132,7 +136,7 @@
 					</div>
 
 					<section aria-labelledby="phase-title">
-						<div class="sechead"><h2 id="phase-title">주차별 단계와 상대 부하</h2><span>{race.name} 기준</span></div>
+						<div class="sechead"><h2 id="phase-title">주차별 단계와 상대 부하</h2></div>
 						<div class="phaseband">
 							{#each PHASE_DEFS as phase, index (phase.name)}
 								<div style="flex:{built.alloc[index]};background:{phase.color};color:{phase.ink}">{PHASE_LABELS[phase.name]} {built.alloc[index]}주</div>
@@ -150,7 +154,7 @@
 					</section>
 
 					<section aria-labelledby="week-detail-title">
-						<div class="sechead"><h2 id="week-detail-title">{focusedWeek.wk}주차 · {PHASE_LABELS[focusedWeek.phase]}</h2><span>목표까지 {weeks - focusedWeek.wk + 1}주 구간</span></div>
+						<div class="sechead"><h2 id="week-detail-title">{focusedWeek.wk}주차</h2><span>{PHASE_LABELS[focusedWeek.phase]}</span></div>
 						<div class="week-meta">
 							<StatBlock label="상대 부하 지수" value={String(loadIndex(focusedWeek.weekKm))} size="lg" accent />
 							<StatBlock label="이번 주 활동" value={String(weekRunDays)} unit="회" size="md" />
@@ -183,14 +187,19 @@
 	.mode-switch, .row { display: flex; flex-wrap: wrap; gap: 8px; }
 	.mode-switch { margin-bottom: 18px; }
 	.plan-context { border: 1px solid var(--line); padding: 22px 24px; margin-bottom: 28px; background: var(--paper-50); }
-	.plan-context h2 { margin: 8px 0 10px; font-size: var(--text-h3); color: var(--text-strong); }
+	.plan-context h2 { margin: 0 0 10px; font-size: var(--text-h3); color: var(--text-strong); }
 	.plan-context p { margin: 8px 0 0; max-width: 78ch; font-size: 14px; line-height: 1.7; color: var(--text-muted); word-break: keep-all; }
-	.plan-context .basis-note { color: var(--text-strong); }
+	.basis-note { margin: 16px 0 0; }
+	.basis-note dt { font-size: 12px; color: var(--text-muted); }
+	.basis-note dd { margin: 4px 0 0; font-size: 14px; color: var(--text-strong); }
 	.context-cta { display: inline-block; margin-top: 14px; color: var(--text-accent); font-size: 14px; font-weight: 700; }
 	.tool-layout { display: grid; grid-template-columns: 1fr; gap: var(--sp-6); align-items: start; }
 	.panel { border: 1px solid var(--ink-900); padding: var(--sp-6); background: var(--paper-0); display: flex; flex-direction: column; gap: 22px; min-width: 0; }
 	.panel-title, .sechead h2, .too-soon h2 { margin: 0; font-size: var(--text-h3); font-weight: var(--w-strong); color: var(--text-strong); }
-	.sample-target { margin: 0; font-size: 14px; line-height: 1.7; color: var(--text-muted); }
+	.sample-target { display: flex; flex-direction: column; gap: 4px; margin: 0; font-size: 14px; line-height: 1.7; color: var(--text-muted); }
+	.sample-target strong { color: var(--text-strong); }
+	.goal-target { display: grid; gap: 6px; }
+	.goal-date { font-size: 12px; color: var(--text-muted); }
 	.field-label { display: block; margin-bottom: 8px; }
 	.field-note { margin: 10px 0 0; font-size: 12px; line-height: 1.6; color: var(--text-muted); }
 	.panel-stats { border-top: var(--border-hair); padding-top: 16px; }

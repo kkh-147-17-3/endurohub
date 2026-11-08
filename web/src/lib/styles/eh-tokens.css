@@ -42,7 +42,7 @@
   --info-bg: #e7eefb;
   --positive-bg: var(--signal-100);
 
-  /* ---- Sport hues (dots & tags only — never large fills) ---- */
+  /* ---- Sport hues (category accents only; status uses semantic tokens) ---- */
   --sport-run: #d8492f;
   --sport-trail: #8c6b2a;
   --sport-ride: #2a63d4;

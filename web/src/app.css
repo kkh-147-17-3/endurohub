@@ -43,20 +43,6 @@ body.arena {
     color: var(--arena-ink-soft);
 }
 
-.arena-live-dot {
-    display: inline-block;
-    width: 6px;
-    height: 6px;
-    background: var(--arena-accent);
-    animation: arena-pulse 2s infinite;
-    vertical-align: middle;
-}
-@keyframes arena-pulse {
-    0%, 70% { opacity: 1; }
-    85% { opacity: 0.3; }
-    100% { opacity: 1; }
-}
-
 .arena-chip {
     display: inline-flex;
     align-items: center;

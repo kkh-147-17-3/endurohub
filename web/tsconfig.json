@@ -1,5 +1,17 @@
 {
 	"extends": "./.svelte-kit/tsconfig.json",
+	"exclude": [
+		"node_modules",
+		"build",
+		"src/stories",
+		".storybook",
+		"src/service-worker.js",
+		"src/service-worker/**/*.js",
+		"src/service-worker.ts",
+		"src/service-worker/**/*.ts",
+		"src/service-worker.d.ts",
+		"src/service-worker/**/*.d.ts"
+	],
 	"compilerOptions": {
 		"allowJs": true,
 		"checkJs": true,

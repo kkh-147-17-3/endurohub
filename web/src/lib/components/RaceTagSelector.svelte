@@ -102,7 +102,6 @@
                                 <div class="option-title">{race.title}</div>
                                 <div class="option-meta">
                                     <span>{race.sportLabel}</span>
-                                    <span class="sep">·</span>
                                     <span>{race.raceDate}</span>
                                 </div>
                             </button>
@@ -233,14 +232,13 @@
         margin-bottom: 2px;
     }
     .option-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
         font-family: var(--arena-f-mono);
         font-size: 10px;
         color: var(--arena-ink-soft);
         letter-spacing: 0.5px;
-    }
-    .sep {
-        margin: 0 6px;
-        opacity: 0.5;
     }
     .full {
         font-size: 12px;

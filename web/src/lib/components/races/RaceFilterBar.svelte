@@ -2,7 +2,6 @@
 	import { goto } from '$app/navigation';
 	import FilterChip from '$lib/components/eh/FilterChip.svelte';
 	import Select from '$lib/components/eh/Select.svelte';
-	import { SPORT_META, appSportToDs } from '$lib/components/eh/meta';
 	import { kstTodayStr } from '$lib/date';
 	import type { SportOption, DistanceCategory } from '$lib/types';
 
@@ -213,7 +212,6 @@
 						{#each filters.sports as s (s.value)}
 							<FilterChip
 								selected={sportSel.includes(s.value)}
-								dotColor={SPORT_META[appSportToDs[s.value]].color}
 								onclick={() => apply({ sport: toggle(sportSel, s.value) })}
 							>{s.label}</FilterChip>
 						{/each}

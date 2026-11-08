@@ -78,12 +78,11 @@
 
     <div class="foot">
         <span class="author">{post.nickname}</span>
-        <span class="dot">·</span>
-        <span class="meta">조회 {post.viewCount}</span>
-        <span class="dot">·</span>
-        <span class="meta">추천 {post.likeCount}</span>
-        <span class="dot">·</span>
-        <span class="meta">댓글 {post.commentCount}</span>
+        <div class="post-metrics">
+            <span>조회 {post.viewCount}</span>
+            <span>추천 {post.likeCount}</span>
+            <span>댓글 {post.commentCount}</span>
+        </div>
     </div>
 </div>
 
@@ -197,7 +196,8 @@
     .foot {
         display: flex;
         align-items: center;
-        gap: 8px;
+        justify-content: space-between;
+        gap: 8px 20px;
         flex-wrap: wrap;
         font-family: var(--arena-f-mono);
         font-size: 11px;
@@ -210,8 +210,10 @@
         color: var(--arena-ink);
         font-weight: 600;
     }
-    .dot {
-        opacity: 0.4;
+    .post-metrics {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
     }
 
     @media (max-width: 640px) {

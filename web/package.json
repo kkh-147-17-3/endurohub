@@ -14,7 +14,13 @@
     "test:calendar": "node --experimental-strip-types --test tests/calendar-*.test.mjs",
     "test:tools": "node --experimental-strip-types --test tests/tools-*.test.mjs",
     "test:tools:integration": "node --experimental-strip-types --test tests/tools-pages.integration.mjs",
-    "build:geo": "node scripts/build-korea-geo.mjs"
+    "build:geo": "node scripts/build-korea-geo.mjs",
+    "storybook:install": "npm install --prefix .storybook/dependencies --no-fund --no-audit",
+    "storybook": "node scripts/storybook.mjs dev --port 6006 --host 127.0.0.1 --ci --no-open",
+    "build-storybook": "node scripts/storybook.mjs build",
+    "storybook:check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.storybook.json",
+    "design:compare": "node scripts/build-design-comparison.mjs",
+    "design:check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.compare.json"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",

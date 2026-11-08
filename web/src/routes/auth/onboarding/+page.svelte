@@ -292,11 +292,14 @@
                         class="ob-btn {emailValid && requiredConsentsAccepted && resendIn === 0 ? 'primary' : 'muted'}"
                         disabled={!emailValid || !requiredConsentsAccepted || isSending || resendIn > 0}
                     >
-                        {resendIn > 0 ? `발송 완료 · ${resendLabel} 후 재전송` : '인증 메일 보내기'}
+                        인증 메일 보내기
                     </button>
                 </div>
                 {#if sendMessage}
-                    <div class="send-ok"><span class="send-dot"></span>{sendMessage}</div>
+                    <div class="send-ok" role="status">{sendMessage}</div>
+                {/if}
+                {#if resendIn > 0}
+                    <p class="resend-note">{resendLabel} 후 다시 보낼 수 있습니다.</p>
                 {/if}
             </form>
 
@@ -426,7 +429,6 @@
                     onclick={() => toggleSport(s.value)}
                 >
                     <span class="chk">✓</span>
-                    <span class="pick-sport-dot" style="background: var(--sport-{s.tag})"></span>
                     <span class="pick-ko">{s.ko}</span>
                     <span class="pick-desc">{s.desc}</span>
                 </button>
@@ -441,7 +443,7 @@
                 class="ob-btn {sports.length ? 'primary' : 'muted'}"
                 onclick={() => (step = 3)}
             >
-                {sports.length ? `다음 · ${sports.length}개 선택` : '건너뛰기'}
+                {sports.length ? '다음' : '건너뛰기'}
             </button>
         </div>
         <div class="footer-link">
@@ -474,7 +476,7 @@
                 class="ob-btn {regions.length ? 'primary' : 'muted'}"
                 onclick={() => (step = 4)}
             >
-                {regions.length ? `다음 · ${regions.length}개 선택` : '건너뛰기'}
+                {regions.length ? '다음' : '건너뛰기'}
             </button>
         </div>
         <div class="footer-link">
@@ -514,7 +516,6 @@
                     <div class="chip-row">
                         {#each SPORTS as s}
                             <button type="button" class="pick-chip" class:on={draft.sport === s.value} onclick={() => setDraftSport(s.value)}>
-                                <span class="spot" style="background: var(--sport-{s.tag})"></span>
                                 {s.ko}
                             </button>
                         {/each}
@@ -886,12 +887,7 @@
         font-weight: 500;
         color: var(--text-accent);
     }
-    .send-dot {
-        width: 8px;
-        height: 8px;
-        background: var(--accent);
-        flex-shrink: 0;
-    }
+    .resend-note { margin-top: var(--sp-2); font-size: 12px; color: var(--text-muted); }
 
     /* ── OTP ── */
     .otp {
@@ -959,11 +955,6 @@
         opacity: 0;
     }
     .pick.on .chk { opacity: 1; }
-    .pick-sport-dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-    }
     .pick-ko {
         font-size: 17px;
         font-weight: 700;
@@ -1108,12 +1099,6 @@
     }
     .pick-chip.custom { border-style: dashed; color: var(--text-muted); }
     .pick-chip.custom.on { border-style: solid; }
-    .spot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        flex: none;
-    }
 
     /* ── Time input ── */
     .time-input {

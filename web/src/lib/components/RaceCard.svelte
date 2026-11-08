@@ -87,12 +87,11 @@
             <h4 class="text-[13px] lg:text-sm font-bold text-base-content leading-snug group-hover:text-primary transition-colors truncate">
                 {race.title}
             </h4>
-            <div class="flex items-center gap-2 mt-1">
+            <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mt-1">
                 <span class="text-[10px] lg:text-xs text-base-content/50">{race.raceDate ?? ''}</span>
                 {#if race.status === 'cancelled'}
                     <Badge status="cancelled" />
                 {:else if race.daysUntilRegistrationEnd != null}
-                    <span class="text-[10px] lg:text-xs text-base-content/50">·</span>
                     <span class="text-[10px] lg:text-xs font-bold {race.daysUntilRegistrationEnd <= 3 ? 'text-error' : 'text-success'}">
                         {race.daysUntilRegistrationEnd === 0 ? 'D-Day' : `D-${race.daysUntilRegistrationEnd}`}
                     </span>

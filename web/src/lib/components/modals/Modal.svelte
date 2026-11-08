@@ -187,17 +187,8 @@
         color: var(--text-accent);
         margin-bottom: 18px;
     }
-    :global(.v-modal .m-eyebrow .dot) {
-        width: 7px;
-        height: 7px;
-        background: var(--accent);
-        flex: none;
-    }
     :global(.v-modal .m-eyebrow.warn) {
         color: var(--danger);
-    }
-    :global(.v-modal .m-eyebrow.warn .dot) {
-        background: var(--danger);
     }
 
     /* title + sub */

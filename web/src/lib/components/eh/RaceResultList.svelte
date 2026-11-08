@@ -7,7 +7,7 @@
 	import { arenaDday, arenaFeeRange, arenaFeeShort } from '$lib/arena';
 	import type { Race } from '$lib/types';
 
-	let { races }: { races: Race[] } = $props();
+	let { races, showSport = true }: { races: Race[]; showSport?: boolean } = $props();
 
 	// ── Row helpers (PC table layout) ─────────────────────────────────────────
 	const DOW = ['일', '월', '화', '수', '목', '금', '토'];
@@ -33,13 +33,13 @@
 
 <!-- PC: hairline table — 일정 · 종목 · 대회명 · 참가비 · 상태 -->
 <div class="v-pc">
-	<div class="v-table rowlist">
+	<div class="v-table rowlist" class:without-sport={!showSport}>
 		{#each races as race (race.slug)}
 			{@const status = dsBadgeStatus(race.status, race.daysUntilRegistrationEnd ?? null)}
 			{@const dday = arenaDday(race).value}
 			<a class="v-trow click" href={`/races/${race.slug}`}>
 				<span class="eh-data trow-date">{rowDate(race.raceDate)}<span class="trow-dow"> {weekdayKo(race.raceDate)}</span></span>
-				<span class="trow-sport"><SportTag sport={dsSport(race.sport)} /></span>
+				{#if showSport}<span class="trow-sport"><SportTag sport={dsSport(race.sport)} /></span>{/if}
 				<span class="trow-name">{race.title}</span>
 				<span class="eh-data trow-fee">{feeLabel(race)}</span>
 				<span class="trow-badge">
@@ -66,6 +66,7 @@
 		{#each races as race (race.slug)}
 			{@const c = raceToEventCard(race)}
 			<EventCard
+				{showSport}
 				sport={c.sport}
 				title={c.title}
 				date={c.date}
@@ -85,6 +86,9 @@
 		gap: 14px;
 		text-decoration: none;
 		color: var(--text-strong);
+	}
+	.rowlist.without-sport .v-trow {
+		grid-template-columns: 92px 1fr 92px 132px;
 	}
 	.trow-date {
 		font-weight: 600;

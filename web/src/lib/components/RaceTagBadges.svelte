@@ -14,11 +14,10 @@
         {#each races as race}
             <a
                 href="/races/{race.slug}"
-                class="tag sport-{race.sport}"
+                class="tag"
                 onclick={(e) => e.stopPropagation()}
                 title={race.title}
             >
-                <span class="dot"></span>
                 <span class="sport-code">{arenaSportShort[race.sport as Sport] ?? race.sport}</span>
                 <span class="tag-title">{shortTitle(race.title)}</span>
             </a>
@@ -49,11 +48,6 @@
     .tag:hover {
         background: var(--arena-paper-alt);
     }
-    .dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 0;
-    }
     .sport-code {
         font-size: 10px;
         letter-spacing: 1px;
@@ -65,9 +59,4 @@
         font-weight: 500;
     }
 
-    .sport-running .dot { background: oklch(48% 0.18 280); }
-    .sport-swimming .dot { background: oklch(50% 0.14 220); }
-    .sport-cycling .dot { background: oklch(55% 0.16 60); }
-    .sport-triathlon .dot { background: oklch(48% 0.18 320); }
-    .sport-trail_running .dot { background: oklch(42% 0.14 145); }
 </style>

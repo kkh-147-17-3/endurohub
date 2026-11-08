@@ -81,7 +81,7 @@ test('signed-in visitors without usable data and API failures can still view the
 test('a saved record outside the VDOT formula uses an explicitly labeled sample basis', async () => {
     const text = textOf(await getPage('/tools/training-plan', 'slow'));
     assert.ok(text.includes('내 관심 풀코스 테스트 대회'));
-    assert.ok(text.includes('계산 기준 · 예시 기록'));
+    assert.ok(text.includes('예시 기록 기준'));
     assert.ok(text.includes('1:42:15'));
     assert.equal(text.includes('NaN'), false);
 });

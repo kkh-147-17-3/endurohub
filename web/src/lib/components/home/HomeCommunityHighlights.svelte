@@ -139,7 +139,6 @@
                                     </span>
                                     <div class="home-review-story__byline">
                                         <strong>@{review.nickname}</strong>
-                                        <span aria-hidden="true">·</span>
                                         <time class="eh-data" datetime={review.createdAt}>
                                             {formatDate(review.createdAt.split('T')[0])}
                                         </time>
@@ -206,9 +205,9 @@
         <div class="home-member-records" aria-label={`최근 회원 완주 기록 ${records.length}건`}>
             <div class="home-member-records__columns" aria-hidden="true">
                 <span>러너</span>
-                <span>대회 · 종목</span>
+                <span>대회</span>
                 <span>완주 기록</span>
-                <span>평균 페이스 · 속도</span>
+                <span>평균 페이스와 속도</span>
             </div>
             <div class="home-member-records__list">
                 {#if records.length === 0}
@@ -234,10 +233,15 @@
                                 <a href={`/races/${record.race.slug}#records`}>
                                     {record.race.title} <span aria-hidden="true">↗</span>
                                 </a>
-                                <span>
-                                    <i style={`--record-sport:${sportMeta.color}`} aria-hidden="true"></i>
-                                    {sportMeta.ko} · {record.courseLabel}{record.race.raceDate ? ` · ${formatDate(record.race.raceDate)}` : ''}
-                                </span>
+                                <div class="home-member-record__course">
+                                    <span>{sportMeta.ko}</span>
+                                    <span>{record.courseLabel}</span>
+                                </div>
+                                {#if record.race.raceDate}
+                                    <time class="home-member-record__date eh-data" datetime={record.race.raceDate}>
+                                        {formatDate(record.race.raceDate)}
+                                    </time>
+                                {/if}
                             </div>
                             <div class="home-member-record__metric" data-label="완주 기록">
                                 <strong class="eh-data">{record.time}</strong>
@@ -250,7 +254,7 @@
                 {/if}
             </div>
             <div class="home-member-records__foot">
-                <span><strong>회원 직접 등록</strong> · 공식 기록과 다를 수 있습니다.</span>
+                <span><strong>회원이 직접 등록한 기록</strong>으로 공식 기록과 다를 수 있습니다.</span>
                 <span>회원이 공개로 설정하고 대회에 연결한 기록만 표시됩니다. <a href="/timeline">내 기록 입력하기</a></span>
             </div>
         </div>
@@ -618,23 +622,19 @@
         text-overflow: ellipsis;
         white-space: nowrap;
     }
-    .home-member-record__race > span {
+    .home-member-record__course {
         display: flex;
+        flex-wrap: wrap;
         max-width: 100%;
         align-items: center;
-        gap: 7px;
-        overflow: hidden;
+        gap: 2px 10px;
         color: var(--text-muted);
         font-size: 11px;
-        text-overflow: ellipsis;
-        white-space: nowrap;
     }
-    .home-member-record__race i {
-        width: 6px;
-        height: 6px;
-        flex: none;
-        border-radius: 50%;
-        background: var(--record-sport);
+    .home-member-record__date {
+        margin-top: 2px;
+        color: var(--text-muted);
+        font-size: 11px;
     }
     .home-member-record__metric {
         display: flex;

@@ -33,7 +33,6 @@
 	}
 
 	const [currentYear, currentMonth] = kstTodayStr().split('-').map(Number);
-	const mm = $derived(String(month).padStart(2, '0'));
 </script>
 
 <svelte:head>
@@ -48,12 +47,9 @@
 <div class="carto-wrap">
 	<header class="carto-head">
 		<div class="head-left">
-			<div class="head-kicker eh-micro">엔듀로허브 · 캘린더 · 지도</div>
-			<h1 class="head-title eh-data">
-				{year}<span class="head-sep">·</span><span class="head-month">{mm}</span>
-			</h1>
+			<h1 class="head-title">{year}년 {month}월 대회 지도</h1>
 			<div class="head-meta eh-micro">
-				17개 시·도 · 대회 <span class="meta-accent">{totalRaces}</span>개
+				대회 <span class="meta-accent">{totalRaces}</span>개
 			</div>
 		</div>
 
@@ -82,10 +78,7 @@
 	@media (min-width: 1024px) { .carto-wrap { padding: 36px 32px 64px; } }
 
 	.carto-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 2px solid var(--ink-900); }
-	.head-kicker { margin-bottom: 4px; }
-	.head-title { font-family: var(--font-mono); font-size: clamp(36px, 5vw, 52px); font-weight: 700; letter-spacing: -2px; line-height: 1; margin: 4px 0; display: inline-flex; align-items: baseline; gap: 6px; }
-	.head-sep { color: var(--text-muted); font-weight: 400; }
-	.head-month { color: var(--accent); }
+	.head-title { font-size: clamp(28px, 4vw, 40px); font-weight: 700; letter-spacing: var(--track-heading); line-height: 1.2; margin: 4px 0; }
 	.head-meta { margin-top: 4px; }
 	.meta-accent { color: var(--accent-strong); font-weight: 700; }
 	.head-right { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }

@@ -1,0 +1,15 @@
+{
+  "name": "endurohub-storybook-tooling",
+  "private": true,
+  "type": "module",
+  "description": "Isolated Storybook tooling; the application dependency lock stays independent.",
+  "devDependencies": {
+    "@storybook/builder-vite": "10.6.4",
+    "@storybook/sveltekit": "10.6.4",
+    "@sveltejs/kit": "2.70.3",
+    "@sveltejs/vite-plugin-svelte": "5.1.1",
+    "storybook": "10.6.4",
+    "svelte": "5.57.1",
+    "vite": "6.4.3"
+  }
+}

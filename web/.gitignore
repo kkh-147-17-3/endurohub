@@ -1,6 +1,10 @@
 node_modules
 build
 .svelte-kit
+storybook-static
+.storybook/dependencies/node_modules
+.storybook/generated
+design-comparison
 .env
 .env.*
 !.env.example

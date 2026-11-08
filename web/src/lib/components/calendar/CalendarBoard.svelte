@@ -10,6 +10,7 @@
 	import StatBlock from '$lib/components/eh/StatBlock.svelte';
 	import IconButton from '$lib/components/eh/IconButton.svelte';
 	import FilterChip from '$lib/components/eh/FilterChip.svelte';
+	import { dsSport, SPORT_META } from '$lib/components/eh/meta';
 	import RegionCartogram from './RegionCartogram.svelte';
 
 	let {
@@ -57,7 +58,7 @@
 		return DOW_KO[new Date(year, month - 1, day).getDay()];
 	}
 
-	const MAX_PER_CELL = 4;
+	const MAX_PER_CELL = 3;
 
 	// month cells incl. leading/trailing out-of-month days (prototype `.cell.out`)
 	type Cell = { out: boolean; d: number };
@@ -123,17 +124,25 @@
 		return matchesCalendarFilters(r, filters);
 	}
 	const filteredRaces = $derived(allRaces.filter(inFilter));
+	const showSport = $derived(selected.length !== 1);
 	function dayRaces(day: number): Race[] {
 		return (allRacesByDay[day] ?? []).filter(inFilter);
 	}
 
-	const sportDotColor: Record<string, string> = {
-		running: 'var(--sport-run)',
-		trail_running: 'var(--sport-trail)',
-		cycling: 'var(--sport-ride)',
-		swimming: 'var(--sport-swim)',
-		triathlon: 'var(--sport-tri)'
-	};
+	function daySports(races: Race[]): { label: string; count: number }[] {
+		const counts = new Map<Sport, number>();
+		for (const race of races) counts.set(race.sport, (counts.get(race.sport) ?? 0) + 1);
+		return [...counts].map(([sport, count]) => {
+			const label = SPORT_META[dsSport(sport)].ko;
+			return { label, count };
+		});
+	}
+
+	function dayStatusSummary(races: Race[]): string {
+		const counts = new Map<string, number>();
+		for (const race of races) counts.set(race.statusLabel, (counts.get(race.statusLabel) ?? 0) + 1);
+		return [...counts].map(([label, count]) => `${label} ${count}개`).join(', ');
+	}
 
 	// Prototype chip order + labels (run → trail → cycle → swim → tri),
 	// shown regardless of the API's own label/order, filtered to supported sports.
@@ -257,14 +266,13 @@
 </script>
 
 {#snippet listTable(rows: Race[], noHead: boolean)}
-	<CalendarRaceList {rows} {noHead} />
+	<CalendarRaceList {rows} {noHead} {showSport} showRegistrationStatus={!filters.openOnly} />
 {/snippet}
 
 <div class="v-container cal-page" class:with-discovery={showDiscovery} data-screen-label="홈 · 캘린더">
 	{#if showDiscovery}<CalendarDiscovery {month} {filters} {regions} onapply={applyFilters} />{/if}
 	<!-- ═══ page header ═══════════════════════════════════════════ -->
 	<div class="hd">
-		<div class="eh-micro">전국 5종목</div>
 		<div class="hd-month">
 			<h1 class="eh-data">{month}월</h1>
 			<span class="yr eh-data">{year}</span>
@@ -302,16 +310,20 @@
 			{#each sportChips as s (s.value)}
 				<FilterChip
 					selected={selected.includes(s.value)}
-					dotColor={sportDotColor[s.value]}
 					count={sportCounts[s.value] ?? 0}
 					onclick={() => toggleSport(s.value)}>{s.label}</FilterChip
 				>
 			{/each}
 		</div>
 	</div>
-	{#if hasFilters}
+	{#if hasFilters && !showDiscovery}
 		<div class="filter-summary">
-			<p role="status">{month}월 검색 결과 <strong>{filteredRaces.length}개</strong>{#if filters.name} · “{filters.name}”{/if}{#if filters.regions.length} · {filters.regions.join(' · ')}{/if}{#if filters.openOnly} · 접수 중{/if}</p>
+			{#if filters.name || filters.regions.length}
+				<p class="applied-filters" role="status">
+					{#if filters.name}<span>대회명 “{filters.name}”</span>{/if}
+					{#if filters.regions.length}<span>지역 {filters.regions.join(', ')}</span>{/if}
+				</p>
+			{/if}
 			<button type="button" onclick={() => applyFilters({ name: '', regions: [], sports: [], openOnly: false })}>조건 초기화</button>
 		</div>
 	{/if}
@@ -343,21 +355,14 @@
 								class:today={!c.out && c.d === todayDay}
 								class:sel={!c.out && evs.length > 0 && c.d === selDay}
 								disabled={c.out || evs.length === 0}
-								aria-label={evs.length > 0 ? `${month}월 ${c.d}일 대회 ${evs.length}개` : undefined}
+								aria-label={evs.length > 0 ? `${month}월 ${c.d}일 대회 ${evs.length}개, ${daySports(evs).map((sport) => `${sport.label} ${sport.count}개`).join(', ')}, ${dayStatusSummary(evs)}` : undefined}
 								aria-haspopup="dialog"
 								onclick={(e) => !c.out && openDay(c.d, e.currentTarget)}
 							>
 								<span class="n eh-data">{c.d}</span>
-								<span class="dots">
-									{#each evs.slice(0, 4) as r (r.id)}
-										<span
-											class="v-dot"
-											style:background={sportDotColor[r.sport]}
-											style:opacity={isClosedish(r) ? 0.35 : 1}
-										></span>
-									{/each}
-									{#if evs.length > 4}<span class="more-n eh-data">+{evs.length - 4}</span>{/if}
-								</span>
+								{#if evs.length > 0}
+									<span class="day-count eh-data" aria-hidden="true">{evs.length}개</span>
+								{/if}
 							</button>
 						{/each}
 					</div>
@@ -401,7 +406,7 @@
 								{/if}
 								{#each evs.slice(0, MAX_PER_CELL) as r (r.id)}
 									<a class="ev" class:dim={isClosedish(r)} href={`/races/${encodeURIComponent(r.slug)}`}>
-										<span class="v-dot" style:background={sportDotColor[r.sport]}></span>
+										{#if showSport}<span class="ev-sport">{SPORT_META[dsSport(r.sport)].ko}</span>{/if}
 										<span class="nm">{r.title}</span>
 										{#if r.status === 'cancelled'}
 											<span class="dd" style="color:var(--danger)">취소</span>
@@ -420,7 +425,7 @@
 										aria-haspopup="dialog"
 										onclick={(e) => openDay(c.d, e.currentTarget)}
 									>
-										+{evs.length - MAX_PER_CELL} 더보기
+										{evs.length - MAX_PER_CELL}개 더 보기
 									</button>
 								{/if}
 							</div>
@@ -455,7 +460,8 @@
 				<div class="v-modal day-modal">
 					<div class="daypanel-head">
 						<b class="eh-data">{month}.{String(selDay).padStart(2, '0')}</b>
-						<span class="eh-micro">{dowKo(selDay)}요일 · {rows.length}개 대회</span>
+						<span class="eh-micro">{dowKo(selDay)}요일</span>
+						<span class="eh-micro">{rows.length}개 대회</span>
 						<button type="button" class="day-close" onclick={closeDay}>닫기 ×</button>
 					</div>
 					<div class="day-scroll">
@@ -476,7 +482,7 @@
 	<!-- ═══ MAP (tile cartogram) ═════════════════════════════════ -->
 	{#if view === 'map'}
 		<div style="margin-top: var(--sp-6);">
-			<RegionCartogram races={filteredRaces} {month} />
+			<RegionCartogram races={filteredRaces} {month} {showSport} />
 		</div>
 	{/if}
 </div>
@@ -489,7 +495,7 @@
 
 	/* ── page header ── */
 	.hd {
-		padding: 40px 0 0;
+		padding: 24px 0 0;
 	}
 	.with-discovery .hd { padding-top: var(--sp-5); }
 	.with-discovery .hd-month h1 { font-size: clamp(38px, 4.5vw, 56px); }
@@ -498,14 +504,14 @@
 	.open-stat:hover { text-decoration: underline; text-underline-offset: 4px; }
 	.open-stat:focus-visible, .views button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 	.filter-summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-2); padding: 12px 0; font-size: var(--text-caption); color: var(--text-muted); }
-	.filter-summary strong { color: var(--text-strong); }
+	.applied-filters { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0; }
 	.filter-summary button, .empty-state button { min-height: 40px; padding: 4px 8px; background: transparent; border: 1px solid var(--line); color: var(--text-accent); font: inherit; cursor: pointer; }
 	.hd-month {
 		display: flex;
 		align-items: baseline;
 		gap: 18px;
 		flex-wrap: wrap;
-		margin-top: 10px;
+		margin-top: 0;
 	}
 	.hd-month h1 {
 		font-size: clamp(44px, 6vw, 72px);
@@ -539,8 +545,8 @@
 		display: flex;
 		align-items: center;
 		gap: var(--sp-4);
-		margin-top: 26px;
-		padding: 14px 0;
+		margin-top: 16px;
+		padding: 10px 0;
 		border-top: var(--border-rule);
 		border-bottom: var(--border-hair);
 		flex-wrap: wrap;
@@ -621,13 +627,14 @@
 	}
 	.cell {
 		position: relative;
-		min-height: 118px;
-		padding: 8px 8px 10px;
+		box-sizing: border-box;
+		height: 112px;
+		padding: 6px 8px;
 		border-right: 1px solid var(--line);
 		border-bottom: 1px solid var(--line);
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
+		gap: 4px;
 		background: var(--paper-0);
 		cursor: default;
 		min-width: 0;
@@ -676,6 +683,9 @@
 	}
 	.d-num {
 		font-size: 13px;
+		line-height: 18px;
+		min-height: 18px;
+		flex: none;
 		font-weight: 700;
 		color: var(--text-strong);
 		display: flex;
@@ -695,6 +705,7 @@
 		background: var(--accent);
 		color: #fff;
 		font-size: 9px;
+		line-height: 1;
 		font-weight: 700;
 		letter-spacing: 0.08em;
 		padding: 2px 5px;
@@ -706,8 +717,9 @@
 		display: flex;
 		align-items: center;
 		gap: 5px;
-		font-size: 11.5px;
-		line-height: 1.25;
+		font-size: 12px;
+		line-height: 15px;
+		flex: none;
 		min-width: 0;
 		text-decoration: none;
 	}
@@ -720,9 +732,10 @@
 		outline: 2px solid var(--ink-900);
 		outline-offset: 2px;
 	}
-	.ev .v-dot {
-		width: 6px;
-		height: 6px;
+	.ev-sport {
+		flex: none;
+		font-size: 10px;
+		color: var(--text-muted);
 	}
 	.ev .nm {
 		white-space: nowrap;
@@ -749,7 +762,9 @@
 		padding: 0;
 		font-family: inherit;
 		cursor: pointer;
-		font-size: 10.5px;
+		font-size: 11px;
+		line-height: 16px;
+		flex: none;
 		font-weight: 600;
 		letter-spacing: 0.06em;
 		color: var(--text-faint);
@@ -773,14 +788,6 @@
 		margin-left: 8px;
 		color: var(--text-muted);
 	}
-	.v-dot {
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-		flex: none;
-		display: inline-block;
-	}
-
 	/* ── day modal ── */
 	.v-scrim {
 		position: fixed;
@@ -895,17 +902,19 @@
 		grid-template-columns: repeat(7, 1fr);
 	}
 	.mcell {
+		box-sizing: border-box;
 		border: 0;
 		border-right: 1px solid var(--line);
 		border-bottom: 1px solid var(--line);
 		background: var(--paper-0);
 		border-radius: 0;
-		min-height: 52px;
-		padding: 8px 2px 7px;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 5px;
+		height: 56px;
+		padding: 7px 2px;
+		display: grid;
+		grid-template-rows: 18px 14px;
+		align-content: center;
+		justify-items: center;
+		row-gap: 4px;
 		min-width: 0;
 		cursor: pointer;
 	}
@@ -945,25 +954,11 @@
 	.mcell.sel {
 		box-shadow: inset 0 0 0 2px var(--ink-900);
 	}
-	.mcell .dots {
-		display: flex;
-		gap: 3px;
-		justify-content: center;
-		align-items: center;
-		min-height: 6px;
-		flex-wrap: wrap;
-		max-width: 100%;
-	}
-	.mcell .dots .v-dot {
-		width: 6px;
-		height: 6px;
-		flex: none;
-	}
-	.mcell .more-n {
-		font-size: 9px;
-		font-weight: 700;
-		color: var(--text-faint);
-		line-height: 6px;
+	.day-count {
+		font-size: 11px;
+		color: var(--text-muted);
+		line-height: 14px;
+		white-space: nowrap;
 	}
 
 

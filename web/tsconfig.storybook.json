@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "$lib": ["./src/lib"],
+      "$lib/*": ["./src/lib/*"],
+      "$before/*": ["./src/stories/before/*"],
+      "@storybook/sveltekit": ["./.storybook/dependencies/node_modules/@storybook/sveltekit"]
+    }
+  },
+  "include": ["src/stories/**/*.ts", "src/stories/**/*.svelte", ".storybook/**/*.ts", "src/app.d.ts", ".svelte-kit/ambient.d.ts", ".svelte-kit/non-ambient.d.ts"],
+  "exclude": ["node_modules", "build", ".storybook/dependencies/node_modules"]
+}

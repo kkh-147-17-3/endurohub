@@ -1,0 +1,14 @@
+{
+  "source": "working tree before the calendar height change",
+  "capturedDateUtc": "2026-11-07",
+  "sourcePath": "web/src/lib/components/calendar/CalendarBoard.svelte",
+  "originalSha256": "574679e01a523e49f58f896d27662952abc99d8f711d8b69fb30949fb68f651e",
+  "snapshotSha256": "0f51077c6bb0ef7f21ca5debc65deeea8bb73b570fd2db5154d44cf417f3781f",
+  "importRewrites": {
+    "./CalendarRaceList.svelte": "$lib/components/calendar/CalendarRaceList.svelte",
+    "./CalendarDiscovery.svelte": "$lib/components/calendar/CalendarDiscovery.svelte",
+    "./RegionCartogram.svelte": "$lib/components/calendar/RegionCartogram.svelte"
+  },
+  "sharedStyles": "current token and component styles for both versions",
+  "scenario": "calendar-height"
+}

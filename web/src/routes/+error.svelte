@@ -139,7 +139,7 @@
     <div class="err-page">
         <div class="err-code-wrap">
             <div class="err-code eh-data">
-                {#if kind === 'maint'}<span><span class="dim">··</span>·</span>{:else}{status}{/if}
+                {status}
             </div>
         </div>
 
@@ -204,9 +204,6 @@
         letter-spacing: var(--track-display);
         line-height: 0.95;
         color: var(--text-strong);
-    }
-    .err-code .dim {
-        color: var(--text-faint);
     }
 
     .err-label-row {

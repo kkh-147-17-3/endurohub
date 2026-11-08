@@ -106,7 +106,7 @@
             <p>검색 조건에 맞는 대회가 없습니다. 조건을 바꿔보세요.</p>
         </div>
     {:else}
-        <RaceResultList races={data.results} />
+        <RaceResultList races={data.results} showSport={!sportTitle()} />
 
         {#if info.lastPage > 1}
             <nav class="pager" aria-label="페이지 이동">

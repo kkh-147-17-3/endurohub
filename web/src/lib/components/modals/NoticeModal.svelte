@@ -63,7 +63,7 @@
 
 <Modal {onClose} labelledby={titleId}>
     {#if eyebrow}
-        <div class="m-eyebrow warn"><span class="dot"></span>{eyebrow}</div>
+        <div class="m-eyebrow warn">{eyebrow}</div>
     {/if}
     <h2 class="m-title pre" id={titleId}>{title}</h2>
     <p class="m-sub">{@render description()}</p>

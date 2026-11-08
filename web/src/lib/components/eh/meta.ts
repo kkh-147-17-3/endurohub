@@ -1,6 +1,6 @@
 import type { Sport, RaceStatus } from '$lib/types';
 
-/** DS sport keys (run/trail/ride/swim/tri) + their dot color + KO label. */
+/** DS sport keys (run/trail/ride/swim/tri), category colors and KO labels. */
 export type DsSport = 'run' | 'trail' | 'ride' | 'swim' | 'tri';
 
 export const SPORT_META: Record<DsSport, { label: string; color: string; ko: string }> = {

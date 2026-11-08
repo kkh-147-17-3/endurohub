@@ -1,0 +1,10 @@
+{
+  "source": "working tree immediately before date grouping",
+  "capturedDateUtc": "2026-11-08",
+  "sourcePath": "web/src/lib/components/calendar/CalendarRaceList.svelte",
+  "originalSha256": "49724dead6ea04a130d94a87f5980b5007d2d1d07ab9fc467becad344cea7036",
+  "snapshotSha256": "49724dead6ea04a130d94a87f5980b5007d2d1d07ab9fc467becad344cea7036",
+  "importRewrites": {},
+  "sharedStyles": "current token and component styles for both versions",
+  "scenario": "date-groups"
+}
