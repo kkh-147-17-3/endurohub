@@ -853,7 +853,7 @@
                     {/if}
                     {#if descBody}
                         {#if aiSummary}
-                            <div class="eh-micro rd-ov-srclabel">주최측 소개</div>
+                            <div class="eh-micro rd-ov-srclabel">상세 안내</div>
                         {/if}
                         <div
                             class="rd-prose rd-ov-desc"
