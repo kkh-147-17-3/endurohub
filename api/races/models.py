@@ -6,7 +6,7 @@ from typing import Any, TypedDict, cast
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
-from django.db import models
+from django.db import IntegrityError, connections, models, router, transaction
 from django.utils import timezone
 
 from .constants import (
@@ -317,17 +317,77 @@ class Race(models.Model):
         super().clean()
         self._validate_alias_ownership()
 
-    def _validate_alias_ownership(self) -> None:
-        if RaceAlias.objects.filter(alias=self.slug).exclude(race_id=self.pk).exists():
-            raise ValidationError({'slug': '병합된 대회의 이전 URL은 재사용할 수 없습니다.'})
-        if self._state.adding and self.pk is not None:
-            if RaceAlias.objects.filter(alias=str(self.pk)).exclude(race_id=self.pk).exists():
+    @staticmethod
+    def validate_public_slug(slug: str) -> None:
+        if not slug or slug in {'.', '..'} or any(char in slug for char in '/?#%\\'):
+            raise ValidationError({'slug': '대회 URL에는 경로 구분자나 인코딩 문자를 사용할 수 없습니다.'})
+        if slug.isascii() and slug.isdigit():
+            raise ValidationError({'slug': '숫자로만 된 URL은 대회 ID와 충돌하므로 사용할 수 없습니다.'})
+
+    def _validate_alias_ownership(self, *, using: str | None = None) -> None:
+        self.validate_public_slug(self.slug)
+        aliases = RaceAlias.objects.using(using)
+        if aliases.filter(alias=self.slug).exclude(race_id=self.pk).exists():
+            raise ValidationError({'slug': '다른 대회의 이전 URL은 재사용할 수 없습니다.'})
+        if self.pk is not None:
+            if aliases.filter(alias=str(self.pk)).exclude(race_id=self.pk).exists():
                 raise ValidationError({'id': '병합된 대회의 이전 ID는 재사용할 수 없습니다.'})
 
     def save(self, **kwargs: Any) -> None:
         update_fields = kwargs.get('update_fields')
-        if self._state.adding or update_fields is None or 'slug' in update_fields:
-            self._validate_alias_ownership()
+        writes_slug = self._state.adding or update_fields is None or 'slug' in update_fields
+        if not writes_slug:
+            self._save_race_fields(**kwargs)
+            return
+
+        database = kwargs.get('using') or router.db_for_write(type(self), instance=self)
+        with transaction.atomic(using=database):
+            previous_slug = None
+            if self.pk is not None:
+                previous_slug = Race.objects.using(database).filter(
+                    pk=self.pk,
+                ).values_list('slug', flat=True).first()
+
+            self.validate_public_slug(self.slug)
+            # Row uniqueness cannot serialize a URL that moves from Race to
+            # RaceAlias. Coordinate both names across concurrent creates/renames.
+            connection = connections[database]
+            if connection.vendor == 'postgresql':
+                names = {self.slug}
+                if previous_slug:
+                    names.add(previous_slug)
+                with connection.cursor() as cursor:
+                    for name in sorted(names):
+                        cursor.execute('SELECT pg_advisory_xact_lock(%s, hashtext(%s))', [0x45485542, name])
+
+            locked = list(Race.objects.using(database).select_for_update().filter(
+                models.Q(pk=self.pk) | models.Q(slug=self.slug),
+            ).order_by('pk').values_list('pk', 'slug'))
+            current_slug = next((slug for pk, slug in locked if pk == self.pk), None)
+            if current_slug != previous_slug:
+                raise ValidationError({'slug': '대회 URL이 동시에 변경되었습니다. 새로고침 후 다시 시도해 주세요.'})
+            self._validate_alias_ownership(using=database)
+            if previous_slug and previous_slug != self.slug:
+                # Reserve the former public URL before changing the live row. A
+                # conflict or failed save rolls back both the alias and the edit.
+                # Leave crawler identity blank: renaming a live race is not a merge.
+                try:
+                    alias, _ = RaceAlias.objects.using(database).get_or_create(
+                        alias=previous_slug,
+                        defaults={
+                            'race_id': self.pk,
+                            'source_race_id': self.pk,
+                            'source_slug': previous_slug,
+                            'source': 'slug_rename',
+                        },
+                    )
+                except IntegrityError as exc:
+                    raise ValidationError({'slug': '이전 URL을 안전하게 보존할 수 없습니다.'}) from exc
+                if alias.race_id != self.pk:
+                    raise ValidationError({'slug': '이전 URL이 다른 대회에 연결되어 있어 변경할 수 없습니다.'})
+            self._save_race_fields(**kwargs)
+
+    def _save_race_fields(self, **kwargs: Any) -> None:
         if self.sport == 'running' and self._title_matches_trail_running():
             self.sport = 'trail_running'
         self._fill_distance_meters()
@@ -646,6 +706,10 @@ class Race(models.Model):
         slug = re.sub(r'[^\w\-]', '', slug, flags=re.UNICODE)
         slug = re.sub(r'-+', '-', slug)
         slug = slug.strip('-')
+        if not slug:
+            return 'race'
+        if slug.isascii() and slug.isdigit():
+            slug = f'race-{slug}'
         return slug.lower()
 
 

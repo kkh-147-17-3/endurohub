@@ -3,6 +3,7 @@ import { apiFetch } from '$lib/api';
 import { APP_URL } from '$lib/env';
 import { kstTodayStr } from '$lib/date';
 import { SPORT_LANDINGS } from '$lib/seo/sport-landing';
+import { raceCanonicalPath } from '$lib/seo/race-url';
 import type { SitemapResponse } from '$lib/types';
 
 export const GET: RequestHandler = async () => {
@@ -76,7 +77,7 @@ export const GET: RequestHandler = async () => {
 
 	// Race detail pages
 	for (const race of data.races) {
-		urls.push(entry(baseUrl, `/races/${race.slug}`, 'weekly', '0.7', race.updatedAt));
+		urls.push(entry(baseUrl, raceCanonicalPath(race.slug), 'weekly', '0.7', race.updatedAt));
 	}
 
 	// Community feed (/posts 301-redirects here, so list the canonical /community)

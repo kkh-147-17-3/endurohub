@@ -121,7 +121,7 @@ def merge_races(source_id: int, target_id: int, *, apply: bool = False) -> dict[
 
         alias_names = sorted({source.slug, str(source.pk)})
         for name in alias_names:
-            live = Race.objects.filter(pk=int(name)) if name.isdigit() else Race.objects.filter(slug=name)
+            live = Race.objects.filter(pk=int(name)) if name.isascii() and name.isdigit() else Race.objects.filter(slug=name)
             if live.exclude(pk=source.pk).exists():
                 raise MergeConflict(f'Old URL {name!r} belongs to another live race.')
             existing = RaceAlias.objects.filter(alias=name).first()
