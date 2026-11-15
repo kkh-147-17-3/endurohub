@@ -6,6 +6,8 @@ proxies browser requests through its own server endpoints, validates the
 크롤러(crawler-worker)도 같은 bearer 인증으로 이 API를 사용한다.
 """
 from django.conf import settings
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import IntegrityError
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers as drf_serializers
@@ -18,6 +20,7 @@ from typing import Any, cast
 
 from .image_utils import delete_upload, get_webp_path, process_image, save_upload
 from .models import Race, RaceAlias
+from .resolution import resolve_race
 from .serializers import RaceSerializer
 
 
@@ -50,11 +53,15 @@ EDITABLE_FIELDS = [
 
 class RaceAdminEditSerializer(drf_serializers.ModelSerializer[Race]):
     def validate_slug(self, value: str) -> str:
+        try:
+            Race.validate_public_slug(value)
+        except DjangoValidationError as exc:
+            raise drf_serializers.ValidationError(exc.message_dict['slug']) from exc
         aliases = RaceAlias.objects.filter(alias=value)
         if self.instance is not None:
             aliases = aliases.exclude(race_id=self.instance.pk)
         if aliases.exists():
-            raise drf_serializers.ValidationError('병합된 대회의 이전 URL은 재사용할 수 없습니다.')
+            raise drf_serializers.ValidationError('다른 대회의 이전 URL은 재사용할 수 없습니다.')
         return value
 
     class Meta:
@@ -64,9 +71,7 @@ class RaceAdminEditSerializer(drf_serializers.ModelSerializer[Race]):
 
 
 def _get_race(slug: str) -> Race:
-    if slug.isdigit():
-        return Race.objects.get(id=int(slug))
-    return Race.objects.get(slug=slug)
+    return resolve_race(slug)
 
 
 class RaceAdminListView(APIView):
@@ -214,7 +219,17 @@ class RaceAdminDetailView(APIView):
                 {'errors': serializer.errors},
                 status=status.HTTP_422_UNPROCESSABLE_ENTITY,
             )
-        serializer.save()
+        try:
+            serializer.save()
+        except DjangoValidationError as exc:
+            errors = exc.message_dict if hasattr(exc, 'message_dict') else {'non_field_errors': exc.messages}
+            return Response({'errors': errors}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        except IntegrityError:
+            # The model transaction has already rolled back an overlapping edit.
+            return Response(
+                {'errors': {'slug': ['다른 대회와 URL이 충돌하여 변경하지 않았습니다.']}},
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
 
         # 사용자가 locked_fields 자체를 명시적으로 보내지 않았다면, 이번에 편집한
         # 필드 중 크롤러 추적 대상을 자동으로 보호 처리.

@@ -1,6 +1,7 @@
 import type { PageServerLoad, Actions } from './$types';
 import { apiFetch, isApiError } from '$lib/api';
-import { fail, redirect } from '@sveltejs/kit';
+import { error, fail, redirect } from '@sveltejs/kit';
+import { raceCanonicalPath } from '$lib/seo/race-url';
 import type {
 	ApiErrors,
 	RaceDetailResponse,
@@ -8,20 +9,28 @@ import type {
 	ReviewRaceRecordPayload,
 } from '$lib/types';
 
-export const load: PageServerLoad = async ({ params, locals }) => {
+export const load: PageServerLoad = async ({ params, locals, url }) => {
 	const data = await apiFetch<RaceDetailResponse>(`/races/${params.slug}/`, {
 		clientIp: locals.clientIp,
 		authToken: locals.authToken || undefined,
 		sessionId: locals.sessionId || undefined,
 		userAgent: locals.userAgent || undefined,
 	});
-
-	// 숫자 ID, 이중 인코딩 등 canonical slug가 아닌 별칭 URL을 하나로 통합한다.
-	if (data.race?.slug && params.slug !== data.race.slug) {
-		redirect(301, `/races/${encodeURIComponent(data.race.slug)}`);
+	if (!data.race || typeof data.race.slug !== 'string' || !data.race.slug) {
+		// A temporary upstream error must not invent a canonical destination or
+		// look like a deleted race to a crawler.
+		error(502, { message: '대회 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.' });
 	}
 
-	return data;
+	// Resolve identity first, then use the stored slug for every URL signal.
+	// Comparing the encoded pathname also folds lowercase/unreserved percent
+	// escapes into the same address used by the sitemap and structured data.
+	const canonicalRacePath = raceCanonicalPath(data.race.slug);
+	if (url.pathname !== canonicalRacePath) {
+		redirect(301, canonicalRacePath);
+	}
+
+	return { ...data, canonicalRacePath };
 };
 
 export const actions: Actions = {

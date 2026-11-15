@@ -91,6 +91,9 @@ jobs:
       - name: Run Django system checks against PostgreSQL
         run: python manage.py check --fail-level WARNING
 
+      - name: Verify race URL preservation and concurrent ownership on PostgreSQL
+        run: python manage.py test races.tests.test_slug_aliases races.tests.test_slug_alias_concurrency races.tests.test_merge_races --noinput
+
   mypy:
     runs-on: ubuntu-latest
     defaults:

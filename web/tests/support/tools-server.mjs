@@ -7,7 +7,7 @@ const webRoot = fileURLToPath(new URL('../../', import.meta.url));
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Isolated API fixtures: no real account, cookies or production services. */
-export async function startToolsServer() {
+export async function startToolsServer({ respond } = {}) {
     const requests = [];
     const targetDate = new Date(Date.now() + 112 * 86400000).toISOString().slice(0, 10);
     const api = createServer((req, res) => {
@@ -15,6 +15,7 @@ export async function startToolsServer() {
         const token = req.headers.authorization?.replace('Bearer ', '') ?? '';
         requests.push({ path, token });
         res.setHeader('Content-Type', 'application/json');
+        if (respond?.(req, res, { path, token })) return;
         if (token === 'failed' && path !== '/api/v1/popups/active/') {
             res.writeHead(503).end('unavailable');
             return;

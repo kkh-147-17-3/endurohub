@@ -23,6 +23,7 @@
     } from '$lib/arena';
     import { sportLandingPath } from '$lib/seo/sport-landing';
     import { buildRaceEventSchema, serializeJsonLd } from '$lib/seo/race-event';
+    import { raceCanonicalUrl } from '$lib/seo/race-url';
     import { track, trackOutboundClick } from '$lib/analytics';
     import { clientApiFetch } from '$lib/api.client';
 
@@ -87,7 +88,7 @@
     const reviewNickname = $derived(
         page.data.user?.nickname || page.data.user?.email?.split('@')[0] || '',
     );
-    const pageUrl = $derived(`${appUrl}${page.url.pathname}`);
+    const pageUrl = $derived(raceCanonicalUrl(appUrl, race.slug));
 
     const badgeStatus = $derived(dsBadgeStatus(race.status, race.daysUntilRegistrationEnd));
     const isCancelled = $derived(race.status === 'cancelled');

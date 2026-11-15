@@ -32,7 +32,11 @@
     const FACET_PATHS = new Set(['/', '/calendar', '/races', '/community', '/notice']);
     const CANONICAL_SUPPRESSED_PATHS = new Set(['/calendar/map']);
     const TRACKING_PARAM = /^(utm_|fbclid$|gclid$|msclkid$|igshid$|ref$)/;
-    let canonicalPath = $derived(buildCanonicalPath($page.url));
+    let canonicalPath = $derived(
+        typeof $page.data.canonicalRacePath === 'string'
+            ? $page.data.canonicalRacePath
+            : buildCanonicalPath($page.url),
+    );
 
     // Facet URLs (/races?sport=…, ?region=…, ?reset=1) get `noindex, follow`.
     // They used to canonicalize to the bare path instead, but Search Console shows
